@@ -1,26 +1,112 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-sans: var(--font-nunito), ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+
+  --color-ocean-50: #eef6fb;
+  --color-ocean-100: #d9ecf6;
+  --color-ocean-200: #b3d8ec;
+  --color-ocean-300: #7dbde0;
+  --color-ocean-400: #3f9bd0;
+  --color-ocean-500: #1a6fd1;
+  --color-ocean-600: #165a9f;
+  --color-ocean-700: #134a7f;
+  --color-ocean-800: #103a62;
+  --color-ocean-900: #0b2a47;
+
+  --color-teal-100: #d6f2ee;
+  --color-teal-200: #a9e3da;
+  --color-teal-300: #6fcdbf;
+  --color-teal-400: #3fb8a6;
+  --color-teal-500: #1f9a8a;
+  --color-teal-600: #177a6d;
+  --color-teal-700: #135e55;
+
+  --color-sunset-100: #fdebdc;
+  --color-sunset-200: #fad3b3;
+  --color-sunset-300: #f6b26b;
+  --color-sunset-400: #ef8a3c;
+  --color-sunset-500: #d95f18;
+  --color-sunset-600: #b54b10;
+  --color-sunset-700: #8e3a0c;
+
+  --color-sand-50: #fbf7f0;
+  --color-sand-100: #f5ecdc;
+  --color-sand-200: #ecdcc1;
+  --color-sand-300: #dcc39a;
+  --color-sand-400: #c9a874;
+  --color-sand-700: #7d6647;
+
+  --color-ink: #1b2a36;
+  --color-ink-soft: #46596a;
+  --color-ink-muted: #7a8b99;
+
+  --shadow-soft: 0 10px 30px -12px rgb(11 42 71 / 0.18), 0 2px 8px -2px rgb(11 42 71 / 0.06);
+  --shadow-lift: 0 18px 40px -16px rgb(11 42 71 / 0.28), 0 4px 10px -4px rgb(11 42 71 / 0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-sand-50);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  min-height: 100dvh;
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-white/70 bg-white/85 shadow-soft backdrop-blur;
+  }
+  .tap {
+    @apply select-none transition active:scale-[0.98];
+  }
+  .field {
+    @apply w-full rounded-2xl border border-sand-200 bg-white px-4 py-3 text-base text-ink placeholder:text-ink-muted focus:border-ocean-300 focus:outline-none focus:ring-4 focus:ring-ocean-100;
+  }
+  .btn-primary {
+    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-2 rounded-2xl bg-ocean-600 px-4 py-3 text-base font-bold text-white shadow-soft hover:bg-ocean-700 disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-bold text-ocean-700 hover:bg-ocean-50;
+  }
+  .btn-icon {
+    @apply inline-flex select-none transition active:scale-[0.98] h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sand-100 disabled:opacity-30 disabled:hover:bg-transparent;
+  }
+  .label {
+    @apply text-xs font-extrabold uppercase tracking-[0.14em] text-ink-muted;
+  }
+}
+
+/* Safe-area helpers for the installed app */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide number-input spinners */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: rise 0.35s ease-out backwards;
 }
