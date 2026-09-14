@@ -1,24 +1,69 @@
 "use client";
 
+import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { dayProgress, uid } from "@/lib/model";
+import { dayProgress, habitLook, habitsComplete, uid } from "@/lib/model";
+import { habitStreak } from "@/lib/stats";
+import { haptic, playSound } from "@/lib/sounds";
 import HabitChecklist from "./HabitChecklist";
 import TodoList from "./TodoList";
 import ProgressRing from "./ProgressRing";
 import RatingBar from "./RatingBar";
 import Journal from "./Journal";
+import DayPhoto from "./DayPhoto";
+import Confetti from "./Confetti";
 
 type Props = { date: string; compact?: boolean };
 
-/** Everything for one day: habits, to-dos, progress, ratings, journal. Used by Today and the calendar. */
+/** Everything for one day: habits, to-dos, progress, ratings, photo, journal. Used by Today and the calendar. */
 export default function DayEditor({ date, compact = false }: Props) {
-  const { getDay, updateDay, carryTodoOver, today } = useStore();
+  const { data, getDay, updateDay, carryTodoOver, today } = useStore();
   const day = getDay(date);
   const progress = dayProgress(day);
   const isPast = date < today;
+  const settings = data.settings;
+  const [celebrating, setCelebrating] = useState(false);
+  const celebrateTimer = useRef<number | null>(null);
+
+  const streaks = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const h of day.habits) out[h.id] = habitStreak(data.days, h.id, date).current;
+    return out;
+  }, [data.days, day.habits, date]);
+
+  const toggleHabit = (id: string) => {
+    const wasComplete = habitsComplete(day);
+    const target = day.habits.find((h) => h.id === id);
+    const turningOn = target ? !target.done : false;
+    const nextHabits = day.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h));
+    updateDay(date, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }));
+    if (turningOn) {
+      haptic(12);
+      if (settings.soundsOn) playSound(habitLook(id, settings).sound);
+      const nowComplete = nextHabits.length > 0 && nextHabits.every((h) => h.done);
+      if (nowComplete && !wasComplete) {
+        haptic([20, 60, 20, 60, 40]);
+        if (settings.soundsOn) window.setTimeout(() => playSound(settings.dayCompleteSound), 220);
+        setCelebrating(true);
+        if (celebrateTimer.current) window.clearTimeout(celebrateTimer.current);
+        celebrateTimer.current = window.setTimeout(() => setCelebrating(false), 2600);
+      }
+    }
+  };
+
+  const toggleTodo = (id: string) => {
+    const t = day.todos.find((x) => x.id === id);
+    if (t && !t.done) {
+      haptic(10);
+      if (settings.soundsOn) playSound(settings.todoSound);
+    }
+    updateDay(date, (d) => ({ ...d, todos: d.todos.map((x) => (x.id === id ? { ...x, done: !x.done } : x)) }));
+  };
 
   return (
     <div className="flex flex-col gap-4">
+      {celebrating && <Confetti />}
+
       <section className="card flex items-center gap-4 p-4 md:p-5">
         <ProgressRing pct={progress.pct} size={compact ? 80 : 96} />
         <div className="flex-1">
@@ -49,12 +94,7 @@ export default function DayEditor({ date, compact = false }: Props) {
             {day.habits.filter((h) => h.done).length}/{day.habits.length}
           </span>
         </div>
-        <HabitChecklist
-          habits={day.habits}
-          onToggle={(id) =>
-            updateDay(date, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }))
-          }
-        />
+        <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
       </section>
 
       <section className="card p-4 md:p-5">
@@ -65,7 +105,7 @@ export default function DayEditor({ date, compact = false }: Props) {
         <TodoList
           todos={day.todos}
           onAdd={(text) => updateDay(date, (d) => ({ ...d, todos: [...d.todos, { id: uid(), text, done: false }] }))}
-          onToggle={(id) => updateDay(date, (d) => ({ ...d, todos: d.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) }))}
+          onToggle={toggleTodo}
           onDelete={(id) => updateDay(date, (d) => ({ ...d, todos: d.todos.filter((t) => t.id !== id) }))}
           onCarryOver={(id) => carryTodoOver(date, id)}
         />
@@ -82,6 +122,8 @@ export default function DayEditor({ date, compact = false }: Props) {
           <RatingBar label="Happiness" hint="mood, people, energy" tone="sunset" value={day.ratings.happy} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, happy: v } }))} />
         </div>
       </section>
+
+      <DayPhoto date={date} />
 
       <section className="card p-4 md:p-5">
         <div className="mb-3">

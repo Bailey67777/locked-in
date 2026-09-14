@@ -2,16 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { addDays, formatDayMonth, lastNDays, parseKey } from "@/lib/dates";
-import { habitsComplete } from "@/lib/model";
+import { formatDayMonth, lastNDays, parseKey } from "@/lib/dates";
+import { habitLook } from "@/lib/model";
+import { dayStreak, habitStats, insights, thisWeekVsLast } from "@/lib/stats";
 import { cn } from "@/lib/cn";
 import RatingsChart, { type Series } from "./RatingsChart";
 
 const COLORS = { day: "#1a6fd1", health: "#1f9a8a", happy: "#d95f18" };
 
 export default function TrendsView() {
-  const { today, data, getDay } = useStore();
+  const { today, data } = useStore();
   const [range, setRange] = useState<7 | 30>(7);
+  const settings = data.settings;
 
   const dates = useMemo(() => lastNDays(today, range), [today, range]);
 
@@ -24,44 +26,24 @@ export default function TrendsView() {
     ];
   }, [dates, data]);
 
-  const streaks = useMemo(() => {
-    // Current streak: consecutive fully-complete days ending today (or yesterday if today isn't finished yet).
-    let current = 0;
-    let cursor = habitsComplete(getDay(today)) ? today : addDays(today, -1);
-    while (data.days[cursor] && habitsComplete(getDay(cursor))) {
-      current++;
-      cursor = addDays(cursor, -1);
-      if (current > 3650) break;
-    }
-    let best = 0;
-    let run = 0;
-    let prev: string | null = null;
-    for (const key of Object.keys(data.days).sort()) {
-      const complete = habitsComplete(getDay(key));
-      if (complete && prev && addDays(prev, 1) === key) run++;
-      else if (complete) run = 1;
-      else run = 0;
-      if (complete) prev = key;
-      else prev = null;
-      best = Math.max(best, run);
-    }
-    const last30 = lastNDays(today, 30);
-    let done = 0;
-    let total = 0;
-    for (const d of last30) {
-      const day = getDay(d);
-      if (!data.days[d] && d !== today) continue;
-      total += day.habits.length;
-      done += day.habits.filter((h) => h.done).length;
-    }
-    return { current, best: Math.max(best, current), rate: total ? Math.round((done / total) * 100) : 0 };
-  }, [data, getDay, today]);
+  const streak = useMemo(() => dayStreak(data.days, settings, today), [data.days, settings, today]);
+  const perHabit = useMemo(() => habitStats(data.days, settings, today, 30), [data.days, settings, today]);
+  const weeks = useMemo(() => thisWeekVsLast(data.days, settings, today), [data.days, settings, today]);
+  const tips = useMemo(() => insights(data.days, settings, today), [data.days, settings, today]);
+  const daysTracked = useMemo(() => Object.keys(data.days).filter((k) => k <= today).length, [data.days, today]);
+
+  const rate30 = useMemo(() => {
+    const done = perHabit.reduce((a, h) => a + h.done, 0);
+    const tracked = perHabit.reduce((a, h) => a + h.tracked, 0);
+    return tracked ? Math.round((done / tracked) * 100) : 0;
+  }, [perHabit]);
 
   const heat = useMemo(() => {
     const days = lastNDays(today, range === 7 ? 14 : 30);
-    const rows = data.settings.habits.map((h) => ({
+    const rows = settings.habits.map((h) => ({
       id: h.id,
       name: h.name,
+      look: habitLook(h.id, settings),
       cells: days.map((d) => {
         const day = data.days[d];
         const hit = day?.habits.find((x) => x.id === h.id);
@@ -69,7 +51,7 @@ export default function TrendsView() {
       }),
     }));
     return { days, rows };
-  }, [data, today, range]);
+  }, [data, settings, today, range]);
 
   return (
     <div className="rise flex flex-col gap-4">
@@ -89,10 +71,58 @@ export default function TrendsView() {
         </div>
       </div>
 
-      <section className="grid grid-cols-3 gap-3">
-        <Stat label="Current streak" value={streaks.current} unit={streaks.current === 1 ? "day" : "days"} />
-        <Stat label="Best streak" value={streaks.best} unit={streaks.best === 1 ? "day" : "days"} />
-        <Stat label="30-day habits" value={streaks.rate} unit="%" />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Current streak" value={streak.current} unit={streak.current === 1 ? "day" : "days"} />
+        <Stat label="Best streak" value={streak.best} unit={streak.best === 1 ? "day" : "days"} />
+        <Stat label="30-day habits" value={rate30} unit="%" />
+        <Stat label="Days tracked" value={daysTracked} unit={daysTracked === 1 ? "day" : "days"} />
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">This week vs last</h2>
+        <p className="mb-3 text-sm font-semibold text-ink-muted">Last 7 days against the 7 before them.</p>
+        {weeks.thisWeek.daysTracked === 0 && weeks.lastWeek.daysTracked === 0 ? (
+          <p className="py-3 text-center text-sm font-semibold text-ink-muted">Nothing tracked yet. Tick a few days and this fills in.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">
+                  <th className="py-1 text-left font-extrabold" />
+                  <th className="py-1 text-right font-extrabold">This week</th>
+                  <th className="py-1 text-right font-extrabold">Last week</th>
+                  <th className="py-1 text-right font-extrabold">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                <WeekRow label="Habits done" a={weeks.thisWeek.habitPct} b={weeks.lastWeek.habitPct} unit="%" />
+                <WeekRow label="Full days" a={weeks.thisWeek.fullDays} b={weeks.lastWeek.fullDays} unit="" />
+                <WeekRow label="Day rating" a={weeks.thisWeek.avgDay} b={weeks.lastWeek.avgDay} unit="" />
+                <WeekRow label="Health rating" a={weeks.thisWeek.avgHealth} b={weeks.lastWeek.avgHealth} unit="" />
+                <WeekRow label="Happiness" a={weeks.thisWeek.avgHappy} b={weeks.lastWeek.avgHappy} unit="" />
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Insights</h2>
+        <p className="mb-3 text-sm font-semibold text-ink-muted">Patterns in your own numbers. Only shown once there&apos;s enough evidence.</p>
+        {tips.length === 0 ? (
+          <p className="rounded-2xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink-soft">
+            Not enough data yet. After about a week of ticking and rating, this starts telling you which habits line up with your best days, your strongest weekday, and what&apos;s slipping.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {tips.map((t, i) => (
+              <li key={i} className="flex gap-3 rounded-2xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink">
+                <span className="text-lg leading-none">{t.emoji}</span>
+                <span className="leading-snug">{t.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="card p-4 md:p-5">
@@ -102,8 +132,39 @@ export default function TrendsView() {
       </section>
 
       <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Each habit, last 30 days</h2>
+        <p className="mb-3 text-sm font-semibold text-ink-muted">How often you did it on tracked days, plus the streak.</p>
+        {perHabit.length === 0 ? (
+          <p className="py-4 text-center text-sm font-semibold text-ink-muted">Add habits in Settings to see them here.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {perHabit.map((h) => {
+              const look = habitLook(h.id, settings);
+              return (
+                <li key={h.id}>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-base leading-none">{look.emoji}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{h.name}</span>
+                    <span className="text-xs font-extrabold text-ink-muted">
+                      {h.tracked ? `${h.pct}%` : "–"}
+                    </span>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-extrabold", h.current >= 2 ? "bg-sunset-100 text-sunset-700" : "bg-sand-100 text-ink-muted")} title="Current streak · best streak">
+                      🔥 {h.current} · best {h.best}
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-sand-100">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${h.pct}%`, backgroundColor: look.color }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="card p-4 md:p-5">
         <h2 className="text-lg font-extrabold text-ink">Habit heatmap</h2>
-        <p className="mb-3 text-sm font-semibold text-ink-muted">Each square is one day. Filled means done. A streak is a full column.</p>
+        <p className="mb-3 text-sm font-semibold text-ink-muted">Each square is one day. Filled means done. A streak is a full row.</p>
         {heat.rows.length === 0 ? (
           <p className="py-4 text-center text-sm font-semibold text-ink-muted">Add habits in Settings to see them here.</p>
         ) : (
@@ -113,13 +174,15 @@ export default function TrendsView() {
                 {heat.rows.map((row) => (
                   <tr key={row.id}>
                     <th className="sticky left-0 z-10 max-w-36 truncate bg-white/95 py-0.5 pr-3 text-left text-xs font-bold text-ink-soft md:max-w-52" title={row.name}>
+                      <span className="mr-1">{row.look.emoji}</span>
                       {row.name}
                     </th>
                     {row.cells.map((c) => (
                       <td key={c.date} className="p-0.5">
                         <div
                           title={`${formatDayMonth(c.date)} · ${c.done ? "done" : c.tracked ? "missed" : "no entry"}`}
-                          className={cn("h-5 w-5 rounded-md md:h-6 md:w-6", c.done ? "bg-teal-500" : c.tracked ? "bg-sand-200" : "bg-sand-100")}
+                          className={cn("h-5 w-5 rounded-md md:h-6 md:w-6", !c.done && (c.tracked ? "bg-sand-200" : "bg-sand-100"))}
+                          style={c.done ? { backgroundColor: row.look.color } : undefined}
                         />
                       </td>
                     ))}
@@ -151,5 +214,20 @@ function Stat({ label, value, unit }: { label: string; value: number; unit: stri
       </div>
       <div className="mt-1.5 text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">{label}</div>
     </div>
+  );
+}
+
+function WeekRow({ label, a, b, unit }: { label: string; a: number | null; b: number | null; unit: string }) {
+  const fmt = (v: number | null) => (v === null ? "–" : `${v}${unit}`);
+  const diff = a !== null && b !== null ? Math.round((a - b) * 10) / 10 : null;
+  return (
+    <tr className="border-t border-sand-100">
+      <td className="py-2 font-bold text-ink">{label}</td>
+      <td className="py-2 text-right font-extrabold tabular-nums text-ink">{fmt(a)}</td>
+      <td className="py-2 text-right font-bold tabular-nums text-ink-muted">{fmt(b)}</td>
+      <td className={cn("py-2 text-right font-extrabold tabular-nums", diff === null ? "text-ink-muted" : diff > 0 ? "text-teal-600" : diff < 0 ? "text-sunset-600" : "text-ink-muted")}>
+        {diff === null ? "–" : diff > 0 ? `+${diff}${unit}` : diff < 0 ? `${diff}${unit}` : "same"}
+      </td>
+    </tr>
   );
 }

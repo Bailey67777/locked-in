@@ -4,14 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { uid } from "@/lib/model";
+import { DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
+import { SOUNDS, playSound } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
+import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 
 export default function SettingsView() {
   const { data, updateSettings, sync } = useStore();
-  const habits = data.settings.habits;
+  const settings = data.settings;
+  const habits = settings.habits;
   const [newHabit, setNewHabit] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [emojiFor, setEmojiFor] = useState<string | null>(null);
+
+  const patch = (id: string, changes: Partial<HabitDef>) =>
+    updateSettings((s) => ({ ...s, habits: s.habits.map((h) => (h.id === id ? { ...h, ...changes } : h)) }));
 
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -23,9 +31,6 @@ export default function SettingsView() {
     });
   };
 
-  const rename = (id: string, name: string) =>
-    updateSettings((s) => ({ ...s, habits: s.habits.map((h) => (h.id === id ? { ...h, name } : h)) }));
-
   const remove = (id: string) => {
     updateSettings((s) => ({ ...s, habits: s.habits.filter((h) => h.id !== id) }));
     setConfirmId(null);
@@ -34,7 +39,9 @@ export default function SettingsView() {
   const add = () => {
     const name = newHabit.trim();
     if (!name) return;
-    updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name }] }));
+    const sound = SOUNDS[habits.length % SOUNDS.length].id;
+    const color = HABIT_COLORS[habits.length % HABIT_COLORS.length].hex;
+    updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name, emoji: "✅", color, sound }] }));
     setNewHabit("");
   };
 
@@ -54,43 +61,120 @@ export default function SettingsView() {
       <section className="card p-4 md:p-5">
         <h2 className="text-lg font-extrabold text-ink">Core habits</h2>
         <p className="mb-3 text-sm font-semibold text-ink-muted">
-          Rename, reorder, add or remove. Changes apply from today onwards; past days keep what they had.
+          Give each one an emoji, a colour, a time and a sound. Habits with a time sort themselves into day order. Changes apply from today onwards; past days keep what they had.
         </p>
-        <ul className="flex flex-col gap-2">
-          {habits.map((h, i) => (
-            <li key={h.id} className="flex items-center gap-1 rounded-2xl bg-sand-50 p-1.5">
-              <div className="flex flex-col">
-                <button type="button" className="btn-icon h-7 w-8" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">
-                  <ChevronIcon dir="up" width={16} height={16} />
-                </button>
-                <button type="button" className="btn-icon h-7 w-8" onClick={() => move(i, 1)} disabled={i === habits.length - 1} aria-label="Move down">
-                  <ChevronIcon dir="down" width={16} height={16} />
-                </button>
-              </div>
-              <AutoTextarea
-                value={h.name}
-                onChange={(v) => rename(h.id, v)}
-                onBlur={(v) => {
-                  if (!v.trim()) rename(h.id, "Untitled habit");
-                }}
-                ariaLabel={`Habit ${i + 1} name`}
-              />
-              {confirmId === h.id ? (
-                <div className="flex items-center gap-1">
-                  <button type="button" className="tap rounded-xl bg-sunset-500 px-3 py-2 text-xs font-extrabold text-white" onClick={() => remove(h.id)}>
-                    Remove
+        <ul className="flex flex-col gap-3">
+          {habits.map((h, i) => {
+            const color = h.color ?? DEFAULT_COLOR;
+            const canMove = !h.time; // timed habits are ordered by their time
+            return (
+              <li key={h.id} className="rounded-2xl bg-sand-50 p-2.5" style={{ borderLeft: `5px solid ${color}` }}>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmojiFor(emojiFor === h.id ? null : h.id)}
+                    className="tap flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-soft"
+                    aria-label="Change emoji"
+                    title="Change emoji"
+                  >
+                    {h.emoji ?? "✅"}
                   </button>
-                  <button type="button" className="btn-ghost px-2 py-2 text-xs" onClick={() => setConfirmId(null)}>
-                    Keep
-                  </button>
+                  <AutoTextarea
+                    value={h.name}
+                    onChange={(v) => patch(h.id, { name: v })}
+                    onBlur={(v) => {
+                      if (!v.trim()) patch(h.id, { name: "Untitled habit" });
+                    }}
+                    ariaLabel={`Habit ${i + 1} name`}
+                  />
+                  <div className="flex flex-col">
+                    <button type="button" className="btn-icon h-6 w-7" onClick={() => move(i, -1)} disabled={!canMove || i === 0} aria-label="Move up" title={canMove ? "Move up" : "Timed habits are ordered by time"}>
+                      <ChevronIcon dir="up" width={14} height={14} />
+                    </button>
+                    <button type="button" className="btn-icon h-6 w-7" onClick={() => move(i, 1)} disabled={!canMove || i === habits.length - 1} aria-label="Move down" title={canMove ? "Move down" : "Timed habits are ordered by time"}>
+                      <ChevronIcon dir="down" width={14} height={14} />
+                    </button>
+                  </div>
+                  {confirmId === h.id ? (
+                    <div className="flex items-center gap-1">
+                      <button type="button" className="tap rounded-xl bg-sunset-500 px-3 py-2 text-xs font-extrabold text-white" onClick={() => remove(h.id)}>
+                        Remove
+                      </button>
+                      <button type="button" className="btn-ghost px-2 py-2 text-xs" onClick={() => setConfirmId(null)}>
+                        Keep
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn-icon h-9 w-9" onClick={() => setConfirmId(h.id)} aria-label="Remove habit">
+                      <TrashIcon />
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <button type="button" className="btn-icon" onClick={() => setConfirmId(h.id)} aria-label="Remove habit">
-                  <TrashIcon />
-                </button>
-              )}
-            </li>
-          ))}
+
+                {emojiFor === h.id && (
+                  <div className="pop-in mt-2 rounded-xl bg-white p-2 shadow-soft">
+                    <div className="grid grid-cols-8 gap-1 sm:grid-cols-10">
+                      {EMOJI_SUGGESTIONS.map((e) => (
+                        <button
+                          key={e}
+                          type="button"
+                          onClick={() => {
+                            patch(h.id, { emoji: e });
+                            setEmojiFor(null);
+                          }}
+                          className={cn("tap flex h-9 items-center justify-center rounded-lg text-xl hover:bg-sand-100", h.emoji === e && "bg-ocean-100")}
+                        >
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      className="field mt-2 py-2 text-base"
+                      placeholder="Or type any emoji here"
+                      maxLength={8}
+                      onChange={(e) => {
+                        const v = e.target.value.trim();
+                        if (v) patch(h.id, { emoji: v });
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="flex items-center gap-1" role="radiogroup" aria-label="Colour">
+                    {HABIT_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        role="radio"
+                        aria-checked={color === c.hex}
+                        title={c.name}
+                        onClick={() => patch(h.id, { color: c.hex })}
+                        className={cn("tap h-6 w-6 rounded-full border-2 transition-transform", color === c.hex ? "scale-110 border-ink" : "border-white")}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-ink-muted">
+                    <span>⏰</span>
+                    <input
+                      type="time"
+                      value={h.time ?? ""}
+                      onChange={(e) => patch(h.id, { time: e.target.value || undefined })}
+                      className="rounded-lg border border-sand-200 bg-white px-2 py-1 text-sm font-bold text-ink"
+                      aria-label="Time of day"
+                    />
+                    {h.time && (
+                      <button type="button" className="text-[11px] font-bold text-ink-muted hover:text-ink" onClick={() => patch(h.id, { time: undefined })}>
+                        clear
+                      </button>
+                    )}
+                  </label>
+                  <SoundPicker value={h.sound ?? "pop"} onChange={(sound) => patch(h.id, { sound })} />
+                </div>
+              </li>
+            );
+          })}
         </ul>
         <form
           className="mt-3 flex gap-2"
@@ -108,10 +192,39 @@ export default function SettingsView() {
       </section>
 
       <section className="card p-4 md:p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-extrabold text-ink">Sounds</h2>
+            <p className="text-sm font-semibold text-ink-muted">Little noises when you tick things. Silent mode on your phone still mutes them.</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.soundsOn}
+            onClick={() => updateSettings((s) => ({ ...s, soundsOn: !s.soundsOn }))}
+            className={cn("tap relative h-8 w-14 shrink-0 rounded-full transition-colors", settings.soundsOn ? "bg-teal-500" : "bg-sand-300")}
+            aria-label="Sounds on or off"
+          >
+            <span className={cn("absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all", settings.soundsOn ? "left-7" : "left-1")} />
+          </button>
+        </div>
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold text-ink">To-do ticked</span>
+            <SoundPicker value={settings.todoSound} onChange={(todoSound) => updateSettings((s) => ({ ...s, todoSound }))} />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold text-ink">All habits done</span>
+            <SoundPicker value={settings.dayCompleteSound} onChange={(dayCompleteSound) => updateSettings((s) => ({ ...s, dayCompleteSound }))} />
+          </div>
+        </div>
+      </section>
+
+      <section className="card p-4 md:p-5">
         <h2 className="text-lg font-extrabold text-ink">Your name</h2>
         <p className="mb-2 text-sm font-semibold text-ink-muted">Used in the greeting on the Today screen.</p>
         <input
-          value={data.settings.name}
+          value={settings.name}
           onChange={(e) => updateSettings((s) => ({ ...s, name: e.target.value }))}
           onBlur={(e) => {
             if (!e.target.value.trim()) updateSettings((s) => ({ ...s, name: "Hugo" }));
@@ -137,11 +250,37 @@ export default function SettingsView() {
       <section className="card p-4 md:p-5">
         <h2 className="text-lg font-extrabold text-ink">Your photos</h2>
         <p className="mt-1 text-sm font-semibold text-ink-soft">
-          Drop <code className="rounded bg-sand-100 px-1">hero.jpg</code> and <code className="rounded bg-sand-100 px-1">profile.jpg</code> into{" "}
-          <code className="rounded bg-sand-100 px-1">public/photos/</code> and redeploy. The placeholders are replaced automatically.
+          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">hero.jpg</code> (banner),{" "}
+          <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and <code className="rounded bg-sand-100 px-1">wall-1.jpg</code> to{" "}
+          <code className="rounded bg-sand-100 px-1">wall-4.jpg</code> (the side column on a laptop). Per-day photos are added from the day itself.
         </p>
       </section>
     </div>
+  );
+}
+
+function SoundPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          playSound(e.target.value);
+        }}
+        className="rounded-lg border border-sand-200 bg-white px-2 py-1 text-sm font-bold text-ink"
+        aria-label="Sound"
+      >
+        {SOUNDS.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.emoji} {s.name}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="btn-icon h-8 w-8 text-base" onClick={() => playSound(value)} aria-label="Play sound" title="Play">
+        ▶
+      </button>
+    </span>
   );
 }
 

@@ -1,5 +1,6 @@
-import type { AppData, DayHabit, DayRecord, Settings, Todo } from "./types";
-import { DEFAULT_HABITS, DEFAULT_NAME } from "./defaults";
+import type { AppData, DayHabit, DayRecord, HabitDef, Settings, Todo } from "./types";
+import { DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
+import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -21,10 +22,24 @@ function clampRating(v: unknown): number {
   return Math.max(0, Math.min(10, Math.round(n)));
 }
 
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+export function normalizeHabitDef(raw: unknown): HabitDef | null {
+  const h = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  if (typeof h.id !== "string" || typeof h.name !== "string") return null;
+  const def: HabitDef = { id: h.id, name: h.name };
+  if (typeof h.emoji === "string" && h.emoji.trim()) def.emoji = h.emoji.trim().slice(0, 8);
+  if (typeof h.color === "string" && HEX_RE.test(h.color)) def.color = h.color.toLowerCase();
+  if (typeof h.time === "string" && TIME_RE.test(h.time)) def.time = h.time;
+  if (typeof h.sound === "string" && SOUND_IDS.includes(h.sound)) def.sound = h.sound;
+  return def;
+}
+
 export function normalizeDay(date: string, raw: unknown): DayRecord {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const ratings = (r.ratings && typeof r.ratings === "object" ? r.ratings : {}) as Record<string, unknown>;
-  return {
+  const day: DayRecord = {
     date,
     habits: asArray<Partial<DayHabit>>(r.habits)
       .filter((h) => typeof h.id === "string")
@@ -38,29 +53,47 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
       happy: clampRating(ratings.happy),
     },
     journal: typeof r.journal === "string" ? r.journal : "",
-    updatedAt: typeof r.updatedAt === "number" ? r.updatedAt : undefined,
   };
+  if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
+  if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
+  return day;
+}
+
+/** Habits with a time come first, ordered by time; untimed ones keep their manual order after them. */
+export function sortHabits(habits: HabitDef[]): HabitDef[] {
+  const timed = habits.filter((h) => h.time).sort((a, b) => (a.time as string).localeCompare(b.time as string));
+  const untimed = habits.filter((h) => !h.time);
+  return [...timed, ...untimed];
 }
 
 export function normalizeSettings(raw: unknown): Settings {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const habits = asArray<Partial<DayHabit>>(r.habits)
-    .filter((h) => typeof h.id === "string" && typeof h.name === "string")
-    .map((h) => ({ id: h.id as string, name: h.name as string }));
+  const habits = asArray<unknown>(r.habits)
+    .map(normalizeHabitDef)
+    .filter((h): h is HabitDef => h !== null)
+    // Habits saved before colours/sounds existed get a varied default by position, so a long list isn't all one colour.
+    .map((h, i) => ({ ...h, color: h.color ?? HABIT_COLORS[i % HABIT_COLORS.length].hex, sound: h.sound ?? SOUND_IDS[i % SOUND_IDS.length] }));
   return {
     name: typeof r.name === "string" && r.name.trim() ? r.name : DEFAULT_NAME,
-    habits: habits.length ? habits : DEFAULT_HABITS.map((h) => ({ ...h })),
+    habits: sortHabits(habits.length ? habits : DEFAULT_HABITS.map((h) => ({ ...h }))),
+    soundsOn: typeof r.soundsOn === "boolean" ? r.soundsOn : true,
+    dayCompleteSound: typeof r.dayCompleteSound === "string" && SOUND_IDS.includes(r.dayCompleteSound) ? r.dayCompleteSound : DEFAULT_DAY_COMPLETE_SOUND,
+    todoSound: typeof r.todoSound === "string" && SOUND_IDS.includes(r.todoSound) ? r.todoSound : DEFAULT_TODO_SOUND,
   };
 }
 
-export function normalizeData(raw: unknown): AppData {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const daysRaw = (r.days && typeof r.days === "object" ? r.days : {}) as Record<string, unknown>;
+export function normalizeDays(raw: unknown): Record<string, DayRecord> {
+  const daysRaw = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const days: Record<string, DayRecord> = {};
   for (const key of Object.keys(daysRaw)) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(key)) days[key] = normalizeDay(key, daysRaw[key]);
   }
-  return { settings: normalizeSettings(r.settings), days };
+  return days;
+}
+
+export function normalizeData(raw: unknown): AppData {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return { settings: normalizeSettings(r.settings), days: normalizeDays(r.days) };
 }
 
 /**
@@ -85,6 +118,17 @@ export function materializeDay(
   return { ...base, habits };
 }
 
+/** Look up a habit's look (emoji/colour) by id, with sensible defaults for habits no longer in the list. */
+export function habitLook(id: string, settings: Settings): { emoji: string; color: string; sound: string; time?: string } {
+  const def = settings.habits.find((h) => h.id === id);
+  return {
+    emoji: def?.emoji ?? "✅",
+    color: def?.color ?? DEFAULT_COLOR,
+    sound: def?.sound ?? "pop",
+    time: def?.time,
+  };
+}
+
 export function dayProgress(day: DayRecord): { done: number; total: number; pct: number } {
   const total = day.habits.length + day.todos.length;
   const done = day.habits.filter((h) => h.done).length + day.todos.filter((t) => t.done).length;
@@ -103,7 +147,8 @@ export function dayHasEntry(day: DayRecord | undefined): boolean {
     day.ratings.day > 0 ||
     day.ratings.health > 0 ||
     day.ratings.happy > 0 ||
-    day.journal.trim().length > 0
+    day.journal.trim().length > 0 ||
+    Boolean(day.thumb)
   );
 }
 

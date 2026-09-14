@@ -5,11 +5,14 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 
 **What's in it**
 
-- **Today** – greeting, banner photo, six core habits (editable), a per-day to-do list (with "move to tomorrow"),
-  a progress ring, three 1–10 ratings (Day / Health / Happiness) and a mini journal.
-- **Calendar** – month view with shading by completion. Tap any past or future day to view and edit it.
-- **Trends** – ratings line chart (7 / 30 days), streaks, and a habit heatmap.
-- **Settings** – rename, reorder, add or remove habits (changes apply going forward; history stays as it was), your name, sync status.
+- **Today** – greeting and day streak, banner photo, your core habits (each with its own emoji, colour, time and tick sound),
+  a per-day to-do list (with "move to tomorrow"), a progress ring, three 1–10 ratings (Day / Health / Happiness),
+  a photo of the day, and a mini journal. Confetti and a fanfare when every habit is ticked.
+- **Calendar** – month view shaded by completion; days with a photo show it as their tile. Tap any past or future day to view and edit it.
+- **Trends** – streaks, this-week-vs-last-week, plain-English insights from your own numbers, ratings line chart (7 / 30 days),
+  per-habit completion bars with streaks, and a habit heatmap.
+- **Settings** – rename, reorder, add or remove habits; set each one's emoji, colour, time of day and sound; toggle sounds; your name; sync status.
+- **Laptop** – a photo wall column appears beside the app on wide screens (drop `wall-1.jpg` … `wall-4.jpg` into `public/photos/`).
 
 Works offline for viewing; edits made offline are pushed when you reconnect (as long as the app stays open).
 
@@ -127,22 +130,30 @@ Bookmark the URL, or in Chrome/Edge click the install icon in the address bar to
 
 Drop files here (then commit + push so Vercel picks them up):
 
-| File                         | Shows as                                    |
-| ---------------------------- | ------------------------------------------- |
-| `public/photos/hero.jpg`     | banner at the top of Today (landscape, ~3:2) |
-| `public/photos/profile.jpg`  | round avatar next to the greeting (square)   |
+| File                          | Shows as                                         |
+| ----------------------------- | ------------------------------------------------ |
+| `public/photos/hero.jpg`      | banner at the top of Today (landscape, ~3:2)     |
+| `public/photos/profile.jpg`   | round avatar next to the greeting (square)       |
+| `public/photos/wall-1.jpg` … `wall-4.jpg` | the photo wall beside the app on a laptop (4:3) |
 
 Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a quick load on mobile.
+
+**Per-day photos** are added inside the app (open any day → *Photo of the day*). They're resized in the browser
+(a 96px thumbnail for the calendar, a 720px version for the day view) and stored in Firebase, so they show on both devices.
 
 ---
 
 ## Data model
 
-Stored at `spaces/<DATA_KEY>` in the Realtime Database (and mirrored to `localStorage`):
+Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also mirrored to `localStorage`):
 
 ```jsonc
 {
-  "settings": { "name": "Hugo", "habits": [{ "id": "wake-outside", "name": "…" }] },
+  "settings": {
+    "name": "Hugo",
+    "soundsOn": true, "todoSound": "pop", "dayCompleteSound": "tada",
+    "habits": [{ "id": "wake-outside", "name": "…", "emoji": "🌅", "color": "#ef8a3c", "time": "06:50", "sound": "chime" }]
+  },
   "days": {
     "2026-09-13": {
       "date": "2026-09-13",
@@ -150,21 +161,27 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (and mirrored to `localSt
       "todos": [{ "id": "…", "text": "finish Physics homework", "done": false }],
       "ratings": { "day": 7, "health": 8, "happy": 6 },                   // 0 = not set
       "journal": "…",
+      "thumb": "data:image/jpeg;base64,…",                                // tiny calendar thumbnail (optional)
       "updatedAt": 1789286956869
     }
-  }
+  },
+  "photos": { "2026-09-13": { "data": "data:image/jpeg;base64,…", "updatedAt": … } }   // 720px versions, loaded on demand
 }
 ```
 
 Today and future days always follow the current habit list (with ticks preserved by id); past days keep
-the snapshot they were saved with, so editing the habit list never rewrites history.
+the snapshot they were saved with, so editing the habit list never rewrites history. Habits with a time are
+kept in time order automatically.
+
+Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`), so there are no audio files
+to host and they work offline. Add a new one by appending to the `SOUNDS` array.
 
 ## Project layout
 
 ```
 src/app/            layout, page, manifest, global styles, icons
 src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
-src/lib/            types, dates, model (normalise/materialise days), store (state + Firebase), firebase
+src/lib/            types, dates, model (normalise/materialise days), stats (streaks, insights), sounds, images, store (state + Firebase), firebase
 public/sw.js        service worker (offline app shell)
 public/icons/       PWA icons (regenerate with `node scripts/gen-icons.mjs`)
 public/photos/      your photos

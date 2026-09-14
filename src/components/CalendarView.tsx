@@ -80,21 +80,33 @@ export default function CalendarView() {
             const entry = dayHasEntry(stored);
             const pct = entry ? dayProgress(getDay(key)).pct : 0;
             const shade = !entry ? "" : pct >= 100 ? "bg-teal-500 text-white" : pct >= 60 ? "bg-ocean-400 text-white" : pct >= 25 ? "bg-ocean-200 text-ocean-900" : "bg-ocean-100 text-ocean-900";
+            const thumb = stored?.thumb;
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => setSelected(key)}
                 className={cn(
-                  "tap relative flex aspect-square flex-col items-center justify-center rounded-2xl text-sm font-bold transition-colors",
-                  shade || (isFuture ? "text-ink-muted/70 hover:bg-sand-100" : "bg-sand-50 text-ink hover:bg-sand-100"),
+                  "tap relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-colors",
+                  thumb ? "bg-sand-200" : shade || (isFuture ? "text-ink-muted/70 hover:bg-sand-100" : "bg-sand-50 text-ink hover:bg-sand-100"),
                   isToday && "ring-2 ring-sunset-500 ring-offset-2 ring-offset-white",
                 )}
                 aria-label={formatLong(key)}
               >
-                <span className="tabular-nums">{parseKey(key).getDate()}</span>
-                {(hasRatings(stored) || (stored && stored.journal.trim())) && (
-                  <span className={cn("absolute bottom-1.5 h-1.5 w-1.5 rounded-full", pct >= 60 ? "bg-white/90" : "bg-sunset-500")} />
+                {thumb ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    <span className="absolute left-1 top-1 rounded-md bg-white/85 px-1 text-[11px] font-extrabold tabular-nums text-ink shadow-soft">{parseKey(key).getDate()}</span>
+                    {entry && <span className={cn("absolute inset-x-0 bottom-0 h-1.5", pct >= 100 ? "bg-teal-500" : pct >= 60 ? "bg-ocean-400" : "bg-ocean-200")} />}
+                  </>
+                ) : (
+                  <>
+                    <span className="tabular-nums">{parseKey(key).getDate()}</span>
+                    {(hasRatings(stored) || (stored && stored.journal.trim())) && (
+                      <span className={cn("absolute bottom-1.5 h-1.5 w-1.5 rounded-full", pct >= 60 ? "bg-white/90" : "bg-sunset-500")} />
+                    )}
+                  </>
                 )}
               </button>
             );
@@ -109,7 +121,7 @@ export default function CalendarView() {
         </div>
       </section>
 
-      <p className="px-2 text-center text-sm font-semibold text-ink-muted">Tap any day to view or edit it. Past days keep the habit list they had at the time.</p>
+      <p className="px-2 text-center text-sm font-semibold text-ink-muted">Tap any day to view or edit it, or add a photo so the month tells a story. Past days keep the habit list they had at the time.</p>
 
       {selected &&
         createPortal(

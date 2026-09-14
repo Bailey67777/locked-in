@@ -1,39 +1,57 @@
 "use client";
 
-import type { DayHabit } from "@/lib/types";
+import type { DayHabit, Settings } from "@/lib/types";
+import { habitLook } from "@/lib/model";
 import { cn } from "@/lib/cn";
 import { CheckIcon } from "./Icons";
 
-export default function HabitChecklist({ habits, onToggle }: { habits: DayHabit[]; onToggle: (id: string) => void }) {
+type Props = {
+  habits: DayHabit[];
+  settings: Settings;
+  streaks?: Record<string, number>;
+  onToggle: (id: string) => void;
+};
+
+export default function HabitChecklist({ habits, settings, streaks = {}, onToggle }: Props) {
   if (habits.length === 0) {
     return <p className="py-4 text-center text-sm font-semibold text-ink-muted">No habits yet. Add a few in Settings.</p>;
   }
   return (
     <ul className="flex flex-col gap-2">
-      {habits.map((h, i) => (
-        <li key={h.id}>
-          <button
-            type="button"
-            onClick={() => onToggle(h.id)}
-            aria-pressed={h.done}
-            className={cn(
-              "tap flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
-              h.done ? "bg-teal-100/70" : "bg-sand-50 hover:bg-sand-100",
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                h.done ? "border-teal-500 bg-teal-500 text-white" : "border-sand-300 bg-white text-transparent",
-              )}
+      {habits.map((h) => {
+        const look = habitLook(h.id, settings);
+        const streak = streaks[h.id] ?? 0;
+        return (
+          <li key={h.id}>
+            <button
+              type="button"
+              onClick={() => onToggle(h.id)}
+              aria-pressed={h.done}
+              className={cn("tap flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors", !h.done && "bg-sand-50 hover:bg-sand-100")}
+              style={h.done ? { backgroundColor: `${look.color}1c` } : undefined}
             >
-              <CheckIcon />
-            </span>
-            <span className={cn("flex-1 text-[15px] font-bold leading-snug", h.done ? "text-teal-700" : "text-ink")}>{h.name}</span>
-            <span className="text-xs font-extrabold text-ink-muted/60">{i + 1}</span>
-          </button>
-        </li>
-      ))}
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-white transition-colors"
+                style={{ borderColor: look.color, backgroundColor: h.done ? look.color : "#ffffff" }}
+              >
+                {h.done ? <CheckIcon /> : <span className="text-lg leading-none">{look.emoji}</span>}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={cn("block text-[15px] font-bold leading-snug", h.done ? "text-ink" : "text-ink")}>
+                  {h.done && <span className="mr-1">{look.emoji}</span>}
+                  {h.name}
+                </span>
+                {look.time && <span className="text-[11px] font-bold text-ink-muted">{look.time}</span>}
+              </span>
+              {streak >= 2 && (
+                <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-xs font-extrabold text-sunset-600 shadow-soft" title={`${streak}-day streak`}>
+                  🔥 {streak}
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

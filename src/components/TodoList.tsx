@@ -30,22 +30,17 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete, onCarryOver
       ) : (
         <ul className="flex flex-col gap-2">
           {todos.map((t) => (
-            <li key={t.id} className={cn("flex items-center gap-2 rounded-2xl px-2 py-1.5", t.done ? "bg-teal-100/60" : "bg-sand-50")}>
-              <button
-                type="button"
-                onClick={() => onToggle(t.id)}
-                aria-pressed={t.done}
-                className="tap flex min-h-11 flex-1 items-center gap-3 text-left"
-              >
+            <li key={t.id} className={cn("flex items-center gap-1 rounded-2xl px-2 py-1.5", t.done ? "bg-teal-100/70" : "bg-sand-50")}>
+              <button type="button" onClick={() => onToggle(t.id)} aria-pressed={t.done} className="tap flex min-h-11 flex-1 items-center gap-3 px-1 text-left">
                 <span
                   className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2",
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2",
                     t.done ? "border-teal-500 bg-teal-500 text-white" : "border-sand-300 bg-white text-transparent",
                   )}
                 >
-                  <CheckIcon width={14} height={14} />
+                  <CheckIcon width={16} height={16} />
                 </span>
-                <span className={cn("text-[15px] font-semibold", t.done ? "text-ink-muted line-through" : "text-ink")}>{t.text}</span>
+                <span className={cn("text-[15px] font-bold leading-snug", t.done ? "text-teal-700" : "text-ink")}>{t.text}</span>
               </button>
               {!t.done && onCarryOver && (
                 <button type="button" onClick={() => onCarryOver(t.id)} className="btn-icon h-9 w-9" title="Move to tomorrow" aria-label="Move to tomorrow">
@@ -66,14 +61,7 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete, onCarryOver
           submit();
         }}
       >
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. finish Physics homework"
-          className="field"
-          enterKeyHint="done"
-          autoComplete="off"
-        />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. finish Physics homework" className="field" enterKeyHint="done" autoComplete="off" />
         <button type="submit" className="btn-primary px-4" aria-label="Add to-do" disabled={!text.trim()}>
           <PlusIcon />
         </button>

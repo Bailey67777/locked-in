@@ -9,6 +9,7 @@ import TodayView from "./TodayView";
 import CalendarView from "./CalendarView";
 import TrendsView from "./TrendsView";
 import SettingsView from "./SettingsView";
+import PhotoWall from "./PhotoWall";
 
 type Tab = "today" | "calendar" | "trends" | "settings";
 
@@ -53,7 +54,7 @@ export default function AppShell() {
       {/* Sky header */}
       <div className="bg-gradient-to-b from-ocean-100 via-sand-100 to-sand-50">
         <div className="pt-safe" />
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 pb-2 pt-3 lg:max-w-3xl">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 pb-2 pt-3 lg:max-w-5xl">
           <div className="flex items-center gap-2">
             <WaveMark />
             <span className="text-lg font-extrabold tracking-tight text-ocean-900">Locked In</span>
@@ -79,22 +80,27 @@ export default function AppShell() {
         <WaveDivider />
       </div>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-1 md:pb-12 lg:max-w-3xl">
-        {!ready ? (
-          <div className="flex flex-col gap-4">
-            <div className="h-14 animate-pulse rounded-2xl bg-sand-100" />
-            <div className="h-40 animate-pulse rounded-3xl bg-sand-100" />
-            <div className="h-64 animate-pulse rounded-3xl bg-sand-100" />
-          </div>
-        ) : tab === "today" ? (
-          <TodayView />
-        ) : tab === "calendar" ? (
-          <CalendarView />
-        ) : tab === "trends" ? (
-          <TrendsView />
-        ) : (
-          <SettingsView />
-        )}
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-1 md:pb-12 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10">
+        <div className="min-w-0">
+          {!ready ? (
+            <div className="flex flex-col gap-4">
+              <div className="h-14 animate-pulse rounded-2xl bg-sand-100" />
+              <div className="h-40 animate-pulse rounded-3xl bg-sand-100" />
+              <div className="h-64 animate-pulse rounded-3xl bg-sand-100" />
+            </div>
+          ) : tab === "today" ? (
+            <TodayView />
+          ) : tab === "calendar" ? (
+            <CalendarView />
+          ) : tab === "trends" ? (
+            <TrendsView />
+          ) : (
+            <SettingsView />
+          )}
+        </div>
+        <div className="hidden lg:block">
+          <PhotoWall />
+        </div>
       </main>
 
       {/* Bottom nav (phone) */}

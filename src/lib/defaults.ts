@@ -5,35 +5,34 @@ import type { HabitDef } from "./types";
  * Fully editable in Settings; this is only the starting point.
  */
 export const DEFAULT_HABITS: HabitDef[] = [
-  { id: "wake-outside", name: "Up on time, outside with water before the phone" },
-  { id: "mobility", name: "10 min mobility + slow breathing" },
-  { id: "move", name: "Train or move: basketball, gym or a real walk" },
-  { id: "real-food", name: "Real meals, no rules, no guilt" },
-  { id: "study-block", name: "One focused study block, phone in another room" },
-  { id: "wind-down", name: "Dim evening, phone out of the bedroom, lights out on time" },
+  { id: "wake-outside", name: "Up on time, outside with water before the phone", emoji: "🌅", color: "#ef8a3c", time: "06:50", sound: "chime" },
+  { id: "mobility", name: "10 min mobility + slow breathing", emoji: "🧘", color: "#1f9a8a", time: "07:00", sound: "bubble" },
+  { id: "move", name: "Train or move: basketball, gym or a real walk", emoji: "🏀", color: "#d95f18", time: "16:00", sound: "coin" },
+  { id: "real-food", name: "Real meals, no rules, no guilt", emoji: "🍳", color: "#5b8c00", time: "18:00", sound: "pop" },
+  { id: "study-block", name: "One focused study block, phone in another room", emoji: "📐", color: "#1a6fd1", time: "19:00", sound: "levelup" },
+  { id: "wind-down", name: "Dim evening, phone out of the bedroom, lights out on time", emoji: "🌙", color: "#6b4fbb", time: "21:30", sound: "ding" },
 ];
 
 export const DEFAULT_NAME = "Hugo";
 
-export const ONE_LINERS = [
-  "Outside first. Phone last.",
-  "Confidence is evidence. Today is a deposit.",
-  "The basics, done boringly, beat everything.",
-  "Do the block. Then enjoy the evening.",
-  "Comfort is the trap. Pick the harder rep.",
-  "Bright mornings, dark evenings, same bedtime.",
-  "Real food, real friends, real dopamine.",
-  "Six things. Nothing else. Every day.",
-  "Grade the day on the process, not the future.",
-  "No hacks needed. Just the reps.",
-  "Water, sky, breath. Then the day can start.",
-  "Show up early, warm up properly, play to get better.",
-  "Hard things feel good afterwards. That is the point.",
-  "One honest effort beats three half ones.",
+/** Colours you can give a habit. */
+export const HABIT_COLORS: { name: string; hex: string }[] = [
+  { name: "Ocean", hex: "#1a6fd1" },
+  { name: "Teal", hex: "#1f9a8a" },
+  { name: "Sunset", hex: "#d95f18" },
+  { name: "Peach", hex: "#ef8a3c" },
+  { name: "Lime", hex: "#5b8c00" },
+  { name: "Grape", hex: "#6b4fbb" },
+  { name: "Coral", hex: "#d9435f" },
+  { name: "Sky", hex: "#3f9bd0" },
+  { name: "Gold", hex: "#c99a06" },
+  { name: "Slate", hex: "#46596a" },
 ];
 
-export function oneLinerFor(dateKey: string): string {
-  let h = 0;
-  for (let i = 0; i < dateKey.length; i++) h = (h * 31 + dateKey.charCodeAt(i)) >>> 0;
-  return ONE_LINERS[h % ONE_LINERS.length];
-}
+export const DEFAULT_COLOR = "#1a6fd1";
+
+export const EMOJI_SUGGESTIONS = [
+  "🌅", "☀️", "🌊", "🏄", "🏀", "🏋️", "🏃", "🚴", "🧘", "🫁", "💧", "🥤", "🍳", "🥩", "🥗", "🍎",
+  "📐", "📚", "✏️", "🧠", "🎯", "⏰", "📵", "🌙", "😴", "🛏️", "🕯️", "🧊", "🔥", "💪", "🧹", "🎧",
+  "🎸", "🎮", "🐶", "🌳", "🚶", "🤝", "😁", "⭐",
+];
