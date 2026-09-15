@@ -33,7 +33,7 @@ export default function HabitChecklist({ habits, settings, streaks = {}, onToggl
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
                 style={{ borderColor: look.color, backgroundColor: h.done ? look.color : "#ffffff" }}
               >
-                <span className="text-lg leading-none">{look.emoji}</span>
+                {!h.done && <span className="text-lg leading-none">{look.emoji}</span>}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-bold leading-snug text-ink">{h.name}</span>
