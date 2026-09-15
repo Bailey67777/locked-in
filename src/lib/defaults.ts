@@ -31,6 +31,12 @@ export const HABIT_COLORS: { name: string; hex: string }[] = [
 
 export const DEFAULT_COLOR = "#1a6fd1";
 
+/** Assigned round-robin to any habit that doesn't have its own emoji yet. Deliberately no checkmarks. */
+export const AUTO_EMOJIS = [
+  "🌊", "🔥", "⭐", "💪", "🎯", "📚", "🧠", "☀️", "🌙", "🏀",
+  "🧘", "🍎", "💧", "🎧", "🐶", "🌳", "⏰", "🚶", "🎮", "😁",
+];
+
 export const EMOJI_SUGGESTIONS = [
   "🌅", "☀️", "🌊", "🏄", "🏀", "🏋️", "🏃", "🚴", "🧘", "🫁", "💧", "🥤", "🍳", "🥩", "🥗", "🍎",
   "📐", "📚", "✏️", "🧠", "🎯", "⏰", "📵", "🌙", "😴", "🛏️", "🕯️", "🧊", "🔥", "💪", "🧹", "🎧",

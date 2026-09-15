@@ -1,5 +1,5 @@
 import type { AppData, DayHabit, DayRecord, HabitDef, Settings, Todo } from "./types";
-import { DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
+import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
 export function uid(): string {
@@ -71,8 +71,13 @@ export function normalizeSettings(raw: unknown): Settings {
   const habits = asArray<unknown>(r.habits)
     .map(normalizeHabitDef)
     .filter((h): h is HabitDef => h !== null)
-    // Habits saved before colours/sounds existed get a varied default by position, so a long list isn't all one colour.
-    .map((h, i) => ({ ...h, color: h.color ?? HABIT_COLORS[i % HABIT_COLORS.length].hex, sound: h.sound ?? SOUND_IDS[i % SOUND_IDS.length] }));
+    // Habits saved before emoji/colour/sound existed get a varied default by position, so a long list isn't all checkmarks or one colour.
+    .map((h, i) => ({
+      ...h,
+      emoji: h.emoji ?? AUTO_EMOJIS[i % AUTO_EMOJIS.length],
+      color: h.color ?? HABIT_COLORS[i % HABIT_COLORS.length].hex,
+      sound: h.sound ?? SOUND_IDS[i % SOUND_IDS.length],
+    }));
   return {
     name: typeof r.name === "string" && r.name.trim() ? r.name : DEFAULT_NAME,
     habits: sortHabits(habits.length ? habits : DEFAULT_HABITS.map((h) => ({ ...h }))),
@@ -122,7 +127,8 @@ export function materializeDay(
 export function habitLook(id: string, settings: Settings): { emoji: string; color: string; sound: string; time?: string } {
   const def = settings.habits.find((h) => h.id === id);
   return {
-    emoji: def?.emoji ?? "✅",
+    // Habit no longer in the list (only happens looking at old days): a neutral dot, never a checkmark.
+    emoji: def?.emoji ?? "🔹",
     color: def?.color ?? DEFAULT_COLOR,
     sound: def?.sound ?? "pop",
     time: def?.time,

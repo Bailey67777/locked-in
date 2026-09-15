@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { uid } from "@/lib/model";
-import { DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
+import { AUTO_EMOJIS, DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
 import { SOUNDS, playSound } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
@@ -41,7 +41,8 @@ export default function SettingsView() {
     if (!name) return;
     const sound = SOUNDS[habits.length % SOUNDS.length].id;
     const color = HABIT_COLORS[habits.length % HABIT_COLORS.length].hex;
-    updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name, emoji: "✅", color, sound }] }));
+    const emoji = AUTO_EMOJIS[habits.length % AUTO_EMOJIS.length];
+    updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name, emoji, color, sound }] }));
     setNewHabit("");
   };
 
@@ -77,7 +78,7 @@ export default function SettingsView() {
                     aria-label="Change emoji"
                     title="Change emoji"
                   >
-                    {h.emoji ?? "✅"}
+                    {h.emoji ?? "🔹"}
                   </button>
                   <AutoTextarea
                     value={h.name}
