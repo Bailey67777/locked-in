@@ -3,7 +3,6 @@
 import type { DayHabit, Settings } from "@/lib/types";
 import { habitLook } from "@/lib/model";
 import { cn } from "@/lib/cn";
-import { CheckIcon } from "./Icons";
 
 type Props = {
   habits: DayHabit[];
@@ -31,16 +30,13 @@ export default function HabitChecklist({ habits, settings, streaks = {}, onToggl
               style={h.done ? { backgroundColor: `${look.color}1c` } : undefined}
             >
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-white transition-colors"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
                 style={{ borderColor: look.color, backgroundColor: h.done ? look.color : "#ffffff" }}
               >
-                {h.done ? <CheckIcon /> : <span className="text-lg leading-none">{look.emoji}</span>}
+                <span className="text-lg leading-none">{look.emoji}</span>
               </span>
               <span className="min-w-0 flex-1">
-                <span className={cn("block text-[15px] font-bold leading-snug", h.done ? "text-ink" : "text-ink")}>
-                  {h.done && <span className="mr-1">{look.emoji}</span>}
-                  {h.name}
-                </span>
+                <span className="block text-[15px] font-bold leading-snug text-ink">{h.name}</span>
                 {look.time && <span className="text-[11px] font-bold text-ink-muted">{look.time}</span>}
               </span>
               {streak >= 2 && (
