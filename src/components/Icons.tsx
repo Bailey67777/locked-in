@@ -90,23 +90,49 @@ export function TrashIcon(p: P) {
 }
 
 export function WaveMark(p: P) {
+  // Same picture as public/icons/icon.svg: sun, grass, someone standing by the lake.
   return (
-    <svg viewBox="0 0 64 64" width="28" height="28" {...p}>
+    <svg viewBox="0 0 512 512" width="28" height="28" {...p}>
       <defs>
-        <linearGradient id="wm-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fbe3c4" />
-          <stop offset="0.6" stopColor="#f6b26b" />
+        <linearGradient id="lg-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#bfe3f7" />
+          <stop offset="0.7" stopColor="#e9f3fa" />
+          <stop offset="1" stopColor="#f6ead2" />
+        </linearGradient>
+        <linearGradient id="lg-lake" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4aa7dc" />
           <stop offset="1" stopColor="#1a6fd1" />
         </linearGradient>
-        <linearGradient id="wm-sea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3f9bd0" />
-          <stop offset="1" stopColor="#0b2a47" />
+        <linearGradient id="lg-grass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#7cc242" />
+          <stop offset="1" stopColor="#4e9a2a" />
         </linearGradient>
+        <clipPath id="lg-clip">
+          <rect width="512" height="512" rx="112" />
+        </clipPath>
       </defs>
-      <rect width="64" height="64" rx="16" fill="url(#wm-sky)" />
-      <circle cx="32" cy="28" r="11" fill="#fff4d6" />
-      <path d="M0 38 C 8 34, 16 34, 24 38 S 40 42, 48 38 S 60 34, 64 38 L64 64 L0 64 Z" fill="url(#wm-sea)" />
-      <path d="M0 44 C 8 40, 16 40, 24 44 S 40 48, 48 44 S 60 40, 64 44" fill="none" stroke="#fbf7f0" strokeWidth="2.5" strokeLinecap="round" opacity="0.8" />
+      <g clipPath="url(#lg-clip)">
+        <rect width="512" height="512" fill="url(#lg-sky)" />
+        <g stroke="#f6a623" strokeWidth="14" strokeLinecap="round">
+          <line x1="128" y1="40" x2="128" y2="10" /><line x1="128" y1="246" x2="128" y2="216" />
+          <line x1="25" y1="128" x2="-5" y2="128" /><line x1="231" y1="128" x2="261" y2="128" />
+          <line x1="55" y1="55" x2="34" y2="34" /><line x1="201" y1="201" x2="222" y2="222" />
+          <line x1="55" y1="201" x2="34" y2="222" /><line x1="201" y1="55" x2="222" y2="34" />
+        </g>
+        <circle cx="128" cy="128" r="70" fill="#ffd54a" stroke="#f6a623" strokeWidth="10" />
+        <ellipse cx="420" cy="330" rx="260" ry="90" fill="#9ad06a" />
+        <path d="M0 340 C 90 318, 180 318, 270 340 S 440 362, 512 340 L512 512 L0 512 Z" fill="url(#lg-grass)" />
+        <ellipse cx="380" cy="415" rx="150" ry="62" fill="url(#lg-lake)" />
+        <path d="M262 405 C 300 396, 340 396, 380 405 S 460 414, 500 405" fill="none" stroke="#dff1fb" strokeWidth="7" strokeLinecap="round" opacity="0.9" />
+        <g stroke="#1b2a36" strokeWidth="12" strokeLinecap="round" fill="none">
+          <circle cx="160" cy="310" r="28" fill="#fbf7f0" />
+          <line x1="160" y1="338" x2="160" y2="420" />
+          <line x1="160" y1="360" x2="118" y2="392" />
+          <line x1="160" y1="360" x2="206" y2="330" />
+          <line x1="160" y1="420" x2="130" y2="476" />
+          <line x1="160" y1="420" x2="192" y2="476" />
+        </g>
+      </g>
     </svg>
   );
 }

@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { uid } from "@/lib/model";
 import { AUTO_EMOJIS, DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
-import { SOUNDS, playSound } from "@/lib/sounds";
+import { SOUNDS, pickSoundForHabit, playSound, randomSound, soundById } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
@@ -39,7 +39,7 @@ export default function SettingsView() {
   const add = () => {
     const name = newHabit.trim();
     if (!name) return;
-    const sound = SOUNDS[habits.length % SOUNDS.length].id;
+    const sound = pickSoundForHabit(name, habits.map((h) => h.sound));
     const color = HABIT_COLORS[habits.length % HABIT_COLORS.length].hex;
     const emoji = AUTO_EMOJIS[habits.length % AUTO_EMOJIS.length];
     updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name, emoji, color, sound }] }));
@@ -196,7 +196,7 @@ export default function SettingsView() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-extrabold text-ink">Sounds</h2>
-            <p className="text-sm font-semibold text-ink-muted">Little noises when you tick things. Silent mode on your phone still mutes them.</p>
+            <p className="text-sm font-semibold text-ink-muted">Fifty long, daft noises. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
           </div>
           <button
             type="button"
@@ -261,6 +261,7 @@ export default function SettingsView() {
 }
 
 function SoundPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const current = soundById(value);
   return (
     <span className="flex items-center gap-1">
       <select
@@ -269,17 +270,30 @@ function SoundPicker({ value, onChange }: { value: string; onChange: (id: string
           onChange(e.target.value);
           playSound(e.target.value);
         }}
-        className="rounded-lg border border-sand-200 bg-white px-2 py-1 text-sm font-bold text-ink"
+        className="max-w-[11rem] rounded-lg border border-sand-200 bg-white px-2 py-1 text-sm font-bold text-ink"
         aria-label="Sound"
       >
         {SOUNDS.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.emoji} {s.name}
+            {s.emoji} {s.name} · {s.dur}s
           </option>
         ))}
       </select>
-      <button type="button" className="btn-icon h-8 w-8 text-base" onClick={() => playSound(value)} aria-label="Play sound" title="Play">
+      <button type="button" className="btn-icon h-8 w-8 text-base" onClick={() => playSound(value)} aria-label={`Play ${current.name}`} title="Play">
         ▶
+      </button>
+      <button
+        type="button"
+        className="btn-icon h-8 w-8 text-base"
+        onClick={() => {
+          const next = randomSound(value);
+          onChange(next);
+          playSound(next);
+        }}
+        aria-label="Random sound"
+        title="Surprise me"
+      >
+        🎲
       </button>
     </span>
   );

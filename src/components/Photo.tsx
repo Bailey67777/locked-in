@@ -32,6 +32,11 @@ export default function Photo({ src, alt, className, variant = "hero" }: Props) 
         <img
           src={src}
           alt={alt}
+          // Small images can finish loading before React attaches onLoad (especially from the service-worker
+          // cache), so also check the already-complete state the moment the element mounts.
+          ref={(el) => {
+            if (el && el.complete && state === "loading") setState(el.naturalWidth > 0 ? "ok" : "missing");
+          }}
           onLoad={() => setState("ok")}
           onError={() => setState("missing")}
           className={cn(

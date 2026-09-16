@@ -1,5 +1,12 @@
-
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+// The Locked In logo: sun, grass, a stick figure standing on the grass next to a lake.
+// Used by gen-icons.mjs (PNG icons) and mirrored in src/components/Icons.tsx (inline SVG).
+export function logoSvg({ size = 512, padding = 0, rounded = true } = {}) {
+  const s = size;
+  const p = padding;
+  const inner = s - 2 * p;
+  const rx = rounded && !p ? Math.round(s * 0.22) : 0;
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#bfe3f7"/>
@@ -14,10 +21,10 @@
       <stop offset="0" stop-color="#7cc242"/>
       <stop offset="1" stop-color="#4e9a2a"/>
     </linearGradient>
-    <clipPath id="clip"><rect x="0" y="0" width="512" height="512" rx="113"/></clipPath>
+    <clipPath id="clip"><rect x="${p}" y="${p}" width="${inner}" height="${inner}" rx="${rx}"/></clipPath>
   </defs>
   <g clip-path="url(#clip)">
-    <rect x="0" y="0" width="512" height="512" fill="url(#sky)"/>
+    <rect x="${p}" y="${p}" width="${inner}" height="${inner}" fill="url(#sky)"/>
     <!-- sun with rays -->
     <g stroke="#f6a623" stroke-width="14" stroke-linecap="round">
       <line x1="128" y1="40" x2="128" y2="10"/><line x1="128" y1="246" x2="128" y2="216"/>
@@ -53,4 +60,5 @@
     <path d="M148 316 q12 12 24 0" fill="none" stroke="#1b2a36" stroke-width="5" stroke-linecap="round"/>
     <circle cx="151" cy="304" r="3.5" fill="#1b2a36"/><circle cx="169" cy="304" r="3.5" fill="#1b2a36"/>
   </g>
-</svg>
+</svg>`;
+}

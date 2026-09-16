@@ -173,8 +173,10 @@ Today and future days always follow the current habit list (with ticks preserved
 the snapshot they were saved with, so editing the habit list never rewrites history. Habits with a time are
 kept in time order automatically.
 
-Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`), so there are no audio files
-to host and they work offline. Add a new one by appending to the `SOUNDS` array.
+Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`): fifty of them, 1.5–5 seconds
+each, no audio files to host, works offline. New habits get a random one, biased towards sounds whose `tags`
+match words in the habit name (e.g. "sleep" → snore, "basketball" → bouncy ball). Add a new one by appending to
+the `SOUNDS` array; the 🎲 button in Settings picks a random one.
 
 ## Project layout
 
