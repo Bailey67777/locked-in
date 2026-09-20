@@ -83,3 +83,39 @@ export function greetingFor(d: Date): string {
   if (h < 17) return "Afternoon";
   return "Evening";
 }
+
+/** "90" → "1h 30m" */
+export function formatMins(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+/** "07:30" + 45 → "08:15" (clamped to the same day). */
+export function addMinutes(time: string, mins: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = Math.max(0, Math.min(24 * 60 - 1, h * 60 + m + mins));
+  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+export function nowTime(d = new Date()): string {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Split a millisecond gap into days / hours / minutes / seconds. */
+export function splitDuration(ms: number): { days: number; hours: number; minutes: number; seconds: number } {
+  const total = Math.floor(Math.abs(ms) / 1000);
+  return { days: Math.floor(total / 86400), hours: Math.floor((total % 86400) / 3600), minutes: Math.floor((total % 3600) / 60), seconds: total % 60 };
+}
+
+export function formatDateTime(local: string): string {
+  const d = new Date(local);
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) + " · " + `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

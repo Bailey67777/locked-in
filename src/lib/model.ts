@@ -1,4 +1,4 @@
-import type { AppData, DayHabit, DayRecord, HabitDef, Settings, Todo } from "./types";
+import type { AppData, Countdown, DayHabit, DayRecord, HabitDef, PlanItem, Reminders, Settings, Submission, TierId, Todo } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
@@ -33,6 +33,7 @@ export function normalizeHabitDef(raw: unknown): HabitDef | null {
   if (typeof h.color === "string" && HEX_RE.test(h.color)) def.color = h.color.toLowerCase();
   if (typeof h.time === "string" && TIME_RE.test(h.time)) def.time = h.time;
   if (typeof h.sound === "string" && SOUND_IDS.includes(h.sound)) def.sound = h.sound;
+  if (typeof h.keystone === "boolean") def.keystone = h.keystone;
   return def;
 }
 
@@ -56,6 +57,29 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
   };
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
+  if (typeof r.recall === "string" && r.recall) day.recall = r.recall;
+  if (typeof r.song === "string" && r.song) day.song = r.song;
+  if (typeof r.screenMinutes === "number" && r.screenMinutes >= 0 && r.screenMinutes <= 24 * 60) day.screenMinutes = Math.round(r.screenMinutes);
+  const plan = asArray<Partial<PlanItem>>(r.plan)
+    .filter((p) => typeof p.id === "string" && typeof p.start === "string" && TIME_RE.test(p.start))
+    .map((p) => {
+      const item: PlanItem = {
+        id: p.id as string,
+        title: String(p.title ?? ""),
+        start: p.start as string,
+        mins: Math.max(5, Math.min(24 * 60, Math.round(Number(p.mins) || 30))),
+        done: Boolean(p.done),
+      };
+      if (typeof p.color === "string" && HEX_RE.test(p.color)) item.color = p.color.toLowerCase();
+      if (typeof p.emoji === "string" && p.emoji.trim()) item.emoji = p.emoji.trim().slice(0, 8);
+      return item;
+    })
+    .sort((a, b) => a.start.localeCompare(b.start));
+  if (plan.length) day.plan = plan;
+  const sub = (r.submitted && typeof r.submitted === "object" ? r.submitted : null) as Partial<Submission> | null;
+  if (sub && typeof sub.at === "number" && typeof sub.pct === "number" && TIERS.some((t) => t.id === sub.tier)) {
+    day.submitted = { at: sub.at, pct: Math.max(0, Math.min(100, Math.round(sub.pct))), tier: sub.tier as TierId, keystoneMissed: Boolean(sub.keystoneMissed) };
+  }
   return day;
 }
 
@@ -74,6 +98,8 @@ export function normalizeSettings(raw: unknown): Settings {
     // Habits saved before emoji/colour/sound existed get a varied default by position, so a long list isn't all checkmarks or one colour.
     .map((h, i) => ({
       ...h,
+      // The one habit that matters most: anything with "goon" in its name is a must-do unless you say otherwise.
+      keystone: h.keystone ?? /goon/i.test(h.name),
       emoji: h.emoji ?? AUTO_EMOJIS[i % AUTO_EMOJIS.length],
       color: h.color ?? HABIT_COLORS[i % HABIT_COLORS.length].hex,
       sound: h.sound ?? SOUND_IDS[i % SOUND_IDS.length],
@@ -84,7 +110,64 @@ export function normalizeSettings(raw: unknown): Settings {
     soundsOn: typeof r.soundsOn === "boolean" ? r.soundsOn : true,
     dayCompleteSound: typeof r.dayCompleteSound === "string" && SOUND_IDS.includes(r.dayCompleteSound) ? r.dayCompleteSound : DEFAULT_DAY_COMPLETE_SOUND,
     todoSound: typeof r.todoSound === "string" && SOUND_IDS.includes(r.todoSound) ? r.todoSound : DEFAULT_TODO_SOUND,
+    countdowns: asArray<Partial<Countdown>>(r.countdowns)
+      .filter((c) => typeof c.id === "string" && typeof c.at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(c.at))
+      .map((c) => {
+        const cd: Countdown = { id: c.id as string, title: String(c.title ?? "Countdown"), at: c.at as string, color: typeof c.color === "string" && HEX_RE.test(c.color) ? c.color.toLowerCase() : DEFAULT_COLOR };
+        if (typeof c.emoji === "string" && c.emoji.trim()) cd.emoji = c.emoji.trim().slice(0, 8);
+        return cd;
+      }),
+    reminders: normalizeReminders(r.reminders),
   };
+}
+
+export function normalizeReminders(raw: unknown): Reminders {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    browser: r.browser === true,
+    ntfy: r.ntfy === true,
+    ntfyTopic: typeof r.ntfyTopic === "string" ? r.ntfyTopic.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) : "",
+    submitTime: typeof r.submitTime === "string" && TIME_RE.test(r.submitTime) ? r.submitTime : "21:00",
+  };
+}
+
+/* ---------- submitting a day ---------- */
+
+export const TIERS: { id: TierId; min: number; label: string; blurb: string; emoji: string; file: string }[] = [
+  { id: "t80", min: 80, label: "Locked in", blurb: "80–100%. You earned the good one.", emoji: "🎸", file: "day-80-100" },
+  { id: "t50", min: 50, label: "Halfway house", blurb: "50–79%. Decent, not done.", emoji: "😐", file: "day-50-80" },
+  { id: "t25", min: 25, label: "Slipping", blurb: "25–49%. That's a punishment.", emoji: "😬", file: "day-25-50" },
+  { id: "t0", min: 0, label: "Rock bottom", blurb: "Under 25%, or the must-do habit was missed.", emoji: "💀", file: "day-0-25" },
+];
+
+export function tierById(id: TierId) {
+  return TIERS.find((t) => t.id === id) ?? TIERS[TIERS.length - 1];
+}
+
+/** Must-do habits on this day that aren't ticked. */
+export function missedKeystones(day: DayRecord, settings: Settings): DayHabit[] {
+  const keystoneIds = new Set(settings.habits.filter((h) => h.keystone).map((h) => h.id));
+  return day.habits.filter((h) => !h.done && (keystoneIds.has(h.id) || (!settings.habits.some((d) => d.id === h.id) && /goon/i.test(h.name))));
+}
+
+/** Which tier a day lands in: percentage of habits + to-dos, but a missed must-do habit means rock bottom. */
+export function tierFor(day: DayRecord, settings: Settings): { tier: TierId; pct: number; keystoneMissed: boolean } {
+  const pct = dayProgress(day).pct;
+  const keystoneMissed = missedKeystones(day, settings).length > 0;
+  if (keystoneMissed) return { tier: "t0", pct, keystoneMissed };
+  const tier = TIERS.find((t) => pct >= t.min) ?? TIERS[TIERS.length - 1];
+  return { tier: tier.id, pct, keystoneMissed };
+}
+
+/** Firebase rejects `undefined`; strip it (deeply) before writing. */
+export function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((v) => stripUndefined(v)) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) if (v !== undefined) out[k] = stripUndefined(v);
+    return out as T;
+  }
+  return value;
 }
 
 export function normalizeDays(raw: unknown): Record<string, DayRecord> {
@@ -154,6 +237,10 @@ export function dayHasEntry(day: DayRecord | undefined): boolean {
     day.ratings.health > 0 ||
     day.ratings.happy > 0 ||
     day.journal.trim().length > 0 ||
+    Boolean(day.recall?.trim()) ||
+    Boolean(day.song?.trim()) ||
+    Boolean(day.plan?.length) ||
+    Boolean(day.submitted) ||
     Boolean(day.thumb)
   );
 }

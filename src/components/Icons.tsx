@@ -136,3 +136,60 @@ export function WaveMark(p: P) {
     </svg>
   );
 }
+
+export function PlanIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M6 3v18" />
+      <circle cx="6" cy="7" r="2" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="17" r="2" fill="currentColor" stroke="none" />
+      <rect x="11" y="4" width="10" height="6" rx="2" />
+      <rect x="11" y="14" width="7" height="6" rx="2" />
+    </svg>
+  );
+}
+
+export function JournalIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4z" />
+      <path d="M5 18a2 2 0 0 1 2-2h12M9 8h6M9 12h4" />
+    </svg>
+  );
+}
+
+export function DailyIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3z" />
+      <path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9L18 15zM5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6L5 15z" />
+    </svg>
+  );
+}
+
+export function HourglassIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />
+    </svg>
+  );
+}
+
+export function MoreIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function LockIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <rect x="5" y="11" width="14" height="10" rx="2.5" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}

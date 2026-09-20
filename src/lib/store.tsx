@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { get, onValue, ref, remove, set } from "firebase/database";
 import type { AppData, DayRecord, Settings } from "./types";
-import { materializeDay, normalizeData, normalizeDays, normalizeSettings, sortHabits } from "./model";
+import { materializeDay, normalizeData, normalizeDays, normalizeSettings, sortHabits, stripUndefined } from "./model";
 import { addDays, todayKey } from "./dates";
 import { DATA_PATH, getDb } from "./firebase";
 
@@ -141,8 +141,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     (date: string, fn: (day: DayRecord) => DayRecord) => {
       const prev = dataRef.current;
       const current = materializeDay(date, prev.days[date], prev.settings, todayRef.current || date);
-      const nextDay: DayRecord = { ...fn(current), date, updatedAt: Date.now() };
-      if (!nextDay.thumb) delete nextDay.thumb; // Firebase rejects undefined values
+      const nextDay: DayRecord = stripUndefined({ ...fn(current), date, updatedAt: Date.now() }); // Firebase rejects undefined values
+      if (!nextDay.thumb) delete nextDay.thumb;
       commit({ ...prev, days: { ...prev.days, [date]: nextDay } });
       pushDay(date, nextDay);
     },
@@ -154,16 +154,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       const prev = dataRef.current;
       const next = fn(prev.settings);
       // Strip undefined fields (Firebase rejects them) and keep timed habits in time order.
-      const settings: Settings = {
-        ...next,
-        habits: sortHabits(
-          next.habits.map((h) => {
-            const clean = { ...h };
-            (Object.keys(clean) as (keyof typeof clean)[]).forEach((k) => clean[k] === undefined && delete clean[k]);
-            return clean;
-          }),
-        ),
-      };
+      const settings: Settings = stripUndefined({ ...next, habits: sortHabits(next.habits) });
       commit({ ...prev, settings });
       const db = dbRef.current;
       if (db) set(ref(db, `${DATA_PATH}/settings`), settings).catch(() => undefined);

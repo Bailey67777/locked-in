@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { formatLong, monthGrid, monthLabel, parseKey } from "@/lib/dates";
-import { dayHasEntry, dayProgress, hasRatings } from "@/lib/model";
+import { dayHasEntry, dayProgress, hasRatings, tierById } from "@/lib/model";
 import { cn } from "@/lib/cn";
 import { ChevronIcon, CloseIcon } from "./Icons";
 import DayEditor from "./DayEditor";
@@ -103,6 +103,7 @@ export default function CalendarView() {
                 ) : (
                   <>
                     <span className="tabular-nums">{parseKey(key).getDate()}</span>
+                    {stored?.submitted && <span className="absolute right-0.5 top-0.5 text-[10px] leading-none">{tierById(stored.submitted.tier).emoji}</span>}
                     {(hasRatings(stored) || (stored && stored.journal.trim())) && (
                       <span className={cn("absolute bottom-1.5 h-1.5 w-1.5 rounded-full", pct >= 60 ? "bg-white/90" : "bg-sunset-500")} />
                     )}
@@ -118,6 +119,7 @@ export default function CalendarView() {
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-400" /> most done</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-teal-500" /> all done</span>
           <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-sunset-500" /> rated / journaled</span>
+          <span className="flex items-center gap-1.5">🎸 😐 😬 💀 submitted</span>
         </div>
       </section>
 

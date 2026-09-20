@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { dayProgress, habitLook, habitsComplete, uid } from "@/lib/model";
 import { habitStreak } from "@/lib/stats";
-import { haptic, playSound } from "@/lib/sounds";
+import { haptic, playSound, prewarmSounds } from "@/lib/sounds";
 import HabitChecklist from "./HabitChecklist";
 import TodoList from "./TodoList";
 import ProgressRing from "./ProgressRing";
@@ -12,6 +12,9 @@ import RatingBar from "./RatingBar";
 import Journal from "./Journal";
 import DayPhoto from "./DayPhoto";
 import Confetti from "./Confetti";
+import SubmitDay from "./SubmitDay";
+import DebouncedInput from "./DebouncedInput";
+import { cn } from "@/lib/cn";
 
 type Props = { date: string; compact?: boolean };
 
@@ -24,6 +27,14 @@ export default function DayEditor({ date, compact = false }: Props) {
   const settings = data.settings;
   const [celebrating, setCelebrating] = useState(false);
   const celebrateTimer = useRef<number | null>(null);
+  const locked = Boolean(day.submitted);
+
+  // Render this day's sounds in the background so the first tap plays instantly.
+  const soundIds = settings.habits.map((h) => h.sound).join(",");
+  useEffect(() => {
+    if (!settings.soundsOn) return;
+    prewarmSounds([...soundIds.split(","), settings.todoSound, settings.dayCompleteSound]);
+  }, [soundIds, settings.soundsOn, settings.todoSound, settings.dayCompleteSound]);
 
   const streaks = useMemo(() => {
     const out: Record<string, number> = {};
@@ -32,6 +43,7 @@ export default function DayEditor({ date, compact = false }: Props) {
   }, [data.days, day.habits, date]);
 
   const toggleHabit = (id: string) => {
+    if (locked) return;
     const wasComplete = habitsComplete(day);
     const target = day.habits.find((h) => h.id === id);
     const turningOn = target ? !target.done : false;
@@ -52,6 +64,7 @@ export default function DayEditor({ date, compact = false }: Props) {
   };
 
   const toggleTodo = (id: string) => {
+    if (locked) return;
     const t = day.todos.find((x) => x.id === id);
     if (t && !t.done) {
       haptic(10);
@@ -87,9 +100,9 @@ export default function DayEditor({ date, compact = false }: Props) {
         </div>
       </section>
 
-      <section className="card p-4 md:p-5">
+      <section className={cn("card p-4 md:p-5", locked && "pointer-events-none opacity-75")}>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-extrabold text-ink">Core habits</h2>
+          <h2 className="text-lg font-extrabold text-ink">Core habits{locked ? " · locked" : ""}</h2>
           <span className="text-sm font-bold text-ink-muted">
             {day.habits.filter((h) => h.done).length}/{day.habits.length}
           </span>
@@ -97,9 +110,9 @@ export default function DayEditor({ date, compact = false }: Props) {
         <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
       </section>
 
-      <section className="card p-4 md:p-5">
+      <section className={cn("card p-4 md:p-5", locked && "pointer-events-none opacity-75")}>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-extrabold text-ink">To-do</h2>
+          <h2 className="text-lg font-extrabold text-ink">To-do{locked ? " · locked" : ""}</h2>
           <span className="text-sm font-bold text-ink-muted">just for this day</span>
         </div>
         <TodoList
@@ -121,6 +134,50 @@ export default function DayEditor({ date, compact = false }: Props) {
           <RatingBar label="Health" hint="sleep, food, movement" tone="teal" value={day.ratings.health} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, health: v } }))} />
           <RatingBar label="Happiness" hint="mood, people, energy" tone="sunset" value={day.ratings.happy} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, happy: v } }))} />
         </div>
+        <div className="mt-5 grid gap-4 border-t border-sand-100 pt-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-sm font-extrabold text-ink">🎵 Song of the day</span>
+            <DebouncedInput key={`song-${date}`} value={day.song ?? ""} onSave={(song) => updateDay(date, (d) => ({ ...d, song: song || undefined }))} placeholder="Artist – track" ariaLabel="Song of the day" />
+          </label>
+          <div>
+            <span className="mb-1 block text-sm font-extrabold text-ink">📱 Screen time</span>
+            <div className="flex items-center gap-2">
+              <select
+                className="field w-auto py-3"
+                aria-label="Screen time hours"
+                value={typeof day.screenMinutes === "number" ? Math.floor(day.screenMinutes / 60) : ""}
+                onChange={(e) => {
+                  const h = e.target.value === "" ? null : Number(e.target.value);
+                  updateDay(date, (d) => ({ ...d, screenMinutes: h === null ? undefined : h * 60 + ((d.screenMinutes ?? 0) % 60) }));
+                }}
+              >
+                <option value="">–</option>
+                {Array.from({ length: 17 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i}h
+                  </option>
+                ))}
+              </select>
+              <select
+                className="field w-auto py-3"
+                aria-label="Screen time minutes"
+                value={typeof day.screenMinutes === "number" ? day.screenMinutes % 60 - (day.screenMinutes % 5) : ""}
+                onChange={(e) => {
+                  const m = e.target.value === "" ? 0 : Number(e.target.value);
+                  updateDay(date, (d) => ({ ...d, screenMinutes: Math.floor((d.screenMinutes ?? 0) / 60) * 60 + m }));
+                }}
+              >
+                <option value="">–</option>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i} value={i * 5}>
+                    {i * 5}m
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-1 text-[11px] font-semibold text-ink-muted">Read it off Settings → Screen Time on your phone.</p>
+          </div>
+        </div>
       </section>
 
       <DayPhoto date={date} />
@@ -132,6 +189,8 @@ export default function DayEditor({ date, compact = false }: Props) {
         </div>
         <Journal key={date} value={day.journal} onSave={(journal) => updateDay(date, (d) => ({ ...d, journal }))} />
       </section>
+
+      <SubmitDay date={date} />
     </div>
   );
 }

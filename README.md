@@ -5,13 +5,17 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 
 **What's in it**
 
-- **Today** – greeting and day streak, banner photo, your core habits (each with its own emoji, colour, time and tick sound),
-  a per-day to-do list (with "move to tomorrow"), a progress ring, three 1–10 ratings (Day / Health / Happiness),
-  a photo of the day, and a mini journal. Confetti and a fanfare when every habit is ticked.
-- **Calendar** – month view shaded by completion; days with a photo show it as their tile. Tap any past or future day to view and edit it.
-- **Trends** – streaks, this-week-vs-last-week, plain-English insights from your own numbers, ratings line chart (7 / 30 days),
-  per-habit completion bars with streaks, and a habit heatmap.
-- **Settings** – rename, reorder, add or remove habits; set each one's emoji, colour, time of day and sound; toggle sounds; your name; sync status.
+- **Today** – greeting and day streak, banner photo, core habits (each with its own emoji, colour, time and tick sound),
+  a per-day to-do list, a progress ring, three 1–10 ratings, song of the day, screen time, a photo of the day, a mini journal,
+  and **Submit day**: locks the ticks, works out your tier from habits + to-dos, and plays that tier's video.
+  A ⭐ must-do habit (anything with "goon" in its name by default) sends the day straight to the bottom tier if missed.
+- **Plan** – a rough Structured-style timeline for any day: blocks with a start, length, colour and emoji; tick them off at night.
+- **Journal** – the journal plus **active recall** (write what you learned from memory), past entries, and a one-tap export to paste into Claude.
+- **Calendar** – month view shaded by completion; photo tiles; tier emoji on submitted days. Tap any day to view and edit it.
+- **Daily** – a health fact, an economics concept with today's BBC / Guardian economics headlines, and a flashback to something you wrote.
+- **Countdowns** – live days / hours / minutes / seconds to anything you add, colour-coded.
+- **Trends** – streaks, this-week-vs-last (including screen time), submitted-day tiers, insights, ratings chart, per-habit bars, heatmap.
+- **Settings** – habits (emoji, colour, time, sound, must-do), sounds, reminders, where to upload videos and photos, sync status.
 - **Laptop** – a photo wall column appears beside the app on wide screens (drop `wall-1.jpg` … `wall-4.jpg` into `public/photos/`).
 
 Works offline for viewing; edits made offline are pushed when you reconnect (as long as the app stays open).
@@ -143,6 +147,27 @@ Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a qui
 
 ---
 
+## Submit-day videos
+
+Upload to `public/media/` on GitHub (any length; GitHub's website caps uploads at 25 MB each):
+
+| Day result                                   | File               |
+| -------------------------------------------- | ------------------ |
+| 80–100%                                      | `day-80-100.mp4`   |
+| 50–79%                                       | `day-50-80.mp4`    |
+| 25–49% (optional, falls back to 0–25)        | `day-25-50.mp4`    |
+| 0–24%, or a ⭐ must-do habit missed           | `day-0-25.mp4`     |
+
+## Reminders
+
+Web push can't reach an iPhone unless the site is installed from Safari, so there are three routes (Settings → Reminders):
+
+1. **ntfy** (real phone push): install the free ntfy app, subscribe to the random topic the app shows you, switch it on.
+   Each time Locked In is opened it schedules the rest of that day's reminders using ntfy's delayed delivery, so nothing
+   needs to be running later. Habit names pass through ntfy.sh, so the topic is random and acts like a password.
+2. **Browser notifications** while a Locked In tab is open (laptop / Android).
+3. **Calendar file**: download an `.ics` of daily repeating alarms and add it to the phone's Calendar.
+
 ## Data model
 
 Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also mirrored to `localStorage`):
@@ -173,8 +198,9 @@ Today and future days always follow the current habit list (with ticks preserved
 the snapshot they were saved with, so editing the habit list never rewrites history. Habits with a time are
 kept in time order automatically.
 
-Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`): fifty of them, 1.5–5 seconds
-each, no audio files to host, works offline. New habits get a random one, biased towards sounds whose `tags`
+Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`): fifty of them, 2–5 seconds
+each, no audio files to host, works offline. Each is rendered offline, measured, normalised to the same loudness and
+soft-limited, so they all play at one (boosted) volume. New habits get a random one, biased towards sounds whose `tags`
 match words in the habit name (e.g. "sleep" → snore, "basketball" → bouncy ball). Add a new one by appending to
 the `SOUNDS` array; the 🎲 button in Settings picks a random one.
 
@@ -183,7 +209,9 @@ the `SOUNDS` array; the 🎲 button in Settings picks a random one.
 ```
 src/app/            layout, page, manifest, global styles, icons
 src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
-src/lib/            types, dates, model (normalise/materialise days), stats (streaks, insights), sounds, images, store (state + Firebase), firebase
+src/lib/            types, dates, model (normalise days, tiers), stats, sounds, images, daily (facts + econ cards), reminders, store, firebase
+src/app/api/        econ-news (server-side fetch of economics headlines)
+public/media/       your submit-day videos
 public/sw.js        service worker (offline app shell)
 public/icons/       PWA icons (regenerate with `node scripts/gen-icons.mjs`)
 public/photos/      your photos

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { askBrowserPermission, browserNotificationsSupported, buildIcs, downloadText, randomTopic, sendTestPush } from "@/lib/reminders";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { uid } from "@/lib/model";
@@ -11,7 +12,9 @@ import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 
 export default function SettingsView() {
-  const { data, updateSettings, sync } = useStore();
+  const { data, updateSettings, sync, today } = useStore();
+  const [pushTest, setPushTest] = useState<"idle" | "sending" | "ok" | "fail">("idle");
+  const [topicCopied, setTopicCopied] = useState(false);
   const settings = data.settings;
   const habits = settings.habits;
   const [newHabit, setNewHabit] = useState("");
@@ -172,6 +175,16 @@ export default function SettingsView() {
                     )}
                   </label>
                   <SoundPicker value={h.sound ?? "pop"} onChange={(sound) => patch(h.id, { sound })} />
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(h.keystone)}
+                    onClick={() => patch(h.id, { keystone: !h.keystone })}
+                    title="If a must-do habit is missed, the submitted day drops straight to the bottom tier"
+                    className={cn("tap rounded-full px-3 py-1 text-xs font-extrabold", h.keystone ? "bg-sunset-500 text-white" : "bg-white text-ink-muted shadow-soft")}
+                  >
+                    {h.keystone ? "⭐ Must-do" : "☆ Must-do"}
+                  </button>
                 </div>
               </li>
             );
@@ -196,7 +209,7 @@ export default function SettingsView() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-extrabold text-ink">Sounds</h2>
-            <p className="text-sm font-semibold text-ink-muted">Fifty long, daft noises. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
+            <p className="text-sm font-semibold text-ink-muted">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
           </div>
           <button
             type="button"
@@ -211,6 +224,28 @@ export default function SettingsView() {
         </div>
         <div className="mt-4 flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold text-ink">Every habit</span>
+            <button
+              type="button"
+              className="btn-ghost bg-sand-50"
+              onClick={() =>
+                updateSettings((st) => {
+                  const used: string[] = [];
+                  return {
+                    ...st,
+                    habits: st.habits.map((h) => {
+                      const sound = pickSoundForHabit(h.name, used);
+                      used.push(sound);
+                      return { ...h, sound };
+                    }),
+                  };
+                })
+              }
+            >
+              🎲 Shuffle all habit sounds
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-bold text-ink">To-do ticked</span>
             <SoundPicker value={settings.todoSound} onChange={(todoSound) => updateSettings((s) => ({ ...s, todoSound }))} />
           </div>
@@ -219,6 +254,115 @@ export default function SettingsView() {
             <SoundPicker value={settings.dayCompleteSound} onChange={(dayCompleteSound) => updateSettings((s) => ({ ...s, dayCompleteSound }))} />
           </div>
         </div>
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Reminders</h2>
+        <p className="text-sm font-semibold text-ink-muted">
+          A reminder at each habit&apos;s time, plus a nudge to submit the day at{" "}
+          <input
+            type="time"
+            value={settings.reminders.submitTime}
+            onChange={(e) => e.target.value && updateSettings((st) => ({ ...st, reminders: { ...st.reminders, submitTime: e.target.value } }))}
+            className="rounded-lg border border-sand-200 bg-white px-2 py-0.5 text-sm font-bold text-ink"
+            aria-label="Submit reminder time"
+          />
+          . Only habits with a time set get one.
+        </p>
+
+        <div className="mt-4 rounded-2xl bg-sand-50 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-extrabold text-ink">📲 Push to your phone (ntfy app)</div>
+              <p className="text-xs font-semibold text-ink-muted">Websites can&apos;t send push to an iPhone unless they&apos;re installed from Safari, so this goes through a free app called ntfy instead.</p>
+            </div>
+            <Toggle
+              on={settings.reminders.ntfy}
+              label="Phone push on or off"
+              onClick={() => updateSettings((st) => ({ ...st, reminders: { ...st.reminders, ntfy: !st.reminders.ntfy, ntfyTopic: st.reminders.ntfyTopic || randomTopic() } }))}
+            />
+          </div>
+          {settings.reminders.ntfy && (
+            <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-xs font-semibold text-ink-soft">
+              <li>Install <span className="font-extrabold">ntfy</span> from the App Store (or Play Store).</li>
+              <li>
+                In ntfy tap + and subscribe to this topic. Treat it like a password:
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-2 py-1.5 text-[13px] font-bold text-ink">{settings.reminders.ntfyTopic}</code>
+                  <button
+                    type="button"
+                    className="btn-ghost bg-white px-2 py-1.5 text-xs"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(settings.reminders.ntfyTopic).catch(() => undefined);
+                      setTopicCopied(true);
+                      window.setTimeout(() => setTopicCopied(false), 1500);
+                    }}
+                  >
+                    {topicCopied ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="btn-ghost bg-white px-2 py-1.5 text-xs"
+                  disabled={pushTest === "sending"}
+                  onClick={async () => {
+                    setPushTest("sending");
+                    setPushTest((await sendTestPush(settings.reminders.ntfyTopic)) ? "ok" : "fail");
+                  }}
+                >
+                  Send a test
+                </button>{" "}
+                {pushTest === "ok" && <span className="text-teal-600">Sent. It should buzz within a few seconds.</span>}
+                {pushTest === "fail" && <span className="text-sunset-600">Couldn&apos;t reach ntfy. Check your connection.</span>}
+              </li>
+              <li>That&apos;s it. Each time you open Locked In it schedules the rest of that day&apos;s reminders, so open it once in the morning.</li>
+            </ol>
+          )}
+          {settings.reminders.ntfy && <p className="mt-2 text-[11px] font-semibold text-ink-muted">Heads up: reminder text (your habit names) passes through ntfy.sh&apos;s servers. Anyone who knows the topic could read them, which is why it&apos;s random.</p>}
+        </div>
+
+        <div className="mt-3 rounded-2xl bg-sand-50 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-extrabold text-ink">💻 Notifications while the app is open</div>
+              <p className="text-xs font-semibold text-ink-muted">{browserNotificationsSupported() ? "Works on a laptop or Android while a Locked In tab is open." : "This browser doesn't support it (Chrome on iPhone never does). Use the phone push above."}</p>
+            </div>
+            {browserNotificationsSupported() && (
+              <Toggle
+                on={settings.reminders.browser}
+                label="Browser notifications on or off"
+                onClick={async () => {
+                  if (settings.reminders.browser) return updateSettings((st) => ({ ...st, reminders: { ...st.reminders, browser: false } }));
+                  if (await askBrowserPermission()) updateSettings((st) => ({ ...st, reminders: { ...st.reminders, browser: true } }));
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-2xl bg-sand-50 p-3">
+          <div className="text-sm font-extrabold text-ink">📅 Or put them in your phone&apos;s calendar</div>
+          <p className="text-xs font-semibold text-ink-muted">Downloads a calendar file of daily repeating alarms at your habit times. Open it on your phone and add it to Calendar. No app needed, but you re-download it if you change the times.</p>
+          <button type="button" className="btn-ghost mt-2 bg-white" onClick={() => downloadText("locked-in-reminders.ics", buildIcs(settings, today), "text/calendar")}>
+            Download reminders (.ics)
+          </button>
+        </div>
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Submit-day videos</h2>
+        <p className="mt-1 text-sm font-semibold text-ink-soft">
+          Upload your MP4s to <code className="rounded bg-sand-100 px-1">public/media/</code> on GitHub with exactly these names. Any length.
+        </p>
+        <ul className="mt-2 flex flex-col gap-1 text-sm font-semibold text-ink-soft">
+          <li>🎸 80–100% → <code className="rounded bg-sand-100 px-1">day-80-100.mp4</code></li>
+          <li>😐 50–79% → <code className="rounded bg-sand-100 px-1">day-50-80.mp4</code></li>
+          <li>😬 25–49% → <code className="rounded bg-sand-100 px-1">day-25-50.mp4</code> (optional: falls back to the one below)</li>
+          <li>💀 0–24%, or a ⭐ must-do habit missed → <code className="rounded bg-sand-100 px-1">day-0-25.mp4</code></li>
+        </ul>
+        <p className="mt-2 text-xs font-semibold text-ink-muted">GitHub&apos;s website only accepts files up to 25 MB, so trim or compress long videos first.</p>
       </section>
 
       <section className="card p-4 md:p-5">
@@ -257,6 +401,14 @@ export default function SettingsView() {
         </p>
       </section>
     </div>
+  );
+}
+
+function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onClick} className={cn("tap relative h-8 w-14 shrink-0 rounded-full transition-colors", on ? "bg-teal-500" : "bg-sand-300")}>
+      <span className={cn("absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all", on ? "left-7" : "left-1")} />
+    </button>
   );
 }
 

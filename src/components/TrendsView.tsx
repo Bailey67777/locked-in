@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { formatDayMonth, lastNDays, parseKey } from "@/lib/dates";
-import { habitLook } from "@/lib/model";
-import { dayStreak, habitStats, insights, thisWeekVsLast } from "@/lib/stats";
+import { formatDayMonth, formatMins, lastNDays, parseKey } from "@/lib/dates";
+import { TIERS, habitLook } from "@/lib/model";
+import { dayStreak, habitStats, insights, thisWeekVsLast, tierCounts } from "@/lib/stats";
 import { cn } from "@/lib/cn";
 import RatingsChart, { type Series } from "./RatingsChart";
 
@@ -30,6 +30,8 @@ export default function TrendsView() {
   const perHabit = useMemo(() => habitStats(data.days, settings, today, 30), [data.days, settings, today]);
   const weeks = useMemo(() => thisWeekVsLast(data.days, settings, today), [data.days, settings, today]);
   const tips = useMemo(() => insights(data.days, settings, today), [data.days, settings, today]);
+  const tiers = useMemo(() => tierCounts(data.days, today, 30), [data.days, today]);
+  const submittedTotal = tiers.t80 + tiers.t50 + tiers.t25 + tiers.t0;
   const daysTracked = useMemo(() => Object.keys(data.days).filter((k) => k <= today).length, [data.days, today]);
 
   const rate30 = useMemo(() => {
@@ -100,8 +102,27 @@ export default function TrendsView() {
                 <WeekRow label="Day rating" a={weeks.thisWeek.avgDay} b={weeks.lastWeek.avgDay} unit="" />
                 <WeekRow label="Health rating" a={weeks.thisWeek.avgHealth} b={weeks.lastWeek.avgHealth} unit="" />
                 <WeekRow label="Happiness" a={weeks.thisWeek.avgHappy} b={weeks.lastWeek.avgHappy} unit="" />
+                <WeekRow label="Screen time / day" a={weeks.thisWeek.avgScreen} b={weeks.lastWeek.avgScreen} unit="" format={formatMins} lowerIsBetter />
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Submitted days</h2>
+        <p className="mb-3 text-sm font-semibold text-ink-muted">Where the last 30 days landed when you locked them in.</p>
+        {submittedTotal === 0 ? (
+          <p className="rounded-2xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink-soft">No days submitted yet. Hit Submit day at the bottom of Today tonight.</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2">
+            {TIERS.map((t) => (
+              <div key={t.id} className="rounded-2xl bg-sand-50 px-1 py-3 text-center">
+                <div className="text-2xl leading-none">{t.emoji}</div>
+                <div className="mt-1 text-xl font-extrabold leading-none text-ink">{tiers[t.id]}</div>
+                <div className="mt-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">{t.label}</div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -217,16 +238,18 @@ function Stat({ label, value, unit }: { label: string; value: number; unit: stri
   );
 }
 
-function WeekRow({ label, a, b, unit }: { label: string; a: number | null; b: number | null; unit: string }) {
-  const fmt = (v: number | null) => (v === null ? "–" : `${v}${unit}`);
+function WeekRow({ label, a, b, unit, format, lowerIsBetter }: { label: string; a: number | null; b: number | null; unit: string; format?: (v: number) => string; lowerIsBetter?: boolean }) {
+  const show = (v: number) => (format ? format(v) : `${v}${unit}`);
+  const fmt = (v: number | null) => (v === null ? "–" : show(v));
   const diff = a !== null && b !== null ? Math.round((a - b) * 10) / 10 : null;
+  const good = diff !== null && diff !== 0 && (lowerIsBetter ? diff < 0 : diff > 0);
   return (
     <tr className="border-t border-sand-100">
       <td className="py-2 font-bold text-ink">{label}</td>
       <td className="py-2 text-right font-extrabold tabular-nums text-ink">{fmt(a)}</td>
       <td className="py-2 text-right font-bold tabular-nums text-ink-muted">{fmt(b)}</td>
-      <td className={cn("py-2 text-right font-extrabold tabular-nums", diff === null ? "text-ink-muted" : diff > 0 ? "text-teal-600" : diff < 0 ? "text-sunset-600" : "text-ink-muted")}>
-        {diff === null ? "–" : diff > 0 ? `+${diff}${unit}` : diff < 0 ? `${diff}${unit}` : "same"}
+      <td className={cn("py-2 text-right font-extrabold tabular-nums", diff === null || diff === 0 ? "text-ink-muted" : good ? "text-teal-600" : "text-sunset-600")}>
+        {diff === null ? "–" : diff === 0 ? "same" : `${diff > 0 ? "+" : "−"}${show(Math.abs(diff))}`}
       </td>
     </tr>
   );

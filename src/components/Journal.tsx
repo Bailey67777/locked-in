@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Props = { value: string; onSave: (text: string) => void };
+type Props = { value: string; onSave: (text: string) => void; placeholder?: string; rows?: number };
 
 /** Autosaving free-text box. Remote changes only replace the text when you're not mid-edit. */
-export default function Journal({ value, onSave }: Props) {
+export default function Journal({ value, onSave, placeholder, rows = 4 }: Props) {
   const [text, setText] = useState(value);
   const dirty = useRef(false);
   const timer = useRef<number | null>(null);
@@ -45,8 +45,8 @@ export default function Journal({ value, onSave }: Props) {
         value={text}
         onChange={(e) => change(e.target.value)}
         onBlur={flush}
-        rows={4}
-        placeholder="One honest paragraph. What went well, what you'd change, what tomorrow's block is."
+        rows={rows}
+        placeholder={placeholder ?? "One honest paragraph. What went well, what you'd change, what tomorrow's block is."}
         className="field min-h-28 resize-y leading-relaxed"
       />
       <div className="mt-1 h-4 text-right text-[11px] font-bold text-ink-muted">

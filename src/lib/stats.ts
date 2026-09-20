@@ -88,6 +88,8 @@ export type WeekSummary = {
   avgDay: number | null;
   avgHealth: number | null;
   avgHappy: number | null;
+  /** Average phone screen time in minutes, over days where it was entered. */
+  avgScreen: number | null;
   daysTracked: number;
   fullDays: number;
 };
@@ -98,6 +100,7 @@ function summarize(days: Days, settings: Settings, today: string, dates: string[
   const rd: number[] = [];
   const rh: number[] = [];
   const rp: number[] = [];
+  const screen: number[] = [];
   let tracked = 0;
   let full = 0;
   for (const d of dates) {
@@ -111,9 +114,10 @@ function summarize(days: Days, settings: Settings, today: string, dates: string[
     if (day.ratings.day) rd.push(day.ratings.day);
     if (day.ratings.health) rh.push(day.ratings.health);
     if (day.ratings.happy) rp.push(day.ratings.happy);
+    if (typeof day.screenMinutes === "number") screen.push(day.screenMinutes);
   }
   const avg = (a: number[]) => (a.length ? Math.round((a.reduce((x, y) => x + y, 0) / a.length) * 10) / 10 : null);
-  return { habitPct: total ? Math.round((done / total) * 100) : null, avgDay: avg(rd), avgHealth: avg(rh), avgHappy: avg(rp), daysTracked: tracked, fullDays: full };
+  return { habitPct: total ? Math.round((done / total) * 100) : null, avgDay: avg(rd), avgHealth: avg(rh), avgHappy: avg(rp), avgScreen: screen.length ? Math.round(screen.reduce((x, y) => x + y, 0) / screen.length) : null, daysTracked: tracked, fullDays: full };
 }
 
 export function thisWeekVsLast(days: Days, settings: Settings, today: string): { thisWeek: WeekSummary; lastWeek: WeekSummary } {
@@ -238,5 +242,15 @@ export function insights(days: Days, settings: Settings, today: string): Insight
     }
   }
 
+  return out;
+}
+
+/** How submitted days have landed over the last n days. */
+export function tierCounts(days: Days, today: string, n = 30): Record<"t80" | "t50" | "t25" | "t0", number> {
+  const out = { t80: 0, t50: 0, t25: 0, t0: 0 };
+  for (const d of lastNDays(today, n)) {
+    const sub = days[d]?.submitted;
+    if (sub) out[sub.tier]++;
+  }
   return out;
 }
