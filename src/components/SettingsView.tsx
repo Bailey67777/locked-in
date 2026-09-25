@@ -12,7 +12,9 @@ import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 
 export default function SettingsView() {
-  const { data, updateSettings, sync, today } = useStore();
+  const { data, updateSettings, sync, today, journalState, journalBusy, unlockJournal, lockJournal, changePassphrase } = useStore();
+  const [jp, setJp] = useState({ current: "", next: "", confirm: "" });
+  const [jpMsg, setJpMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pushTest, setPushTest] = useState<"idle" | "sending" | "ok" | "fail">("idle");
   const [topicCopied, setTopicCopied] = useState(false);
   const settings = data.settings;
@@ -257,6 +259,97 @@ export default function SettingsView() {
       </section>
 
       <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">First A-level exam</h2>
+        <p className="text-sm font-semibold text-ink-muted">Drives the countdown on Today and the end of the Study graph. Linear A-levels, so probably May 2028; set it once you know.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            value={settings.examDate ?? ""}
+            onChange={(e) => updateSettings((st) => ({ ...st, examDate: e.target.value || undefined }))}
+            className="rounded-lg border border-sand-200 bg-white px-2 py-2 text-sm font-bold text-ink"
+            aria-label="First A-level exam date"
+          />
+          {settings.examDate && (
+            <button type="button" className="text-xs font-bold text-ink-muted hover:text-ink" onClick={() => updateSettings((st) => ({ ...st, examDate: undefined }))}>
+              clear
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Journal passphrase</h2>
+        <p className="text-sm font-semibold text-ink-muted">Your personal journal is encrypted on your devices with this. Nobody can reset it, so keep it written down offline.</p>
+        {journalState === "unavailable" && <p className="mt-2 text-sm font-bold text-sunset-600">This browser can&apos;t do the encryption.</p>}
+        {journalState === "none" && <p className="mt-2 rounded-2xl bg-sand-50 px-3 py-2 text-sm font-semibold text-ink-soft">Not set yet. Create it in the Journal section on Today; your existing entries get encrypted at the same time.</p>}
+        {journalState === "locked" && (
+          <form
+            className="mt-2 flex gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setJpMsg(null);
+              const ok = await unlockJournal(jp.current);
+              setJpMsg(ok ? { ok: true, text: "Unlocked on this device." } : { ok: false, text: "Wrong passphrase." });
+              if (ok) setJp({ current: "", next: "", confirm: "" });
+            }}
+          >
+            <input type="password" className="field" placeholder="Passphrase to unlock" value={jp.current} onChange={(e) => setJp({ ...jp, current: e.target.value })} autoComplete="current-password" aria-label="Passphrase" />
+            <button type="submit" className="btn-primary px-4" disabled={journalBusy || !jp.current}>
+              Unlock
+            </button>
+          </form>
+        )}
+        {journalState === "unlocked" && (
+          <div className="mt-2 flex flex-col gap-3">
+            <button type="button" className="btn-ghost self-start bg-sand-50" onClick={() => lockJournal()}>
+              🔒 Lock journal now
+            </button>
+            <form
+              className="flex flex-col gap-2 rounded-2xl bg-sand-50 p-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setJpMsg(null);
+                if (jp.next.length < 8) return setJpMsg({ ok: false, text: "Use at least 8 characters." });
+                if (jp.next !== jp.confirm) return setJpMsg({ ok: false, text: "The new passphrases don't match." });
+                try {
+                  const n = await changePassphrase(jp.current, jp.next);
+                  setJpMsg({ ok: true, text: `Passphrase changed. ${n} ${n === 1 ? "entry" : "entries"} re-encrypted.` });
+                  setJp({ current: "", next: "", confirm: "" });
+                } catch (err) {
+                  setJpMsg({ ok: false, text: err instanceof Error ? err.message : "Couldn't change it; nothing was altered." });
+                }
+              }}
+            >
+              <div className="text-sm font-extrabold text-ink">Change passphrase</div>
+              <input type="password" className="field" placeholder="Current passphrase" value={jp.current} onChange={(e) => setJp({ ...jp, current: e.target.value })} autoComplete="current-password" />
+              <input type="password" className="field" placeholder="New passphrase (8+ characters)" value={jp.next} onChange={(e) => setJp({ ...jp, next: e.target.value })} autoComplete="new-password" />
+              <input type="password" className="field" placeholder="New passphrase again" value={jp.confirm} onChange={(e) => setJp({ ...jp, confirm: e.target.value })} autoComplete="new-password" />
+              <button type="submit" className="btn-primary" disabled={journalBusy || !jp.current || !jp.next || !jp.confirm}>
+                {journalBusy ? "Re-encrypting…" : "Change passphrase"}
+              </button>
+            </form>
+          </div>
+        )}
+        {jpMsg && <p className={cn("mt-2 text-sm font-bold", jpMsg.ok ? "text-teal-600" : "text-sunset-600")}>{jpMsg.text}</p>}
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Claude sync</h2>
+        <p className="text-sm font-semibold text-ink-muted">The nightly Claude task reads your academic journal and answers, then writes questions, marks and estimates back.</p>
+        <dl className="mt-2 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-sand-50 px-3 py-2">
+            <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Last read from the app</dt>
+            <dd className="text-sm font-extrabold text-ink">{fmtWhen(data.study.sync.lastRead)}</dd>
+          </div>
+          <div className="rounded-2xl bg-sand-50 px-3 py-2">
+            <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Last write to the app</dt>
+            <dd className="text-sm font-extrabold text-ink">{fmtWhen(data.study.sync.lastWrite)}</dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-[11px] font-semibold text-ink-muted">Setup lives in <code className="rounded bg-sand-100 px-1">docs/NIGHTLY_CLAUDE_TASK.md</code> in the repo. Your personal journal is never sent, not even encrypted.</p>
+      </section>
+
+      <section className="card p-4 md:p-5">
         <h2 className="text-lg font-extrabold text-ink">Reminders</h2>
         <p className="text-sm font-semibold text-ink-muted">
           A reminder at each habit&apos;s time, plus a nudge to submit the day at{" "}
@@ -402,6 +495,12 @@ export default function SettingsView() {
       </section>
     </div>
   );
+}
+
+function fmtWhen(ts?: number): string {
+  if (!ts) return "never";
+  const d = new Date(ts);
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + " · " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
 function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {

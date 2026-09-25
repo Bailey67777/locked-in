@@ -95,8 +95,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [journalState, setJournalState] = useState<JournalState>("none");
   const [journalBusy, setJournalBusy] = useState(false);
   const [plain, setPlain] = useState<Record<string, string>>({});
-  const plainRef = useRef(plain);
-  plainRef.current = plain;
+  // Which ciphertext each decrypted entry came from, so an entry is only decrypted once (and again if it changes).
+  const decryptedCt = useRef<Record<string, string>>({});
 
   const commit = useCallback((next: AppData) => {
     dataRef.current = next;
@@ -241,6 +241,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (!ok) {
           keyRef.current = null;
+          decryptedCt.current = {};
           setPlain({});
           setJournalState("locked");
         }
@@ -361,13 +362,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     const key = keyRef.current;
     if (!key || journalState !== "unlocked") return;
     let cancelled = false;
-    const todo = Object.values(data.days).filter((d) => d.journalEnc && !(d.date in plainRef.current));
+    const todo = Object.values(data.days).filter((d) => d.journalEnc && decryptedCt.current[d.date] !== d.journalEnc.ct);
     if (!todo.length) return;
     (async () => {
       const found: Record<string, string> = {};
       for (const d of todo) {
         try {
           found[d.date] = await decryptText(key, d.journalEnc!);
+          decryptedCt.current[d.date] = d.journalEnc!.ct;
         } catch {
           /* written under a different key: leave it out */
         }
@@ -411,6 +413,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           texts[day.date] = text;
         }
         applyJournalBatch(params, changed);
+        for (const [date, day] of Object.entries(changed)) decryptedCt.current[date] = day.journalEnc!.ct;
         keyRef.current = key;
         await rememberKey(key, salt);
         setPlain((p) => ({ ...p, ...texts }));
@@ -441,6 +444,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   const lockJournal = useCallback(async () => {
     keyRef.current = null;
+    decryptedCt.current = {};
     setPlain({});
     await forgetKey();
     setJournalState(dataRef.current.journalCrypto ? "locked" : "none");
@@ -468,6 +472,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           texts[day.date] = text;
         }
         applyJournalBatch(newParams, changed);
+        decryptedCt.current = {};
+        for (const [date, day] of Object.entries(changed)) decryptedCt.current[date] = day.journalEnc!.ct;
         keyRef.current = newKey;
         await rememberKey(newKey, salt);
         setPlain(texts);
@@ -486,10 +492,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       if (!key) throw new Error("Journal is locked.");
       setPlain((p) => ({ ...p, [date]: text }));
       if (!text.trim()) {
+        delete decryptedCt.current[date];
         updateDay(date, (d) => ({ ...d, journalEnc: undefined, journal: undefined, recall: undefined }));
         return;
       }
       const enc = await encryptText(key, text);
+      decryptedCt.current[date] = enc.ct;
       updateDay(date, (d) => ({ ...d, journalEnc: enc, journal: undefined, recall: undefined }));
     },
     [updateDay],
