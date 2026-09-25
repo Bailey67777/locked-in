@@ -73,9 +73,12 @@ export default function GradeChart({ grades, examDate }: Props) {
   const x = (date: string) => PAD.l + (daysBetween(start, date) / span) * innerW;
   const y = (g: number) => PAD.t + innerH - (Math.max(0, Math.min(6, g)) / 6) * innerH;
 
-  const tickDates: string[] = [];
+  // Date ticks: spaced by the span, and never closer than ~56px to the final (exam) label.
   const tickEvery = span <= 45 ? 7 : span <= 120 ? 14 : span <= 400 ? 60 : 120;
+  const tickDates: string[] = [];
   for (let d = 0; d <= span; d += tickEvery) tickDates.push(addDays(start, d));
+  const minGapDays = innerW > 0 ? (56 / innerW) * span : 0;
+  while (tickDates.length > 1 && daysBetween(tickDates[tickDates.length - 1], end) < minGapDays) tickDates.pop();
   if (tickDates[tickDates.length - 1] !== end) tickDates.push(end);
 
   const pickedPoint = picked ? grades[picked.subject][picked.date] : null;

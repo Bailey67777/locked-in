@@ -26,9 +26,9 @@ export default function HoursChart({ hours, today }: Props) {
 
   return (
     <div>
-      <div className="mb-3 flex items-end justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-3xl font-extrabold leading-none text-ink">
+          <div className="whitespace-nowrap text-3xl font-extrabold leading-none text-ink">
             {current % 1 ? current.toFixed(1) : current}
             <span className="ml-1 text-sm font-bold text-ink-muted">h this week</span>
           </div>

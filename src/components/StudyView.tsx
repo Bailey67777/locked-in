@@ -72,15 +72,15 @@ export default function StudyView() {
       <section className="card p-4 md:p-5">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="text-lg font-extrabold text-ink">Grade trajectory</h2>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Claude&apos;s estimate</span>
+          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Claude&apos;s estimate</span>
         </div>
         <GradeChart grades={data.study.grades} examDate={examDate} />
       </section>
 
       <section className="card p-4 md:p-5">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-extrabold text-ink">Weekly study hours</h2>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Estimated by Claude</span>
+          <h2 className="text-lg font-extrabold text-ink">Study hours</h2>
+          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Estimated by Claude</span>
         </div>
         <HoursChart hours={data.study.hours} today={today} />
       </section>
