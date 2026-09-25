@@ -193,3 +193,32 @@ export function LockIcon(p: P) {
     </svg>
   );
 }
+
+export function StudyIcon(p: P) {
+  // graduation cap
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M2 9l10-4 10 4-10 4-10-4z" />
+      <path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4" />
+      <path d="M22 9v6" />
+    </svg>
+  );
+}
+
+export function HealthIcon(p: P) {
+  // health cross
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3z" />
+    </svg>
+  );
+}
+
+export function CameraIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4V8z" />
+      <circle cx="12" cy="13" r="3.2" />
+    </svg>
+  );
+}

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { formatDayMonth, formatMins, lastNDays, parseKey } from "@/lib/dates";
+import { formatDayMonth, lastNDays, parseKey } from "@/lib/dates";
 import { TIERS, habitLook } from "@/lib/model";
-import { dayStreak, habitStats, insights, thisWeekVsLast, tierCounts } from "@/lib/stats";
+import { dayStreak, habitStats, insights, tierCounts } from "@/lib/stats";
 import { cn } from "@/lib/cn";
 import RatingsChart, { type Series } from "./RatingsChart";
 
@@ -28,7 +28,6 @@ export default function TrendsView() {
 
   const streak = useMemo(() => dayStreak(data.days, settings, today), [data.days, settings, today]);
   const perHabit = useMemo(() => habitStats(data.days, settings, today, 30), [data.days, settings, today]);
-  const weeks = useMemo(() => thisWeekVsLast(data.days, settings, today), [data.days, settings, today]);
   const tips = useMemo(() => insights(data.days, settings, today), [data.days, settings, today]);
   const tiers = useMemo(() => tierCounts(data.days, today, 30), [data.days, today]);
   const submittedTotal = tiers.t80 + tiers.t50 + tiers.t25 + tiers.t0;
@@ -58,7 +57,7 @@ export default function TrendsView() {
   return (
     <div className="rise flex flex-col gap-4">
       <div className="flex items-center justify-between px-1">
-        <h1 className="text-2xl font-extrabold text-ink">Trends</h1>
+        <h1 className="text-2xl font-extrabold text-ink">Health</h1>
         <div className="flex rounded-full bg-sand-100 p-1">
           {([7, 30] as const).map((r) => (
             <button
@@ -78,35 +77,6 @@ export default function TrendsView() {
         <Stat label="Best streak" value={streak.best} unit={streak.best === 1 ? "day" : "days"} />
         <Stat label="30-day habits" value={rate30} unit="%" />
         <Stat label="Days tracked" value={daysTracked} unit={daysTracked === 1 ? "day" : "days"} />
-      </section>
-
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">This week vs last</h2>
-        <p className="mb-3 text-sm font-semibold text-ink-muted">Last 7 days against the 7 before them.</p>
-        {weeks.thisWeek.daysTracked === 0 && weeks.lastWeek.daysTracked === 0 ? (
-          <p className="py-3 text-center text-sm font-semibold text-ink-muted">Nothing tracked yet. Tick a few days and this fills in.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">
-                  <th className="py-1 text-left font-extrabold" />
-                  <th className="py-1 text-right font-extrabold">This week</th>
-                  <th className="py-1 text-right font-extrabold">Last week</th>
-                  <th className="py-1 text-right font-extrabold">Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                <WeekRow label="Habits done" a={weeks.thisWeek.habitPct} b={weeks.lastWeek.habitPct} unit="%" />
-                <WeekRow label="Full days" a={weeks.thisWeek.fullDays} b={weeks.lastWeek.fullDays} unit="" />
-                <WeekRow label="Day rating" a={weeks.thisWeek.avgDay} b={weeks.lastWeek.avgDay} unit="" />
-                <WeekRow label="Health rating" a={weeks.thisWeek.avgHealth} b={weeks.lastWeek.avgHealth} unit="" />
-                <WeekRow label="Happiness" a={weeks.thisWeek.avgHappy} b={weeks.lastWeek.avgHappy} unit="" />
-                <WeekRow label="Screen time / day" a={weeks.thisWeek.avgScreen} b={weeks.lastWeek.avgScreen} unit="" format={formatMins} lowerIsBetter />
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       <section className="card p-4 md:p-5">
@@ -235,22 +205,5 @@ function Stat({ label, value, unit }: { label: string; value: number; unit: stri
       </div>
       <div className="mt-1.5 text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">{label}</div>
     </div>
-  );
-}
-
-function WeekRow({ label, a, b, unit, format, lowerIsBetter }: { label: string; a: number | null; b: number | null; unit: string; format?: (v: number) => string; lowerIsBetter?: boolean }) {
-  const show = (v: number) => (format ? format(v) : `${v}${unit}`);
-  const fmt = (v: number | null) => (v === null ? "–" : show(v));
-  const diff = a !== null && b !== null ? Math.round((a - b) * 10) / 10 : null;
-  const good = diff !== null && diff !== 0 && (lowerIsBetter ? diff < 0 : diff > 0);
-  return (
-    <tr className="border-t border-sand-100">
-      <td className="py-2 font-bold text-ink">{label}</td>
-      <td className="py-2 text-right font-extrabold tabular-nums text-ink">{fmt(a)}</td>
-      <td className="py-2 text-right font-bold tabular-nums text-ink-muted">{fmt(b)}</td>
-      <td className={cn("py-2 text-right font-extrabold tabular-nums", diff === null || diff === 0 ? "text-ink-muted" : good ? "text-teal-600" : "text-sunset-600")}>
-        {diff === null ? "–" : diff === 0 ? "same" : `${diff > 0 ? "+" : "−"}${show(Math.abs(diff))}`}
-      </td>
-    </tr>
   );
 }
