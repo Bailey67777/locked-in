@@ -119,3 +119,16 @@ export function formatDateTime(local: string): string {
   const d = new Date(local);
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) + " · " + `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** Monday of the week containing this date, as a key. */
+export function weekStartOf(key: string): string {
+  const d = parseKey(key);
+  const offset = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - offset);
+  return keyFromDate(d);
+}
+
+export function formatWeekLabel(weekStart: string): string {
+  const d = parseKey(weekStart);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}

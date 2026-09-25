@@ -1,6 +1,6 @@
 import type { DayRecord, Settings } from "./types";
 import { addDays, lastNDays, parseKey } from "./dates";
-import { habitsComplete, materializeDay } from "./model";
+import { habitsComplete, hasJournal, materializeDay } from "./model";
 
 type Days = Record<string, DayRecord>;
 
@@ -227,7 +227,7 @@ export function insights(days: Days, settings: Settings, today: string): Insight
   }
 
   // 5. Journal consistency
-  const journaled = keys.filter((k) => days[k].journal.trim().length > 0).length;
+  const journaled = keys.filter((k) => hasJournal(days[k])).length;
   if (keys.length >= 7) {
     const pct = Math.round((journaled / keys.length) * 100);
     out.push({ emoji: "📓", text: pct >= 70 ? `You've journaled on ${pct}% of tracked days. That's the evidence pile growing.` : `Journal written on ${pct}% of tracked days. One honest line counts.` });

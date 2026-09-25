@@ -16,12 +16,12 @@ export type Todo = { id: string; text: string; done: boolean };
 /** 1–10, or 0 when not set yet. */
 export type Ratings = { day: number; health: number; happy: number };
 
-/** One block in the rough day plan. */
+/** One block in the (no longer shown) day plan. Kept so old data survives. */
 export type PlanItem = {
   id: string;
   title: string;
   start: string; // "HH:MM"
-  mins: number; // length in minutes
+  mins: number;
   color?: string;
   emoji?: string;
   done: boolean;
@@ -37,13 +37,30 @@ export type Submission = {
   keystoneMissed: boolean;
 };
 
+/** AES-GCM ciphertext + IV, both base64. Only ever produced on the device. */
+export type EncryptedText = { iv: string; ct: string };
+
+/** End-of-day active recall, one box per subject (Maths covers Further Maths). Not encrypted. */
+export type AcademicJournal = { econ: string; maths: string; physics: string };
+
+export type QSubject = "maths" | "physics" | "econ";
+
+/** Your answers to the three questions Claude set for that day. */
+export type Answers = Partial<Record<QSubject, string>>;
+
 export type DayRecord = {
   date: string; // YYYY-MM-DD
   habits: DayHabit[]; // snapshot of the habit list for this day
   todos: Todo[];
   ratings: Ratings;
-  journal: string;
-  recall?: string; // active recall: everything learned / done, written from memory
+  /** Legacy plaintext journal. Only present until the journal has been encrypted; never written again after that. */
+  journal?: string;
+  /** Legacy plaintext active recall (the old second journal). Merged into the encrypted journal on migration. */
+  recall?: string;
+  /** The personal journal, encrypted on the device. */
+  journalEnc?: EncryptedText;
+  academic?: AcademicJournal;
+  answers?: Answers;
   song?: string; // song of the day
   screenMinutes?: number; // phone screen time, typed in by hand
   plan?: PlanItem[];
@@ -76,11 +93,50 @@ export type Settings = {
   soundsOn: boolean;
   dayCompleteSound: string;
   todoSound: string;
+  /** Old Countdowns tab data. No longer shown, kept so nothing is lost. */
   countdowns: Countdown[];
   reminders: Reminders;
+  /** First A-level exam, "YYYY-MM-DD". Drives the Today countdown and the Study graph. */
+  examDate?: string;
+};
+
+/* ---------- Study: written by the nightly Claude task ---------- */
+
+export type Subject = "maths" | "further" | "physics" | "econ";
+
+export type Question = { subject: QSubject; topic: string; question: string; why?: string };
+export type DayQuestions = Partial<Record<QSubject, Question>> & { setAt?: number };
+
+export type Feedback = { mark: string; comment: string; correctAnswer?: string; at?: number };
+export type DayFeedback = Partial<Record<QSubject, Feedback>>;
+
+/** A grade estimate: 0 = U, 1 = E, 2 = D, 3 = C, 4 = B, 5 = A, 6 = A*. Decimals allowed. */
+export type GradePoint = { grade: number; reason: string; at?: number };
+
+export type ReadingItem = { title: string; source: string; url: string; why: string };
+export type EconDay = { concept?: { title: string; explanation: string }; reading?: ReadingItem[]; at?: number };
+
+export type StudyData = {
+  questions: Record<string, DayQuestions>; // by date
+  feedback: Record<string, DayFeedback>; // by date
+  grades: Record<Subject, Record<string, GradePoint>>; // subject → date → point
+  hours: Record<string, Partial<Record<Subject, number>>>; // weekStart (Monday, YYYY-MM-DD) → subject → hours
+  econ: Record<string, EconDay>; // by date
+  sync: { lastRead?: number; lastWrite?: number };
+};
+
+/** Parameters needed to unlock the journal on any device. Contains no secrets. */
+export type JournalCrypto = {
+  v: 1;
+  salt: string; // base64
+  iterations: number;
+  verifier: EncryptedText; // a known phrase, encrypted: proves a passphrase is right
+  updatedAt: number;
 };
 
 export type AppData = {
   settings: Settings;
   days: Record<string, DayRecord>;
+  study: StudyData;
+  journalCrypto: JournalCrypto | null;
 };

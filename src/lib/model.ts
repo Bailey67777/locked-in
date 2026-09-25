@@ -1,4 +1,4 @@
-import type { AppData, Countdown, DayHabit, DayRecord, HabitDef, PlanItem, Reminders, Settings, Submission, TierId, Todo } from "./types";
+import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
@@ -7,7 +7,35 @@ export function uid(): string {
 }
 
 export function emptyDay(date: string): DayRecord {
-  return { date, habits: [], todos: [], ratings: { day: 0, health: 0, happy: 0 }, journal: "" };
+  return { date, habits: [], todos: [], ratings: { day: 0, health: 0, happy: 0 } };
+}
+
+export const Q_SUBJECTS: QSubject[] = ["maths", "physics", "econ"];
+export const SUBJECTS: Subject[] = ["maths", "further", "physics", "econ"];
+export const SUBJECT_LABEL: Record<Subject, string> = { maths: "Maths", further: "Further Maths", physics: "Physics", econ: "Economics" };
+export const SUBJECT_COLOR: Record<Subject, string> = { maths: "#1a6fd1", further: "#6b4fbb", physics: "#d95f18", econ: "#1f9a8a" };
+export const Q_SUBJECT_LABEL: Record<QSubject, string> = { maths: "Maths", physics: "Physics", econ: "Economics" };
+export const GRADE_LABELS = ["U", "E", "D", "C", "B", "A", "A*"];
+
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+export function normalizeEncrypted(raw: unknown): EncryptedText | null {
+  const e = (raw && typeof raw === "object" ? raw : null) as Partial<EncryptedText> | null;
+  if (!e || typeof e.iv !== "string" || typeof e.ct !== "string" || !e.iv || !e.ct) return null;
+  return { iv: e.iv, ct: e.ct };
+}
+
+/** Does this day have a personal journal entry (encrypted, or legacy plaintext awaiting migration)? */
+export function hasJournal(day: DayRecord | undefined): boolean {
+  return Boolean(day && (day.journalEnc || day.journal?.trim() || day.recall?.trim()));
+}
+
+/** Legacy plaintext to migrate: the old journal plus the old active recall, merged into one entry. */
+export function legacyJournalText(day: DayRecord): string {
+  const j = (day.journal ?? "").trim();
+  const r = (day.recall ?? "").trim();
+  if (j && r) return `${j}\n\n— Active recall —\n${r}`;
+  return j || r;
 }
 
 function asArray<T>(v: unknown): T[] {
@@ -53,11 +81,24 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
       health: clampRating(ratings.health),
       happy: clampRating(ratings.happy),
     },
-    journal: typeof r.journal === "string" ? r.journal : "",
   };
+  if (typeof r.journal === "string" && r.journal.trim()) day.journal = r.journal; // legacy plaintext, pre-encryption only
+  if (typeof r.recall === "string" && r.recall.trim()) day.recall = r.recall; // legacy plaintext, pre-encryption only
+  const je = normalizeEncrypted(r.journalEnc);
+  if (je) day.journalEnc = je;
+  const ac = (r.academic && typeof r.academic === "object" ? r.academic : null) as Partial<AcademicJournal> | null;
+  if (ac) {
+    const academic: AcademicJournal = { econ: str(ac.econ), maths: str(ac.maths), physics: str(ac.physics) };
+    if (academic.econ || academic.maths || academic.physics) day.academic = academic;
+  }
+  const an = (r.answers && typeof r.answers === "object" ? r.answers : null) as Partial<Answers> | null;
+  if (an) {
+    const answers: Answers = {};
+    for (const k of Q_SUBJECTS) if (str(an[k])) answers[k] = str(an[k]);
+    if (Object.keys(answers).length) day.answers = answers;
+  }
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
-  if (typeof r.recall === "string" && r.recall) day.recall = r.recall;
   if (typeof r.song === "string" && r.song) day.song = r.song;
   if (typeof r.screenMinutes === "number" && r.screenMinutes >= 0 && r.screenMinutes <= 24 * 60) day.screenMinutes = Math.round(r.screenMinutes);
   const plan = asArray<Partial<PlanItem>>(r.plan)
@@ -118,7 +159,99 @@ export function normalizeSettings(raw: unknown): Settings {
         return cd;
       }),
     reminders: normalizeReminders(r.reminders),
+    examDate: typeof r.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.examDate) ? r.examDate : undefined,
   };
+}
+
+/* ---------- study data (written by the nightly Claude task) ---------- */
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeQuestion(raw: unknown, subject: QSubject) {
+  const q = (raw && typeof raw === "object" ? raw : null) as Record<string, unknown> | null;
+  if (!q || !str(q.question)) return null;
+  const out: NonNullable<DayQuestions[QSubject]> = { subject, topic: str(q.topic), question: str(q.question) };
+  if (str(q.why)) out.why = str(q.why);
+  return out;
+}
+
+export function emptyStudy(): StudyData {
+  return { questions: {}, feedback: {}, grades: { maths: {}, further: {}, physics: {}, econ: {} }, hours: {}, econ: {}, sync: {} };
+}
+
+export function normalizeStudy(raw: unknown): StudyData {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out = emptyStudy();
+  const byDate = (node: unknown) => Object.entries((node && typeof node === "object" ? node : {}) as Record<string, unknown>).filter(([d]) => DATE_RE.test(d));
+  for (const [date, v] of byDate(r.questions)) {
+    const q = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const dq: DayQuestions = {};
+    for (const sub of Q_SUBJECTS) {
+      const nq = normalizeQuestion(q[sub], sub);
+      if (nq) dq[sub] = nq;
+    }
+    if (typeof q.setAt === "number") dq.setAt = q.setAt;
+    if (dq.maths || dq.physics || dq.econ) out.questions[date] = dq;
+  }
+  for (const [date, v] of byDate(r.feedback)) {
+    const f = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const df: DayFeedback = {};
+    for (const sub of Q_SUBJECTS) {
+      const fb = (f[sub] && typeof f[sub] === "object" ? f[sub] : null) as Record<string, unknown> | null;
+      if (!fb || (!str(fb.mark) && !str(fb.comment))) continue;
+      df[sub] = { mark: str(fb.mark), comment: str(fb.comment) };
+      if (str(fb.correctAnswer)) df[sub]!.correctAnswer = str(fb.correctAnswer);
+      if (typeof fb.at === "number") df[sub]!.at = fb.at;
+    }
+    if (df.maths || df.physics || df.econ) out.feedback[date] = df;
+  }
+  const grades = (r.grades && typeof r.grades === "object" ? r.grades : {}) as Record<string, unknown>;
+  for (const sub of SUBJECTS) {
+    for (const [date, v] of byDate(grades[sub])) {
+      const g = (v && typeof v === "object" ? v : null) as Record<string, unknown> | null;
+      const grade = g ? Number(g.grade) : NaN;
+      if (!g || !Number.isFinite(grade)) continue;
+      const point: GradePoint = { grade: Math.max(0, Math.min(6, Math.round(grade * 100) / 100)), reason: str(g.reason) };
+      if (typeof g.at === "number") point.at = g.at;
+      out.grades[sub][date] = point;
+    }
+  }
+  for (const [week, v] of byDate(r.hours)) {
+    const h = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const row: Partial<Record<Subject, number>> = {};
+    for (const sub of SUBJECTS) {
+      const n = Number(h[sub]);
+      if (Number.isFinite(n) && n >= 0) row[sub] = Math.round(n * 10) / 10;
+    }
+    if (Object.keys(row).length) out.hours[week] = row;
+  }
+  for (const [date, v] of byDate(r.econ)) {
+    const e = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const day: EconDay = {};
+    const c = (e.concept && typeof e.concept === "object" ? e.concept : null) as Record<string, unknown> | null;
+    if (c && str(c.title)) day.concept = { title: str(c.title), explanation: str(c.explanation) };
+    const reading = (Array.isArray(e.reading) ? e.reading : Object.values((e.reading as Record<string, unknown>) ?? {})) as unknown[];
+    const items = reading
+      .map((it) => (it && typeof it === "object" ? (it as Record<string, unknown>) : null))
+      .filter((it): it is Record<string, unknown> => Boolean(it && str(it.title) && /^https:\/\//.test(str(it.url))))
+      .map((it) => ({ title: str(it.title), source: str(it.source), url: str(it.url), why: str(it.why) }));
+    if (items.length) day.reading = items;
+    if (typeof e.at === "number") day.at = e.at;
+    if (day.concept || day.reading) out.econ[date] = day;
+  }
+  const sync = (r.sync && typeof r.sync === "object" ? r.sync : {}) as Record<string, unknown>;
+  if (typeof sync.lastRead === "number") out.sync.lastRead = sync.lastRead;
+  if (typeof sync.lastWrite === "number") out.sync.lastWrite = sync.lastWrite;
+  return out;
+}
+
+export function normalizeJournalCrypto(raw: unknown): JournalCrypto | null {
+  const c = (raw && typeof raw === "object" ? raw : null) as Record<string, unknown> | null;
+  if (!c || typeof c.salt !== "string" || !c.salt) return null;
+  const verifier = normalizeEncrypted(c.verifier);
+  if (!verifier) return null;
+  const iterations = Number(c.iterations);
+  return { v: 1, salt: c.salt, iterations: Number.isFinite(iterations) && iterations >= 100_000 ? iterations : 600_000, verifier, updatedAt: typeof c.updatedAt === "number" ? c.updatedAt : 0 };
 }
 
 export function normalizeReminders(raw: unknown): Reminders {
@@ -181,7 +314,7 @@ export function normalizeDays(raw: unknown): Record<string, DayRecord> {
 
 export function normalizeData(raw: unknown): AppData {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  return { settings: normalizeSettings(r.settings), days: normalizeDays(r.days) };
+  return { settings: normalizeSettings(r.settings), days: normalizeDays(r.days), study: normalizeStudy(r.study), journalCrypto: normalizeJournalCrypto(r.journalCrypto) };
 }
 
 /**
@@ -236,8 +369,9 @@ export function dayHasEntry(day: DayRecord | undefined): boolean {
     day.ratings.day > 0 ||
     day.ratings.health > 0 ||
     day.ratings.happy > 0 ||
-    day.journal.trim().length > 0 ||
-    Boolean(day.recall?.trim()) ||
+    hasJournal(day) ||
+    Boolean(day.academic) ||
+    Boolean(day.answers) ||
     Boolean(day.song?.trim()) ||
     Boolean(day.plan?.length) ||
     Boolean(day.submitted) ||
