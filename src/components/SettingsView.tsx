@@ -5,6 +5,8 @@ import { askBrowserPermission, browserNotificationsSupported, buildIcs, download
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { uid } from "@/lib/model";
+import type { Countdown } from "@/lib/types";
+import { addDays, formatDateTime } from "@/lib/dates";
 import { AUTO_EMOJIS, DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
 import { SOUNDS, pickSoundForHabit, playSound, randomSound, soundById } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
@@ -14,6 +16,8 @@ import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 export default function SettingsView() {
   const { data, updateSettings, sync, today, journalState, journalBusy, unlockJournal, lockJournal, changePassphrase } = useStore();
   const [jp, setJp] = useState({ current: "", next: "", confirm: "" });
+  const [cd, setCd] = useState({ title: "", date: "", time: "09:00", color: HABIT_COLORS[2].hex, emoji: "" });
+  const [cdConfirm, setCdConfirm] = useState<string | null>(null);
   const [jpMsg, setJpMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pushTest, setPushTest] = useState<"idle" | "sending" | "ok" | "fail">("idle");
   const [topicCopied, setTopicCopied] = useState(false);
@@ -275,6 +279,73 @@ export default function SettingsView() {
             </button>
           )}
         </div>
+      </section>
+
+      <section className="card p-4 md:p-5">
+        <h2 className="text-lg font-extrabold text-ink">Countdowns</h2>
+        <p className="text-sm font-semibold text-ink-muted">Shown on Today, live to the second. Tests, matches, trips, results day.</p>
+        {settings.countdowns.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-2">
+            {[...settings.countdowns]
+              .sort((a, b) => a.at.localeCompare(b.at))
+              .map((c) => (
+                <li key={c.id} className="flex items-center gap-2 rounded-2xl bg-sand-50 px-3 py-2" style={{ borderLeft: `5px solid ${c.color}` }}>
+                  <span className="text-xl leading-none">{c.emoji ?? "⏳"}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-extrabold text-ink">{c.title}</div>
+                    <div className="text-[11px] font-bold text-ink-muted">{formatDateTime(c.at)}</div>
+                  </div>
+                  {cdConfirm === c.id ? (
+                    <div className="flex items-center gap-1">
+                      <button type="button" className="tap rounded-xl bg-sunset-500 px-3 py-2 text-xs font-extrabold text-white" onClick={() => { updateSettings((st) => ({ ...st, countdowns: st.countdowns.filter((x) => x.id !== c.id) })); setCdConfirm(null); }}>
+                        Delete
+                      </button>
+                      <button type="button" className="btn-ghost px-2 py-2 text-xs" onClick={() => setCdConfirm(null)}>
+                        Keep
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn-icon h-9 w-9" onClick={() => setCdConfirm(c.id)} aria-label={`Delete countdown ${c.title}`}>
+                      <TrashIcon />
+                    </button>
+                  )}
+                </li>
+              ))}
+          </ul>
+        )}
+        <form
+          className="mt-3 flex flex-col gap-2 rounded-2xl bg-sand-50 p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const title = cd.title.trim();
+            if (!title || !cd.date) return;
+            const item: Countdown = { id: uid(), title, at: `${cd.date}T${cd.time || "09:00"}`, color: cd.color, emoji: cd.emoji || undefined };
+            updateSettings((st) => ({ ...st, countdowns: [...st.countdowns, item] }));
+            setCd({ title: "", date: "", time: "09:00", color: HABIT_COLORS[2].hex, emoji: "" });
+          }}
+        >
+          <div className="text-sm font-extrabold text-ink">New countdown</div>
+          <input className="field py-2" value={cd.title} onChange={(e) => setCd({ ...cd, title: e.target.value })} placeholder="e.g. Physics mock, half term, first league game" autoComplete="off" />
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="date" className="rounded-lg border border-sand-200 bg-white px-2 py-2 text-sm font-bold text-ink" value={cd.date} min={addDays(today, 0)} onChange={(e) => setCd({ ...cd, date: e.target.value })} aria-label="Countdown date" />
+            <input type="time" className="rounded-lg border border-sand-200 bg-white px-2 py-2 text-sm font-bold text-ink" value={cd.time} onChange={(e) => setCd({ ...cd, time: e.target.value })} aria-label="Countdown time" />
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            {HABIT_COLORS.map((hc) => (
+              <button key={hc.hex} type="button" title={hc.name} onClick={() => setCd({ ...cd, color: hc.hex })} className={cn("tap h-6 w-6 rounded-full border-2", cd.color === hc.hex ? "scale-110 border-ink" : "border-white")} style={{ backgroundColor: hc.hex }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            {["🎓", "📝", "🏀", "✈️", "🎂", "🎄", "🏖️", "🎸", "🏁", "❤️", "🎉", "⏳"].map((e) => (
+              <button key={e} type="button" onClick={() => setCd({ ...cd, emoji: cd.emoji === e ? "" : e })} className={cn("tap flex h-9 w-9 items-center justify-center rounded-lg text-lg", cd.emoji === e ? "bg-ocean-100" : "hover:bg-sand-100")}>
+                {e}
+              </button>
+            ))}
+          </div>
+          <button type="submit" className="btn-primary" disabled={!cd.title.trim() || !cd.date}>
+            <PlusIcon /> Add countdown
+          </button>
+        </form>
       </section>
 
       <section className="card p-4 md:p-5">

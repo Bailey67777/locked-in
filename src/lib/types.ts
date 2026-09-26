@@ -35,6 +35,8 @@ export type Submission = {
   pct: number;
   tier: TierId;
   keystoneMissed: boolean;
+  /** false until the tier video has been watched to the end without skipping; missing on older submissions. */
+  watched?: boolean;
 };
 
 /** AES-GCM ciphertext + IV, both base64. Only ever produced on the device. */

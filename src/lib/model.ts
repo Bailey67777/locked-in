@@ -120,6 +120,7 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
   const sub = (r.submitted && typeof r.submitted === "object" ? r.submitted : null) as Partial<Submission> | null;
   if (sub && typeof sub.at === "number" && typeof sub.pct === "number" && TIERS.some((t) => t.id === sub.tier)) {
     day.submitted = { at: sub.at, pct: Math.max(0, Math.min(100, Math.round(sub.pct))), tier: sub.tier as TierId, keystoneMissed: Boolean(sub.keystoneMissed) };
+    if (typeof sub.watched === "boolean") day.submitted.watched = sub.watched;
   }
   return day;
 }
@@ -381,4 +382,19 @@ export function dayHasEntry(day: DayRecord | undefined): boolean {
 
 export function hasRatings(day: DayRecord | undefined): boolean {
   return Boolean(day && (day.ratings.day || day.ratings.health || day.ratings.happy));
+}
+
+/** Submitted days whose tier video hasn't been watched to the end yet, oldest first. Older submissions without the flag don't count. */
+export function owedVideos(days: Record<string, DayRecord>): DayRecord[] {
+  return Object.values(days)
+    .filter((d) => d.submitted && d.submitted.watched === false)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** A stable "random" pick for a given day, so the throwback doesn't change every render. */
+export function pickForDay<T>(items: T[], dateKey: string, skip = 0): T | null {
+  if (!items.length) return null;
+  let h = 17;
+  for (let i = 0; i < dateKey.length; i++) h = (h * 31 + dateKey.charCodeAt(i)) >>> 0;
+  return items[(h + skip) % items.length];
 }

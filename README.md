@@ -6,17 +6,17 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 **What's in it** (five tabs: Today · Study · Health · Calendar · Settings)
 
 - **Today** – greeting and day streak, banner photo, progress ring (habits + to-dos), core habits (emoji, colour, time,
-  sound, must-do), to-do list, song of the day, the **personal journal (end-to-end encrypted)**, the three 1–10 ratings
-  and screen time, the **academic journal** (Economics / Maths / Physics, written from memory), **today's questions**
-  (three set by Claude the night before, answerable offline, with yesterday's marks), the countdown to your first A-level
-  exam, and **Submit day** (locks the ticks, works out the tier, plays that tier's video).
+  sound, must-do), to-do list, the **personal journal (end-to-end encrypted)**, the three 1–10 ratings, live
+  **countdowns** (first exam + anything added in Settings), a **throwback** journal entry, and **Submit day** (locks the
+  ticks, works out the tier, plays that tier's video full screen; it can't be skipped, and an unfinished video plays
+  again next time the app opens).
 - **Study** – Claude's grade trajectory (U–A*, one line per A-level, dashed trend to the exam, tap a point for the reason),
   estimated weekly study hours, and the Economics concept of the day plus reading (Claude's version when it has written
   one, otherwise the built-in cards and live BBC / Guardian headlines).
 - **Health** – streaks, submitted-day tiers, insights, ratings chart, per-habit stats, habit heatmap. Health only.
 - **Calendar** – month view; a camera on today's cell adds today's photo, past days show theirs or stay plain blue.
   Tap any day to open its full record.
-- **Settings** – habits, sounds, first exam date, journal passphrase, Claude sync status, reminders, videos, photos, sync.
+- **Settings** – habits, sounds, first exam date, countdowns, journal passphrase, Claude sync status, reminders, videos, photos, sync.
 - **Laptop** – a photo wall column beside the app on wide screens (`public/photos/wall-1.jpg` … `wall-4.jpg`).
 
 Old Plan and Countdowns data is kept in the database but no longer shown.

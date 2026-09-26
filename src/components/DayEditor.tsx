@@ -12,17 +12,15 @@ import ProgressRing from "./ProgressRing";
 import RatingBar from "./RatingBar";
 import Confetti from "./Confetti";
 import SubmitDay from "./SubmitDay";
-import DebouncedInput from "./DebouncedInput";
 import EncryptedJournal from "./EncryptedJournal";
-import AcademicJournal from "./AcademicJournal";
-import TodayQuestions from "./TodayQuestions";
-import ExamCountdown from "./ExamCountdown";
+import CountdownsCard from "./CountdownsCard";
+import ThrowbackJournal from "./ThrowbackJournal";
 
 type Props = { date: string; compact?: boolean };
 
 /**
- * Everything for one day, in this order: progress, habits, to-do, song, journal (encrypted), ratings,
- * academic journal, today's questions, exam countdown, submit. Used by Today and the calendar's day view.
+ * Everything for one day, in this order: progress, habits, to-do, journal (encrypted), ratings,
+ * then (today only) countdowns and a throwback entry, then submit. Used by Today and the calendar's day view.
  */
 export default function DayEditor({ date, compact = false }: Props) {
   const { data, getDay, updateDay, carryTodoOver, today } = useStore();
@@ -129,11 +127,6 @@ export default function DayEditor({ date, compact = false }: Props) {
         />
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">🎵 Song of the day</h2>
-        <DebouncedInput key={`song-${date}`} value={day.song ?? ""} onSave={(song) => updateDay(date, (d) => ({ ...d, song: song || undefined }))} placeholder="Artist – track" ariaLabel="Song of the day" className="field mt-2" />
-      </section>
-
       <EncryptedJournal date={date} />
 
       <section className="card p-4 md:p-5">
@@ -146,51 +139,11 @@ export default function DayEditor({ date, compact = false }: Props) {
           <RatingBar label="Health" hint="sleep, food, movement" tone="teal" value={day.ratings.health} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, health: v } }))} />
           <RatingBar label="Happiness" hint="mood, people, energy" tone="sunset" value={day.ratings.happy} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, happy: v } }))} />
         </div>
-        <div className="mt-5 border-t border-sand-100 pt-4">
-          <span className="mb-1 block text-sm font-extrabold text-ink">📱 Screen time</span>
-          <div className="flex items-center gap-2">
-            <select
-              className="field w-auto py-3"
-              aria-label="Screen time hours"
-              value={typeof day.screenMinutes === "number" ? Math.floor(day.screenMinutes / 60) : ""}
-              onChange={(e) => {
-                const h = e.target.value === "" ? null : Number(e.target.value);
-                updateDay(date, (d) => ({ ...d, screenMinutes: h === null ? undefined : h * 60 + ((d.screenMinutes ?? 0) % 60) }));
-              }}
-            >
-              <option value="">–</option>
-              {Array.from({ length: 17 }, (_, i) => (
-                <option key={i} value={i}>
-                  {i}h
-                </option>
-              ))}
-            </select>
-            <select
-              className="field w-auto py-3"
-              aria-label="Screen time minutes"
-              value={typeof day.screenMinutes === "number" ? day.screenMinutes % 60 - (day.screenMinutes % 5) : ""}
-              onChange={(e) => {
-                const m = e.target.value === "" ? 0 : Number(e.target.value);
-                updateDay(date, (d) => ({ ...d, screenMinutes: Math.floor((d.screenMinutes ?? 0) / 60) * 60 + m }));
-              }}
-            >
-              <option value="">–</option>
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i} value={i * 5}>
-                  {i * 5}m
-                </option>
-              ))}
-            </select>
-            <span className="text-[11px] font-semibold text-ink-muted">from Settings → Screen Time on your phone</span>
-          </div>
-        </div>
       </section>
 
-      <AcademicJournal date={date} />
+      {date === today && <CountdownsCard />}
 
-      <TodayQuestions date={date} />
-
-      {date === today && <ExamCountdown />}
+      {date === today && <ThrowbackJournal date={date} />}
 
       <SubmitDay date={date} />
     </div>

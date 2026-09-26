@@ -12,6 +12,7 @@ import TrendsView from "./TrendsView";
 import SettingsView from "./SettingsView";
 import PhotoWall from "./PhotoWall";
 import ReminderRunner from "./ReminderRunner";
+import VideoGate from "./VideoGate";
 
 type Tab = "today" | "study" | "health" | "calendar" | "settings";
 
@@ -55,6 +56,7 @@ export default function AppShell() {
   return (
     <div className="flex min-h-dvh flex-col">
       <ReminderRunner />
+      <VideoGate />
 
       {/* Sky header */}
       <div className="bg-gradient-to-b from-ocean-100 via-sand-100 to-sand-50">
