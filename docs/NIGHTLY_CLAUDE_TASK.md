@@ -92,14 +92,13 @@ body and retry once, then report the error. Finish with a three-line summary: ec
 
 So no single option does both. The setup that works today:
 
-1. Run the nightly job as a **Claude Code cloud routine**. That covers reading, marking, questions, grades,
-   econ, and the hours estimate **from what it can see in the app** (the academic journal and answers).
+1. Run the nightly job as a **Claude Code cloud routine**. That covers reading the day, posting tomorrow's
+   economics, and keeping its notes, all **from what it can see in the app**.
 2. Give it the memory it needs through the app itself: the `memory` field above is its long-term notes, and
    it reads them back every night. That replaces "project memory" for this job.
-3. For the hours you spend with Claude in the A-level project, tell the app: one line in the academic
-   journal ("Also did ~1h of mechanics questions with Claude") is enough for the routine to count it. If you
-   want a fully automatic bridge to your project chats later, that is a separate build (a small MCP
-   connector), and worth doing only once the rest is running.
+3. Grade and hours estimates need evidence the app no longer collects. If you want them, tell the routine
+   yourself (a note it can store in `memory`), or build a small MCP connector that bridges your A-level
+   project chats later; that is a separate build, worth doing only once the rest is running.
 
 ### Steps
 
@@ -113,7 +112,9 @@ So no single option does both. The setup that works today:
    Europe/London is 21:30 UTC in autumn/winter and 21:30 → cron `30 21 * * *`; after the clocks change in
    spring, update it to `30 20 * * *`. Model: `claude-sonnet-5` is enough and cheaper; pick Opus if you want
    sharper marking.
-4. **Submit your day before that time** each night. The routine marks submitted days; an unsubmitted day is
-   read but not marked until the next night.
+4. **Submit your day before that time** each night so the routine sees the finished day.
+   **Firewall:** the routine talks to the app with plain `curl`, so Vercel's *Attack Challenge Mode* and
+   *Bot Protection* (Project → Firewall) must stay off, or have a bypass rule for `/api/claude/*`. When they
+   are on, every request gets HTTP 403 "Vercel Security Checkpoint" and the run does nothing.
 5. **Watch it:** *Settings → Claude sync* in the app shows the last read and write. If those don't move, open
    https://claude.ai/code/routines, pick the routine, and read the run log.
