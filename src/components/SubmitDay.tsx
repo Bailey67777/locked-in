@@ -65,7 +65,9 @@ export default function SubmitDay({ date }: { date: string }) {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {owed ? (
-            <span className="flex-1 rounded-2xl bg-sunset-100 px-3 py-2 text-sm font-bold text-sunset-700">Video not finished yet. It plays when you open the app.</span>
+            <button type="button" className="btn-primary flex-1" onClick={() => setRewatch(true)}>
+              ▶ Play the video (not finished yet)
+            </button>
           ) : (
             <button type="button" className="btn-primary flex-1" onClick={() => setRewatch(true)}>
               ▶ Watch it again
@@ -77,7 +79,17 @@ export default function SubmitDay({ date }: { date: string }) {
             </button>
           )}
         </div>
-        {rewatch && <RewardVideo date={date} tier={sub.tier} pct={sub.pct} keystoneMissed={sub.keystoneMissed} required={false} onWatched={() => undefined} onClose={() => setRewatch(false)} />}
+        {rewatch && (
+          <RewardVideo
+            date={date}
+            tier={sub.tier}
+            pct={sub.pct}
+            keystoneMissed={sub.keystoneMissed}
+            required={owed}
+            onWatched={() => updateDay(date, (d) => ({ ...d, submitted: d.submitted ? { ...d.submitted, watched: true } : d.submitted }))}
+            onClose={() => setRewatch(false)}
+          />
+        )}
       </section>
     );
   }

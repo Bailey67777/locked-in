@@ -25,7 +25,8 @@ type Props = {
  * Full-screen player for a submitted day's tier video (public/media/day-80-100.mp4 etc).
  * When `required`, the only way out is to watch the whole thing: seeking forward is snapped back,
  * playback speed is pinned, and the close button appears only once the video has ended.
- * A tier with no video uploaded counts as watched, so nothing can get stuck.
+ * If the video can't be loaded (not uploaded yet, offline, or the site is blocking the file) it is NOT
+ * counted as watched: the overlay can be dismissed and the video is owed again next time the app opens.
  */
 export default function RewardVideo({ date, tier, pct, keystoneMissed, required, onWatched, onClose }: Props) {
   const info = tierById(tier);
@@ -51,10 +52,12 @@ export default function RewardVideo({ date, tier, pct, keystoneMissed, required,
     onWatched();
   }, [onWatched]);
 
-  // Nothing to watch: count it as watched straight away so the day can't get stuck.
-  useEffect(() => {
-    if (missing && required) markWatched();
-  }, [missing, required, markWatched]);
+  const retry = () => {
+    maxPlayed.current = 0;
+    setStarted(false);
+    setProgress(0);
+    setIndex(0);
+  };
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -128,8 +131,13 @@ export default function RewardVideo({ date, tier, pct, keystoneMissed, required,
             <div className="text-5xl">{info.emoji}</div>
             <p className="mt-3 text-lg font-extrabold">{info.blurb}</p>
             <p className="mt-3 text-sm font-semibold text-white/80">
-              No video uploaded for this tier yet. Add <code className="rounded bg-white/15 px-1">public/media/{info.file}.mp4</code> on GitHub and it will play here.
+              The video for this tier couldn&apos;t be loaded (<code className="rounded bg-white/15 px-1">public/media/{info.file}.mp4</code>). If you&apos;re offline or the site is blocking it, try again in a bit.
+              {required && " It still counts as owed, so it plays next time you open the app."}
             </p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button type="button" onClick={retry} className="tap rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-ocean-900">Try again</button>
+              <button type="button" onClick={onClose} className="tap rounded-full bg-white/15 px-5 py-2.5 text-sm font-extrabold text-white">Not now</button>
+            </div>
           </div>
         ) : (
           <div className="relative flex max-h-full w-full max-w-3xl flex-col">

@@ -6,6 +6,12 @@
       "runtimeExecutable": "/opt/homebrew/bin/npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "3111"],
       "port": 3111
+    },
+    {
+      "name": "locked-in-test",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["NEXT_PUBLIC_DATA_KEY=test-v4", "/opt/homebrew/bin/npx", "next", "dev", "--port", "3113"],
+      "port": 3113
     }
   ]
 }
