@@ -29,7 +29,7 @@ export default function RatingBar({ label, value, tone, onChange }: Props) {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="w-[72px] shrink-0 text-[12.5px] font-bold text-ink-soft">{label}</span>
+      <span className="fancy w-[78px] shrink-0 text-[15px] text-ink">{label}</span>
       <div
         ref={track}
         role="slider"
@@ -63,7 +63,7 @@ export default function RatingBar({ label, value, tone, onChange }: Props) {
       <button
         type="button"
         onClick={() => value > 0 && onChange(0)}
-        className="w-7 shrink-0 text-right text-[14px] font-extrabold tabular-nums text-ink"
+        className="w-7 shrink-0 text-right font-serif text-[18px] tabular-nums text-ink"
         aria-label={value > 0 ? `Clear ${label} rating` : `${label} not rated`}
         title={value > 0 ? "Tap to clear" : undefined}
       >

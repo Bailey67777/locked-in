@@ -94,7 +94,7 @@ export default function SubmitDay({ date }: { date: string }) {
       </div>
 
       <div className="relative mt-3 h-1 w-full rounded-full bg-black/[0.06]">
-        <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${preview.pct}%`, background: preview.reward ? "var(--color-teal-500)" : "var(--color-ocean-500)" }} />
+        <div className={preview.reward ? "h-full rounded-full transition-[width] duration-500" : "grad-fill h-full rounded-full transition-[width] duration-500"} style={{ width: `${preview.pct}%`, ...(preview.reward ? { background: "var(--color-teal-500)" } : {}) }} />
         <span className="absolute -top-1 h-3.5 w-[2px] rounded-full bg-ink/40" style={{ left: `${REWARD_PCT}%` }} aria-hidden="true" />
       </div>
       <p className="mt-2 text-[12.5px] font-semibold text-ink-muted">

@@ -38,7 +38,7 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete, onCarryOver
                 >
                   <CheckIcon width={11} height={11} strokeWidth={3.5} />
                 </span>
-                <span className={cn("min-w-0 flex-1 truncate text-[13.5px] font-semibold", t.done ? "text-ink-muted line-through decoration-ink-muted/40" : "text-ink")}>{t.text}</span>
+                <span className={cn("fancy min-w-0 flex-1 truncate text-[15.5px]", t.done ? "text-ink-muted line-through decoration-ink-muted/40" : "text-ink")}>{t.text}</span>
               </button>
               {!t.done && onCarryOver && (
                 <button type="button" onClick={() => onCarryOver(t.id)} className="btn-icon h-7 w-7 text-ink-muted" title="Move to tomorrow" aria-label="Move to tomorrow">

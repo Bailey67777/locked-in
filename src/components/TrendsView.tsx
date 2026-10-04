@@ -132,7 +132,7 @@ export default function TrendsView() {
               const look = habitLook(h.id, settings);
               return (
                 <li key={h.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
-                  <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-ink">
+                  <span className="fancy flex min-w-0 items-center gap-1.5 text-[15px] text-ink">
                     <span className="text-[12px]">{look.emoji}</span>
                     <span className="truncate">{h.name}</span>
                   </span>
@@ -141,7 +141,7 @@ export default function TrendsView() {
                     <span className="w-8 text-right font-bold text-ink">{h.tracked ? `${h.pct}%` : "–"}</span>
                   </span>
                   <div className="col-span-2 h-1.5 w-full overflow-hidden rounded-full bg-sand-100">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${h.pct}%`, backgroundColor: look.color }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${h.pct}%`, background: `linear-gradient(90deg, ${look.color}99, ${look.color})` }} />
                   </div>
                 </li>
               );
@@ -204,7 +204,7 @@ export default function TrendsView() {
         ) : (
           <ul className="mt-2 flex flex-col divide-y divide-black/[0.05]">
             {tips.map((t, i) => (
-              <li key={i} className="flex gap-2.5 py-2 text-[13px] font-semibold leading-snug text-ink-soft">
+              <li key={i} className="fancy flex gap-2.5 py-2 text-[15px] leading-snug text-ink">
                 <span className="text-[14px] leading-tight">{t.emoji}</span>
                 <span>{t.text}</span>
               </li>

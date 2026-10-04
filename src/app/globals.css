@@ -26,8 +26,8 @@
   --color-ocean-200: #b5d2f4;
   --color-ocean-300: #86b4eb;
   --color-ocean-400: #5791dd;
-  --color-ocean-500: #3471c9;
-  --color-ocean-600: #285bab;
+  --color-ocean-500: #1f78e0;
+  --color-ocean-600: #1862bd;
   --color-ocean-700: #214989;
   --color-ocean-800: #1b3866;
   --color-ocean-900: #142a4a;
@@ -59,9 +59,10 @@
   --color-ink-soft: #4a525c;
   --color-ink-muted: #858c94;
 
-  --color-sky: #d3e6fb;
-  --color-sun: #ffd789;
-  --color-ground: #f9f6f0;
+  --color-sky: #a9d3fb;
+  --color-sun: #ffd25c;
+  --color-glow: #9fe6d6;
+  --color-ground: #f8f6ef;
 
   --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 10px 30px -20px rgb(40 30 20 / 0.3);
   --shadow-lift: 0 16px 48px -20px rgb(30 22 14 / 0.35), 0 2px 8px -4px rgb(30 22 14 / 0.08);
@@ -76,8 +77,8 @@ html[data-season="autumn"] {
   --color-ocean-200: #f4c99e;
   --color-ocean-300: #eaa666;
   --color-ocean-400: #dc8339;
-  --color-ocean-500: #c4671f;
-  --color-ocean-600: #a05218;
+  --color-ocean-500: #cf5a17;
+  --color-ocean-600: #a94713;
   --color-ocean-700: #7f4216;
   --color-ocean-800: #5f3214;
   --color-ocean-900: #41230f;
@@ -109,9 +110,10 @@ html[data-season="autumn"] {
   --color-ink-soft: #5d4b3e;
   --color-ink-muted: #94816f;
 
-  --color-sky: #f8dcbb;
-  --color-sun: #ffc66b;
-  --color-ground: #fbf6ee;
+  --color-sky: #f5b483;
+  --color-sun: #ffbd45;
+  --color-glow: #e59aa3;
+  --color-ground: #fbf2e7;
 }
 
 /* Winter: crisp blue sky, pale low sun, frost. */
@@ -121,8 +123,8 @@ html[data-season="winter"] {
   --color-ocean-200: #bccfe8;
   --color-ocean-300: #90afd6;
   --color-ocean-400: #6389bf;
-  --color-ocean-500: #456ba3;
-  --color-ocean-600: #375688;
+  --color-ocean-500: #4c62c4;
+  --color-ocean-600: #3c4fa5;
   --color-ocean-700: #2d456d;
   --color-ocean-800: #233652;
   --color-ocean-900: #19263a;
@@ -154,9 +156,10 @@ html[data-season="winter"] {
   --color-ink-soft: #465066;
   --color-ink-muted: #7e8799;
 
-  --color-sky: #cfe1f5;
-  --color-sun: #ffe2b0;
-  --color-ground: #f5f7fa;
+  --color-sky: #b4cff2;
+  --color-sun: #ffd4bf;
+  --color-glow: #c6bdf3;
+  --color-ground: #f2f4fa;
 }
 
 /* Spring: fresh leaf green, blossom, bright soft sun. */
@@ -166,8 +169,8 @@ html[data-season="spring"] {
   --color-ocean-200: #bfdeb3;
   --color-ocean-300: #97c785;
   --color-ocean-400: #6fac5c;
-  --color-ocean-500: #528f42;
-  --color-ocean-600: #417336;
+  --color-ocean-500: #3f9a4f;
+  --color-ocean-600: #327d40;
   --color-ocean-700: #355b2d;
   --color-ocean-800: #2a4724;
   --color-ocean-900: #1f351b;
@@ -199,9 +202,10 @@ html[data-season="spring"] {
   --color-ink-soft: #485646;
   --color-ink-muted: #7e8a7b;
 
-  --color-sky: #dcecf6;
-  --color-sun: #fff0a0;
-  --color-ground: #f8faf3;
+  --color-sky: #c6e5f8;
+  --color-sun: #fff06e;
+  --color-glow: #f5bfd4;
+  --color-ground: #f5f9ef;
 }
 
 /* ---------- base ---------- */
@@ -231,7 +235,8 @@ body {
   letter-spacing: 0;
 }
 
-/* Morning sun: sky at the top fading to the ground colour, with a low sun glowing in the top right. */
+/* Morning sun: a bright low sun top right, the season's second colour glowing from the bottom corner,
+   sky fading to ground, and a fine film grain over it all. */
 body::before {
   content: "";
   position: fixed;
@@ -239,8 +244,33 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 88% 2%, color-mix(in oklab, var(--color-sun) 95%, white) 0, color-mix(in oklab, var(--color-sun) 70%, transparent) 9%, color-mix(in oklab, var(--color-sun) 28%, transparent) 26%, transparent 52%),
-    linear-gradient(180deg, var(--color-sky) 0%, color-mix(in oklab, var(--color-sky) 45%, var(--color-ground)) 28%, var(--color-ground) 60%);
+    radial-gradient(circle at 86% 0%, #ffffff 0, color-mix(in oklab, var(--color-sun) 85%, white) 3.5%, color-mix(in oklab, var(--color-sun) 70%, transparent) 12%, color-mix(in oklab, var(--color-sun) 24%, transparent) 30%, transparent 55%),
+    radial-gradient(75% 45% at 0% 100%, color-mix(in oklab, var(--color-glow) 60%, transparent), transparent 72%),
+    radial-gradient(55% 35% at 100% 62%, color-mix(in oklab, var(--color-glow) 28%, transparent), transparent 72%),
+    linear-gradient(180deg, var(--color-sky) 0%, color-mix(in oklab, var(--color-sky) 50%, var(--color-ground)) 30%, var(--color-ground) 62%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* The fancy face for things you read: habit names, to-dos, countdowns. */
+.fancy {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 430;
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  letter-spacing: -0.008em;
+}
+
+/* Progress fills run from the season's accent into its sun colour. */
+.grad-fill {
+  background: linear-gradient(90deg, var(--color-ocean-500), var(--color-sunset-400));
 }
 
 @layer components {

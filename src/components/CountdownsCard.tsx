@@ -42,16 +42,16 @@ export default function CountdownsCard() {
             <li key={c.id} className="flex items-center gap-3 py-2">
               <span className="h-7 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13.5px] font-bold text-ink">
+                <div className="fancy truncate text-[16.5px] text-ink">
                   <span className="mr-1.5">{c.emoji}</span>
                   {c.title}
                 </div>
-                <div className="truncate text-[11px] font-semibold text-ink-muted">{c.when}</div>
+                <div className="truncate font-mono text-[10.5px] text-ink-muted">{c.when}</div>
               </div>
               <div className={`shrink-0 text-right tabular-nums ${past ? "text-ink-muted" : "text-ink"}`}>
                 {now ? (
                   <>
-                    <span className="text-[17px] font-extrabold tracking-[-0.02em]">{d.days}</span>
+                    <span className="font-serif text-[22px]">{d.days}</span>
                     <span className="mr-1.5 text-[11px] font-bold text-ink-muted">d</span>
                     <span className="font-mono text-[12.5px] font-semibold text-ink-soft">
                       {pad(d.hours)}:{pad(d.minutes)}:{pad(d.seconds)}

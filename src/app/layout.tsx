@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Mono, Fraunces, Manrope } from "next/font/google";
+import { Bricolage_Grotesque, DM_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/lib/store";
 import { SEASON_BOOT_SCRIPT } from "@/lib/season";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const sans = Manrope({
+const sans = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",

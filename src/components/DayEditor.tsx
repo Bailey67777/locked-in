@@ -120,7 +120,7 @@ export default function DayEditor({ date }: Props) {
         </div>
         {day.habits.length > 0 && (
           <div className="mb-3 mt-3 h-[2px] w-full overflow-hidden rounded-full bg-black/[0.06]">
-            <div className="h-full rounded-full bg-ocean-500 transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
+            <div className="grad-fill h-full rounded-full transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
           </div>
         )}
         <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />

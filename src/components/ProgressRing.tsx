@@ -7,6 +7,12 @@ export default function ProgressRing({ pct, size = 54, stroke = 3.5 }: { pct: nu
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <defs>
+          <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: "var(--color-sunset-400)" }} />
+            <stop offset="1" style={{ stopColor: "var(--color-ocean-500)" }} />
+          </linearGradient>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" style={{ stroke: "rgb(0 0 0 / 0.07)" }} />
         <circle
           cx={size / 2}
@@ -17,11 +23,11 @@ export default function ProgressRing({ pct, size = 54, stroke = 3.5 }: { pct: nu
           fill="none"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{ stroke: complete ? "var(--color-teal-500)" : "var(--color-ocean-500)", transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+          style={{ stroke: complete ? "var(--color-teal-500)" : "url(#ring-grad)", transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[12.5px] font-bold tabular-nums text-ink">{clamped}%</span>
+        <span className="font-serif text-[15px] tabular-nums text-ink">{clamped}%</span>
       </div>
     </div>
   );
