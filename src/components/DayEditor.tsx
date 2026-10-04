@@ -123,7 +123,7 @@ export default function DayEditor({ date }: Props) {
             <div className="h-full rounded-full bg-ocean-500 transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
           </div>
         )}
-        <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} showNext={date === today && !locked} />
+        <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
       </section>
 
       <section className={cn("card px-4 pb-3 pt-3.5", locked && "pointer-events-none opacity-70")}>

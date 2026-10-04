@@ -13,7 +13,7 @@ import { SOUNDS, pickSoundForHabit, playSound, randomSound, soundById } from "@/
 import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
-import BannerManager from "./BannerManager";
+import PhotosSettings from "./PhotosSettings";
 
 export default function SettingsView() {
   const { data, updateSettings, sync, today, season, seasonChoice, setSeasonChoice } = useStore();
@@ -66,7 +66,9 @@ export default function SettingsView() {
 
   return (
     <div className="rise flex flex-col gap-3">
-      <h1 className="px-1 text-2xl font-extrabold text-ink">Settings</h1>
+      <h1 className="px-1 pb-1 font-serif text-[28px] leading-none text-ink">Settings</h1>
+
+      <PhotosSettings season={season} />
 
       <section className="card p-4">
         <h2 className="card-title">Core habits</h2>
@@ -350,7 +352,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Season</h2>
-        <p className="card-desc mt-1">The colours and banner follow the seasons in Bristol and switch on their own. Pick one to preview it on this device.</p>
+        <p className="card-desc mt-1">The colours and banner follow the seasons in Bristol and switch on their own. Pick one to preview it on this device. Banner photos for each season are under Photos at the top.</p>
         <div className="mt-3 grid grid-cols-5 gap-1.5">
           {(["auto", ...SEASONS] as const).map((c) => (
             <button
@@ -368,7 +370,6 @@ export default function SettingsView() {
         <p className="mt-2 text-[11px] font-semibold text-ink-muted">
           Now showing {SEASON_LABEL[season].toLowerCase()}.
         </p>
-        <BannerManager current={season} />
       </section>
 
       <section className="card p-4">
@@ -517,12 +518,6 @@ export default function SettingsView() {
         )}
       </section>
 
-      <section className="card p-4">
-        <h2 className="card-title">Your photos</h2>
-        <p className="mt-1 text-sm font-semibold text-ink-soft">
-          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and banner photos per season in <code className="rounded bg-sand-100 px-1">autumn/</code>, <code className="rounded bg-sand-100 px-1">winter/</code>, <code className="rounded bg-sand-100 px-1">spring/</code> and <code className="rounded bg-sand-100 px-1">summer/</code>. Per-day photos are added from the day itself.
-        </p>
-      </section>
     </div>
   );
 }

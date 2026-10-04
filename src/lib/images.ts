@@ -59,3 +59,12 @@ export async function processBanner(file: File, maxWidth = 1600): Promise<string
   if ("close" in src) src.close();
   return out;
 }
+
+/** A square, centre-cropped JPEG (data URL) for the profile picture. */
+export async function processSquare(file: File, size = 320): Promise<string> {
+  const src = await loadBitmap(file);
+  const side = Math.min(src.width, src.height);
+  const out = draw(src, size, size, (src.width - side) / 2, (src.height - side) / 2, side, side, 0.82);
+  if ("close" in src) src.close();
+  return out;
+}

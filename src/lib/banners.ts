@@ -102,3 +102,66 @@ export function useBanners(season: Season) {
   const current = state.season === season ? state : { season, list: [], ready: false };
   return { list: current.list, ready: current.ready, add, remove: removeBanner };
 }
+
+const PROFILE_KEY = "locked-in:profile";
+
+/** The profile picture uploaded from Settings (stored at profile/), or null to use public/photos/profile.jpg. */
+export function useProfilePhoto() {
+  const [photo, setPhoto] = useState<{ data: string | null; ready: boolean }>({ data: null, ready: false });
+
+  useEffect(() => {
+    const db = getDb();
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      let cached: string | null = null;
+      try {
+        cached = localStorage.getItem(PROFILE_KEY);
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled) setPhoto((p) => (p.ready ? p : { data: cached, ready: cached !== null || !db }));
+    }, 0);
+    if (!db) {
+      return () => {
+        cancelled = true;
+        window.clearTimeout(t);
+      };
+    }
+    const unsub = onValue(
+      ref(db, `${DATA_PATH}/profile`),
+      (snap) => {
+        const v = snap.val() as { data?: unknown } | null;
+        const data = typeof v?.data === "string" && v.data.startsWith("data:image/") ? v.data : null;
+        try {
+          if (data) localStorage.setItem(PROFILE_KEY, data);
+          else localStorage.removeItem(PROFILE_KEY);
+        } catch {
+          /* ignore */
+        }
+        if (!cancelled) setPhoto({ data, ready: true });
+      },
+      () => !cancelled && setPhoto((p) => ({ ...p, ready: true })),
+    );
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      unsub();
+    };
+  }, []);
+
+  const save = useCallback((data: string | null) => {
+    setPhoto({ data, ready: true });
+    try {
+      if (data) localStorage.setItem(PROFILE_KEY, data);
+      else localStorage.removeItem(PROFILE_KEY);
+    } catch {
+      /* ignore */
+    }
+    const db = getDb();
+    if (!db) return;
+    if (data) set(ref(db, `${DATA_PATH}/profile`), { data, at: Date.now() }).catch(() => undefined);
+    else remove(ref(db, `${DATA_PATH}/profile`)).catch(() => undefined);
+  }, []);
+
+  return { ...photo, save };
+}

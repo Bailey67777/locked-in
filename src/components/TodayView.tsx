@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { useBanners } from "@/lib/banners";
+import { useBanners, useProfilePhoto } from "@/lib/banners";
 import { formatLong, greetingFor, keyFromDate } from "@/lib/dates";
 import { processBanner } from "@/lib/images";
 import { dayStreak } from "@/lib/stats";
@@ -17,6 +17,7 @@ export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos
   const greeting = greetingFor(new Date());
   const streak = useMemo(() => dayStreak(data.days, data.settings, today), [data, today]);
   const banners = useBanners(season);
+  const profile = useProfilePhoto();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
@@ -60,7 +61,7 @@ export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos
               🔥 <span className="tabular-nums text-ink">{streak.current}</span>
             </span>
           )}
-          <Photo src="/photos/profile.jpg" alt="Profile" variant="avatar" className="h-10 w-10 ring-2 ring-white/80" />
+          <Photo src={!profile.ready ? [] : profile.data ? [profile.data] : "/photos/profile.jpg"} alt="Profile" variant="avatar" className="h-10 w-10 ring-2 ring-white/80" />
         </div>
       </header>
 
