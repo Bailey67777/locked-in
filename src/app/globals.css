@@ -9,12 +9,13 @@
  * so every screen re-themes without touching component code. The @theme values are summer.
  */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: var(--font-serif-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-detail), ui-monospace, "SF Mono", Menlo, monospace;
 
-  --font-weight-semibold: 450;
-  --font-weight-bold: 500;
-  --font-weight-extrabold: 560;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 650;
 
   --radius-xl: 0.7rem;
   --radius-2xl: 0.9rem;
@@ -216,8 +217,18 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   min-height: 100dvh;
-  font-feature-settings: "cv11", "ss01", "ss03";
-  letter-spacing: -0.008em;
+  letter-spacing: -0.005em;
+}
+
+/* Fraunces: light, soft and a little wonky — the app's voice. */
+.font-serif,
+.card-title {
+  font-weight: 340;
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+  letter-spacing: -0.02em;
+}
+.font-mono {
+  letter-spacing: 0;
 }
 
 /* Morning sun: sky at the top fading to the ground colour, with a low sun glowing in the top right. */
@@ -237,10 +248,13 @@ body::before {
     @apply rounded-3xl border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl;
   }
   .card-title {
-    @apply font-serif text-[22px] leading-none font-normal tracking-[-0.005em] text-ink;
+    @apply font-serif text-[19px] leading-none text-ink;
+  }
+  .card-desc {
+    @apply text-[12.5px] leading-relaxed text-ink-muted;
   }
   .card-sub {
-    @apply text-[12px] font-normal text-ink-muted;
+    @apply font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-muted;
   }
   .tap {
     @apply select-none transition active:scale-[0.98];
@@ -258,7 +272,7 @@ body::before {
     @apply inline-flex select-none transition active:scale-[0.98] h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-white/70 disabled:opacity-30 disabled:hover:bg-transparent;
   }
   .label {
-    @apply text-[10px] font-bold uppercase tracking-[0.18em] text-ink-muted;
+    @apply font-mono text-[10.5px] font-normal uppercase tracking-[0.14em] text-ink-muted;
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-ink-soft;

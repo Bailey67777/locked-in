@@ -91,7 +91,7 @@ export default function DayEditor({ date }: Props) {
       <section className="card flex items-center gap-3.5 px-4 py-3">
         <ProgressRing pct={progress.pct} />
         <div className="min-w-0 flex-1">
-          <div className="font-serif text-[23px] leading-none text-ink">
+          <div className="font-serif text-[20px] leading-none text-ink">
             {progress.total === 0 ? "Nothing to tick yet" : progress.pct === 100 ? "Everything done." : `${progress.done} of ${progress.total} done`}
           </div>
           <div className="mt-1 text-[12.5px] text-ink-muted">
@@ -108,22 +108,22 @@ export default function DayEditor({ date }: Props) {
         </div>
       </section>
 
-      <section className={cn("card px-4 pb-2.5 pt-3.5", locked && "pointer-events-none opacity-70")}>
+      <section className={cn("card overflow-hidden px-4 pt-4", locked && "pointer-events-none opacity-70")}>
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <h2 className="card-title">Core habits</h2>
           <div className="flex items-center gap-2">
             {lockedNote}
-            <span className="text-[12px] font-bold tabular-nums text-ink-muted">
+            <span className="font-mono text-[11.5px] tabular-nums text-ink-muted">
               {habitsDone}/{day.habits.length}
             </span>
           </div>
         </div>
         {day.habits.length > 0 && (
-          <div className="mb-2 mt-2.5 h-[2px] w-full overflow-hidden rounded-full bg-black/[0.06]">
+          <div className="mb-3 mt-3 h-[2px] w-full overflow-hidden rounded-full bg-black/[0.06]">
             <div className="h-full rounded-full bg-ocean-500 transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
           </div>
         )}
-        <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
+        <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} showNext={date === today && !locked} />
       </section>
 
       <section className={cn("card px-4 pb-3 pt-3.5", locked && "pointer-events-none opacity-70")}>

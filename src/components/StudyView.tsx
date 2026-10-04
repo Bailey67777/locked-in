@@ -59,7 +59,7 @@ export default function StudyView() {
   return (
     <div className="rise flex flex-col gap-3">
       <div className="flex items-end justify-between gap-2 px-1 pb-1">
-        <h1 className="font-serif text-[32px] leading-none text-ink">Study</h1>
+        <h1 className="font-serif text-[28px] leading-none text-ink">Study</h1>
         {daysToExam !== null ? (
           <span className="text-right text-[12px] font-semibold text-ink-muted">
             <span className="text-[15px] font-extrabold tabular-nums text-ink">{daysToExam < 0 ? "–" : daysToExam}</span> {daysToExam < 0 ? "exams started" : `day${daysToExam === 1 ? "" : "s"} to first exam`}
@@ -90,13 +90,13 @@ export default function StudyView() {
           <div className="label mb-1.5">Economics · concept of the day</div>
           {econ?.concept ? (
             <>
-              <h2 className="font-serif text-[24px] leading-tight text-ink">{econ.concept.title}</h2>
+              <h2 className="font-serif text-[21px] leading-tight text-ink">{econ.concept.title}</h2>
               <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-ink-soft">{econ.concept.explanation}</p>
               <p className="mt-2 text-[11px] font-bold text-ink-muted">Written by Claude for today.</p>
             </>
           ) : (
             <>
-              <h2 className="font-serif text-[24px] leading-tight text-ink">{staticConcept.term}</h2>
+              <h2 className="font-serif text-[21px] leading-tight text-ink">{staticConcept.term}</h2>
               <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-soft">{staticConcept.what}</p>
               <dl className="mt-3 flex flex-col gap-2">
                 <div className="rounded-xl bg-sand-50 px-3 py-2">

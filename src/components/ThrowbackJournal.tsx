@@ -32,7 +32,7 @@ export default function ThrowbackJournal({ date }: { date: string }) {
         )}
       </div>
       <button type="button" onClick={() => setOpen((o) => !o)} className="block w-full text-left">
-        <p className={`whitespace-pre-wrap font-serif text-[17px] leading-snug text-ink-soft ${open ? "" : "line-clamp-3"}`}>{journalText(picked)}</p>
+        <p className={`whitespace-pre-wrap font-serif text-[16px] leading-snug text-ink-soft ${open ? "" : "line-clamp-3"}`}>{journalText(picked)}</p>
       </button>
     </section>
   );

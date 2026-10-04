@@ -80,7 +80,7 @@ export default function CalendarView() {
             <ChevronIcon dir="left" />
           </button>
           <div className="text-center">
-            <h1 className="font-serif text-[26px] leading-none text-ink">{monthLabel(year, month)}</h1>
+            <h1 className="font-serif text-[23px] leading-none text-ink">{monthLabel(year, month)}</h1>
             {!isCurrentMonth && (
               <button
                 type="button"
@@ -197,7 +197,7 @@ export default function CalendarView() {
               <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-4 py-3 backdrop-blur">
                 <div>
                   <div className="label">{selected === today ? "Today" : selected > today ? "Upcoming" : "Looking back"}</div>
-                  <div className="font-serif text-[22px] leading-tight text-ink">{formatLong(selected)}</div>
+                  <div className="font-serif text-[20px] leading-tight text-ink">{formatLong(selected)}</div>
                 </div>
                 <button type="button" className="btn-icon" onClick={() => setSelected(null)} aria-label="Close">
                   <CloseIcon />

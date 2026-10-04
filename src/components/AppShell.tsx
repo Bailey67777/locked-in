@@ -61,7 +61,7 @@ export default function AppShell({ seasonPhotos }: { seasonPhotos: SeasonPhotos 
         <div className="pt-safe" />
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-4 py-2.5 md:max-w-2xl">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="font-serif text-[22px] leading-none text-ink">
+            <span className="font-serif text-[20px] leading-none text-ink">
               Locked <span className="italic">In</span>
             </span>
             {sync === "offline" && (

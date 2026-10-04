@@ -13,6 +13,7 @@ import { SOUNDS, pickSoundForHabit, playSound, randomSound, soundById } from "@/
 import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
+import BannerManager from "./BannerManager";
 
 export default function SettingsView() {
   const { data, updateSettings, sync, today, season, seasonChoice, setSeasonChoice } = useStore();
@@ -69,7 +70,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Core habits</h2>
-        <p className="card-sub mb-3 mt-0.5">
+        <p className="card-desc mb-3 mt-1">
           Give each one an emoji, a colour, a time and a sound. Habits with a time sort themselves into day order. Changes apply from today onwards; past days keep what they had.
         </p>
         <ul className="flex flex-col gap-3">
@@ -214,7 +215,7 @@ export default function SettingsView() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="card-title">Sounds</h2>
-            <p className="card-sub mt-0.5">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
+            <p className="card-desc mt-1">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
           </div>
           <button
             type="button"
@@ -263,7 +264,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">First A-level exam</h2>
-        <p className="card-sub mt-0.5">Drives the countdown on Today and the end of the Study graph. Linear A-levels, so probably May 2028; set it once you know.</p>
+        <p className="card-desc mt-1">Drives the countdown on Today and the end of the Study graph. Linear A-levels, so probably May 2028; set it once you know.</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
             type="date"
@@ -282,7 +283,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Countdowns</h2>
-        <p className="card-sub mt-0.5">Shown on Today, live to the second. Tests, matches, trips, results day.</p>
+        <p className="card-desc mt-1">Shown on Today, live to the second. Tests, matches, trips, results day.</p>
         {settings.countdowns.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {[...settings.countdowns]
@@ -349,7 +350,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Season</h2>
-        <p className="card-sub mt-0.5">The colours and banner photo follow the seasons in Bristol and switch on their own. Pick one here to preview it on this device.</p>
+        <p className="card-desc mt-1">The colours and banner follow the seasons in Bristol and switch on their own. Pick one to preview it on this device.</p>
         <div className="mt-3 grid grid-cols-5 gap-1.5">
           {(["auto", ...SEASONS] as const).map((c) => (
             <button
@@ -357,7 +358,7 @@ export default function SettingsView() {
               type="button"
               onClick={() => setSeasonChoice(c)}
               aria-pressed={seasonChoice === c}
-              className={cn("tap rounded-xl border px-1 py-2 text-center text-[12px] font-bold", seasonChoice === c ? "border-transparent bg-ink text-white" : "border-black/[0.06] bg-sand-50 text-ink-soft hover:bg-sand-100")}
+              className={cn("tap rounded-xl border px-1 py-2 text-center text-[12px] font-bold", seasonChoice === c ? "border-transparent bg-ink text-white" : "border-white/70 bg-white/50 text-ink-soft hover:bg-white/80")}
             >
               <div className="text-base leading-none">{c === "auto" ? "🔄" : SEASON_EMOJI[c]}</div>
               <div className="mt-1">{c === "auto" ? "Auto" : SEASON_LABEL[c]}</div>
@@ -365,13 +366,14 @@ export default function SettingsView() {
           ))}
         </div>
         <p className="mt-2 text-[11px] font-semibold text-ink-muted">
-          Now showing {SEASON_LABEL[season].toLowerCase()}. Banner photos come from <code className="rounded bg-sand-100 px-1">public/photos/{season}/</code> on GitHub: add as many as you like and Today shows a different one each day.
+          Now showing {SEASON_LABEL[season].toLowerCase()}.
         </p>
+        <BannerManager current={season} />
       </section>
 
       <section className="card p-4">
         <h2 className="card-title">Claude sync</h2>
-        <p className="card-sub mt-0.5">Each night Claude reads your day, writes tomorrow&apos;s economics, and updates your grade trajectory from the marks you&apos;ve given it.</p>
+        <p className="card-desc mt-1">Each night Claude reads your day, writes tomorrow&apos;s economics, and updates your grade trajectory from the marks you&apos;ve given it.</p>
         <dl className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-sand-50 px-3 py-2">
             <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Last read from the app</dt>
@@ -387,7 +389,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Reminders</h2>
-        <p className="card-sub mt-0.5">
+        <p className="card-desc mt-1">
           A reminder at each habit&apos;s time, plus a nudge to submit the day at{" "}
           <input
             type="time"
@@ -490,7 +492,7 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="card-title">Your name</h2>
-        <p className="card-sub mb-2 mt-0.5">Used in the greeting on the Today screen.</p>
+        <p className="card-desc mb-2 mt-1">Used in the greeting on the Today screen.</p>
         <input
           value={settings.name}
           onChange={(e) => updateSettings((s) => ({ ...s, name: e.target.value }))}

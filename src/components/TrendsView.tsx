@@ -60,7 +60,7 @@ export default function TrendsView() {
   return (
     <div className="rise flex flex-col gap-3">
       <div className="flex items-end justify-between px-1 pb-1">
-        <h1 className="font-serif text-[32px] leading-none text-ink">Health</h1>
+        <h1 className="font-serif text-[28px] leading-none text-ink">Health</h1>
         <div className="flex rounded-full border border-black/[0.06] bg-white/70 p-0.5">
           {([7, 30] as const).map((r) => (
             <button

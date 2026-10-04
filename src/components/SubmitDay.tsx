@@ -57,7 +57,7 @@ export default function SubmitDay({ date }: { date: string }) {
             <div className="label flex items-center gap-1">
               <LockIcon width={11} height={11} /> Submitted
             </div>
-            <div className="font-serif text-[22px] leading-tight text-ink">
+            <div className="font-serif text-[20px] leading-tight text-ink">
               {sub.pct}% · <span className="italic">{info.label}</span>
             </div>
             <div className="text-[12.5px] font-semibold text-ink-muted">{info.blurb}</div>
@@ -90,7 +90,7 @@ export default function SubmitDay({ date }: { date: string }) {
     <section className="card p-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="card-title">Submit the day</h2>
-        <span className="font-serif text-[22px] leading-none tabular-nums text-ink">{preview.pct}%</span>
+        <span className="font-serif text-[20px] leading-none tabular-nums text-ink">{preview.pct}%</span>
       </div>
 
       <div className="relative mt-3 h-1 w-full rounded-full bg-black/[0.06]">

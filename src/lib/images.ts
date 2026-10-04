@@ -48,3 +48,14 @@ export async function processPhoto(file: File, mediumMax = 720, thumbSize = 96):
   if ("close" in src) src.close();
   return { medium, thumb };
 }
+
+/** A banner-sized JPEG (data URL): wide enough to look sharp on a laptop, small enough for the database. */
+export async function processBanner(file: File, maxWidth = 1600): Promise<string> {
+  const src = await loadBitmap(file);
+  const scale = Math.min(1, maxWidth / src.width);
+  const w = Math.max(1, Math.round(src.width * scale));
+  const h = Math.max(1, Math.round(src.height * scale));
+  const out = draw(src, w, h, 0, 0, src.width, src.height, 0.8);
+  if ("close" in src) src.close();
+  return out;
+}

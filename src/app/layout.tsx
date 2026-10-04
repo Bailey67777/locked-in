@@ -1,21 +1,28 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { DM_Mono, Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/lib/store";
 import { SEASON_BOOT_SCRIPT } from "@/lib/season";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const inter = Inter({
+const sans = Manrope({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-body",
   display: "swap",
 });
 
-const serif = Instrument_Serif({
+const serif = Fraunces({
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
-  variable: "--font-serif-display",
+  axes: ["SOFT", "WONK", "opsz"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const mono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-detail",
   display: "swap",
 });
 
@@ -44,7 +51,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${serif.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: SEASON_BOOT_SCRIPT }} />
       </head>
