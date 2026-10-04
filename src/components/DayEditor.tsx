@@ -126,11 +126,11 @@ export default function DayEditor({ date }: Props) {
         <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
       </section>
 
-      <section className={cn("card px-4 pb-3 pt-3.5", locked && "pointer-events-none opacity-70")}>
-        <div className="mb-1.5 flex items-center justify-between gap-2">
+      <section className={cn("card overflow-hidden px-4 pt-4", locked && "pointer-events-none opacity-70")}>
+        <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="card-title">To-do</h2>
           {lockedNote || (
-            <span className="text-[12px] font-bold tabular-nums text-ink-muted">
+            <span className="font-mono text-[11.5px] tabular-nums text-ink-muted">
               {day.todos.length ? `${day.todos.filter((t) => t.done).length}/${day.todos.length}` : "just for this day"}
             </span>
           )}

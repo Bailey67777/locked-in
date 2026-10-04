@@ -53,7 +53,7 @@ export default function CountdownsCard() {
                   <>
                     <span className="font-serif text-[22px]">{d.days}</span>
                     <span className="mr-1.5 text-[11px] font-bold text-ink-muted">d</span>
-                    <span className="font-mono text-[12.5px] font-semibold text-ink-soft">
+                    <span className="font-serif text-[16px] tabular-nums text-ink-soft">
                       {pad(d.hours)}:{pad(d.minutes)}:{pad(d.seconds)}
                     </span>
                     {past && <div className="text-[10px] font-bold uppercase tracking-wider">ago</div>}
