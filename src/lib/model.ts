@@ -13,7 +13,8 @@ export function emptyDay(date: string): DayRecord {
 export const Q_SUBJECTS: QSubject[] = ["maths", "physics", "econ"];
 export const SUBJECTS: Subject[] = ["maths", "further", "physics", "econ"];
 export const SUBJECT_LABEL: Record<Subject, string> = { maths: "Maths", further: "Further Maths", physics: "Physics", econ: "Economics" };
-export const SUBJECT_COLOR: Record<Subject, string> = { maths: "#1a6fd1", further: "#6b4fbb", physics: "#d95f18", econ: "#1f9a8a" };
+// Fixed all year (not seasonal) so each subject keeps its colour; validated as a categorical set, all pairs, incl. colour-blind.
+export const SUBJECT_COLOR: Record<Subject, string> = { maths: "#2a78d6", further: "#4a3aa7", physics: "#eb6834", econ: "#1baf7a" };
 export const Q_SUBJECT_LABEL: Record<QSubject, string> = { maths: "Maths", physics: "Physics", econ: "Economics" };
 export const GRADE_LABELS = ["U", "E", "D", "C", "B", "A", "A*"];
 
@@ -96,6 +97,19 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
     const answers: Answers = {};
     for (const k of Q_SUBJECTS) if (str(an[k])) answers[k] = str(an[k]);
     if (Object.keys(answers).length) day.answers = answers;
+  }
+  const sl = (r.studyLog && typeof r.studyLog === "object" ? r.studyLog : null) as Record<string, unknown> | null;
+  if (sl) {
+    const log: NonNullable<DayRecord["studyLog"]> = {};
+    for (const s of SUBJECTS) {
+      const e = (sl[s] && typeof sl[s] === "object" ? sl[s] : null) as Record<string, unknown> | null;
+      if (!e) continue;
+      const mins = Math.max(0, Math.min(24 * 60, Math.round(Number(e.mins) || 0)));
+      const note = str(e.note).slice(0, 2000);
+      if (!mins && !note.trim()) continue;
+      log[s] = note.trim() ? { mins, note } : { mins };
+    }
+    if (Object.keys(log).length) day.studyLog = log;
   }
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
@@ -267,11 +281,15 @@ export function normalizeReminders(raw: unknown): Reminders {
 
 /* ---------- submitting a day ---------- */
 
-export const TIERS: { id: TierId; min: number; label: string; blurb: string; emoji: string; file: string }[] = [
-  { id: "t80", min: 80, label: "Locked in", blurb: "80–100%. You earned the good one.", emoji: "🎸", file: "day-80-100" },
-  { id: "t50", min: 50, label: "Halfway house", blurb: "50–79%. Decent, not done.", emoji: "😐", file: "day-50-80" },
-  { id: "t25", min: 25, label: "Slipping", blurb: "25–49%. That's a punishment.", emoji: "😬", file: "day-25-50" },
-  { id: "t0", min: 0, label: "Rock bottom", blurb: "Under 25%, or the must-do habit was missed.", emoji: "💀", file: "day-0-25" },
+/** The percentage a day needs (with every must-do ticked) to unlock the reward video. */
+export const REWARD_PCT = 80;
+export const REWARD_FILE = "day-80-100";
+
+export const TIERS: { id: TierId; min: number; label: string; blurb: string; emoji: string }[] = [
+  { id: "t80", min: 80, label: "Locked in", blurb: "80% or more. That's the standard.", emoji: "✨" },
+  { id: "t50", min: 50, label: "Solid", blurb: "Over halfway. A real day's work.", emoji: "👍" },
+  { id: "t25", min: 25, label: "Building", blurb: "Something banked. Tomorrow's a fresh page.", emoji: "🌱" },
+  { id: "t0", min: 0, label: "Reset", blurb: "Logged. Sleep well and go again tomorrow.", emoji: "🌙" },
 ];
 
 export function tierById(id: TierId) {
@@ -284,13 +302,16 @@ export function missedKeystones(day: DayRecord, settings: Settings): DayHabit[] 
   return day.habits.filter((h) => !h.done && (keystoneIds.has(h.id) || (!settings.habits.some((d) => d.id === h.id) && /goon/i.test(h.name))));
 }
 
-/** Which tier a day lands in: percentage of habits + to-dos, but a missed must-do habit means rock bottom. */
-export function tierFor(day: DayRecord, settings: Settings): { tier: TierId; pct: number; keystoneMissed: boolean } {
+/** Which band a day lands in, purely by the percentage of habits + to-dos done. */
+export function tierFor(day: DayRecord, settings: Settings): { tier: TierId; pct: number; keystoneMissed: boolean; reward: boolean } {
   const pct = dayProgress(day).pct;
   const keystoneMissed = missedKeystones(day, settings).length > 0;
-  if (keystoneMissed) return { tier: "t0", pct, keystoneMissed };
   const tier = TIERS.find((t) => pct >= t.min) ?? TIERS[TIERS.length - 1];
-  return { tier: tier.id, pct, keystoneMissed };
+  return { tier: tier.id, pct, keystoneMissed, reward: earnsReward(pct, keystoneMissed) };
+}
+
+export function earnsReward(pct: number, keystoneMissed: boolean): boolean {
+  return pct >= REWARD_PCT && !keystoneMissed;
 }
 
 /** Firebase rejects `undefined`; strip it (deeply) before writing. */
@@ -384,11 +405,17 @@ export function hasRatings(day: DayRecord | undefined): boolean {
   return Boolean(day && (day.ratings.day || day.ratings.health || day.ratings.happy));
 }
 
-/** Submitted days whose tier video hasn't been watched to the end yet, oldest first. Older submissions without the flag don't count. */
+/** Submitted days that earned the reward video and haven't played it yet, oldest first. */
 export function owedVideos(days: Record<string, DayRecord>): DayRecord[] {
   return Object.values(days)
-    .filter((d) => d.submitted && d.submitted.watched === false)
+    .filter((d) => d.submitted && d.submitted.watched === false && earnsReward(d.submitted.pct, d.submitted.keystoneMissed))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Total study minutes logged on a day. */
+export function studyMinutes(day: DayRecord | undefined): number {
+  if (!day?.studyLog) return 0;
+  return Object.values(day.studyLog).reduce((a, e) => a + (e?.mins ?? 0), 0);
 }
 
 /** A stable "random" pick for a given day, so the throwback doesn't change every render. */

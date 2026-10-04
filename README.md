@@ -5,19 +5,20 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 
 **What's in it** (five tabs: Today · Study · Health · Calendar · Settings)
 
-- **Today** – greeting and day streak, banner photo, progress ring (habits + to-dos), core habits (emoji, colour, time,
-  sound, must-do), to-do list, the **personal journal (end-to-end encrypted)**, the three 1–10 ratings, live
-  **countdowns** (first exam + anything added in Settings), a **throwback** journal entry, and **Submit day** (locks the
-  ticks, works out the tier, plays that tier's video full screen; it can't be skipped, and an unfinished video plays
-  again next time the app opens).
+- **Today** – greeting and day streak, seasonal banner photo, progress ring (habits + to-dos), core habits (emoji,
+  colour, time, sound, must-do), to-do list, the **study log** (time per A-level plus what you did, marks included;
+  Claude reads it), the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
+  Settings), a **throwback** journal entry, and **Submit day** (locks the ticks and logs the percentage; no
+  punishment. A day of 80%+ with every ⭐ must-do ticked plays the reward video).
 - **Study** – Claude's grade trajectory (U–A*, one line per A-level, dashed trend to the exam, tap a point for the reason),
-  estimated weekly study hours, and the Economics concept of the day plus reading (Claude's version when it has written
+  weekly study hours from your study log, and the Economics concept of the day plus reading (Claude's version when it has written
   one, otherwise the built-in cards and live BBC / Guardian headlines).
 - **Health** – streaks, submitted-day tiers, insights, ratings chart, per-habit stats, habit heatmap. Health only.
 - **Calendar** – month view; a camera on today's cell adds today's photo, past days show theirs or stay plain blue.
   Tap any day to open its full record.
-- **Settings** – habits, sounds, first exam date, countdowns, journal passphrase, Claude sync status, reminders, videos, photos, sync.
-- **Laptop** – a photo wall column beside the app on wide screens (`public/photos/wall-1.jpg` … `wall-4.jpg`).
+- **Settings** – habits, sounds, first exam date, countdowns, season, Claude sync status, reminders, video, photos, sync.
+- **Seasons** – the palette and banner switch with the seasons in Bristol (spring Mar–May, summer Jun–Aug, autumn
+  Sep–Nov, winter Dec–Feb). Settings → Season previews one on that device.
 
 Old Plan and Countdowns data is kept in the database but no longer shown.
 
@@ -140,9 +141,12 @@ Drop files here (then commit + push so Vercel picks them up):
 
 | File                          | Shows as                                         |
 | ----------------------------- | ------------------------------------------------ |
-| `public/photos/hero.jpg`      | banner at the top of Today (landscape, ~3:2)     |
+| `public/photos/months/oct.jpg` (`jan` … `dec`) | Today's banner for that month only (landscape, ~3:1) |
+| `public/photos/seasons/autumn.jpg` (`spring`, `summer`, `autumn`, `winter`) | Today's banner for that season |
+| `public/photos/hero.jpg`      | the banner when there's no month or season photo |
 | `public/photos/profile.jpg`   | round avatar next to the greeting (square)       |
-| `public/photos/wall-1.jpg` … `wall-4.jpg` | the photo wall beside the app on a laptop (4:3) |
+
+The banner uses the first file that exists: month, then season, then `hero.jpg`.
 
 Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a quick load on mobile.
 
@@ -151,16 +155,11 @@ Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a qui
 
 ---
 
-## Submit-day videos
+## Reward video
 
-Upload to `public/media/` on GitHub (any length; GitHub's website caps uploads at 25 MB each):
-
-| Day result                                   | File               |
-| -------------------------------------------- | ------------------ |
-| 80–100%                                      | `day-80-100.mp4`   |
-| 50–79%                                       | `day-50-80.mp4`    |
-| 25–49% (optional, falls back to 0–25)        | `day-25-50.mp4`    |
-| 0–24%, or a ⭐ must-do habit missed           | `day-0-25.mp4`     |
+Submitting a day never punishes you: it locks the ticks and logs the percentage. If the day is **80% or more with
+every ⭐ must-do ticked**, the reward video plays: `public/media/day-80-100.mp4` (`.mov`, `.m4v`, `.webm` also work;
+GitHub's website caps uploads at 25 MB). Close it whenever you like. If it can't load, it plays next time the app opens.
 
 ## Reminders
 
@@ -172,20 +171,15 @@ Web push can't reach an iPhone unless the site is installed from Safari, so ther
 2. **Browser notifications** while a Locked In tab is open (laptop / Android).
 3. **Calendar file**: download an `.ics` of daily repeating alarms and add it to the phone's Calendar.
 
-## Privacy: the encrypted journal
+## Privacy: the journal
 
-The personal journal is encrypted on your device before it is saved (`src/lib/crypto.ts`):
+The journal is plain text, like everything else in the database, so anyone with the site URL and data key can read
+it. It is never sent to Claude: the API routes copy an allow-list of fields and the journal isn't on it.
 
-- Key: PBKDF2-SHA256, 600,000 iterations, random salt → AES-GCM 256, non-extractable.
-- Each entry: fresh random IV. Firebase stores only `{ iv, ct }` (base64) plus the salt and a small
-  encrypted verifier under `journalCrypto` so a wrong passphrase can be spotted.
-- The derived key is remembered on each device in IndexedDB (never the passphrase); *Lock journal* in Settings
-  clears it. Changing the passphrase re-encrypts every entry in one atomic write.
-- Plaintext never goes to Firebase, `localStorage`, the API routes or logs.
-- **There is no recovery.** A forgotten passphrase means the entries are gone.
-
-Everything else (habits, ratings, academic journal, answers, photos, study data) is not encrypted, because the
-nightly Claude task needs to read it and the app has no login. Anyone with the site URL can read that data.
+Entries written back when the journal had a passphrase are stored encrypted (`journalEnc`). The first time the app
+opens on a device that remembers the old key, it converts them to plain text and deletes the passphrase data in one
+write. On a device that doesn't, the Journal card asks for the old passphrase once. Encryption code lives in
+`src/lib/crypto.ts` only for that conversion.
 
 ## The Claude API
 
@@ -198,6 +192,8 @@ server-only environment variable; never `NEXT_PUBLIC_`). Missing or wrong secret
 | `GET /api/claude/range?from=…&to=…[&format=markdown]` | the same for every day in the range (max 31) |
 | `POST /api/claude/update` | `questions`, `feedback`, `gradeEstimates`, `studyHours`, `econ`, `memory` (zod-validated; keyed by date/subject, so re-posting overwrites) |
 
+A day now includes its **study log** (minutes + note per subject); that is what grade estimates are based on.
+
 Reads copy an explicit allow-list of fields; the personal journal is never returned in any form.
 The full nightly prompt and setup steps are in `docs/NIGHTLY_CLAUDE_TASK.md`.
 
@@ -208,11 +204,12 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
 ```jsonc
 {
   "settings": { "name": "Hugo", "examDate": "2028-05-15", "habits": [ { "id": "…", "name": "…", "emoji": "🌅", "color": "#…", "time": "06:50", "sound": "chime", "keystone": true } ], … },
-  "journalCrypto": { "v": 1, "salt": "…", "iterations": 600000, "verifier": { "iv": "…", "ct": "…" } },
+  "journalCrypto": { … },   // only until old passphrase entries are converted, then deleted
   "days": {
     "2026-09-25": {
       "habits": [ … ], "todos": [ … ], "ratings": { "day": 7, "health": 8, "happy": 6 },
-      "journalEnc": { "iv": "…", "ct": "…" },                     // personal journal, ciphertext only
+      "journal": "…",                                             // personal journal (plain text)
+      "studyLog": { "maths": { "mins": 90, "note": "Paper 1 2019, 58/80" } },
       "academic": { "econ": "…", "maths": "…", "physics": "…" },  // active recall, plaintext
       "answers": { "maths": "…", "physics": "…", "econ": "…" },   // answers to that day's questions
       "song": "…", "screenMinutes": 185, "thumb": "data:image/jpeg;base64,…",
@@ -246,8 +243,8 @@ the `SOUNDS` array; the 🎲 button in Settings picks a random one.
 
 ```
 src/app/            layout, page, manifest, global styles, icons
-src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
-src/lib/            types, dates, model (normalise days/study, tiers), crypto (journal encryption), stats, sounds, images, daily (econ cards), reminders, store (state, outbox, journal key), firebase
+src/components/     AppShell (tabs), TodayView, DayEditor, StudyLogCard, CalendarView, TrendsView, SettingsView, …
+src/lib/            types, dates, model (normalise days/study, tiers, reward rule), season (palettes + banners), crypto (old journal conversion), stats, sounds, images, daily (econ cards), reminders, store (state, outbox), firebase
 src/lib/server/     claude.ts: auth, allow-listed reads, zod-validated writes for the nightly task
 src/app/api/        econ-news (headlines proxy), claude/day, claude/range, claude/update
 public/media/       your submit-day videos

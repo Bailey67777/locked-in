@@ -4,49 +4,36 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { pickForDay } from "@/lib/model";
 import { formatLong } from "@/lib/dates";
-import { LockIcon } from "./Icons";
 
-/** One past journal entry, chosen for today, decrypted on this device and only ever shown here. */
+/** One past journal entry, chosen for today. */
 export default function ThrowbackJournal({ date }: { date: string }) {
-  const { data, journalState, journalText } = useStore();
+  const { data, journalText } = useStore();
   const [skip, setSkip] = useState(0);
+  const [open, setOpen] = useState(false);
   const candidates = useMemo(
     () =>
       Object.values(data.days)
-        .filter((d) => d.journalEnc && d.date < date)
+        .filter((d) => d.date < date && (d.journal?.trim() || d.recall?.trim()))
         .map((d) => d.date)
         .sort(),
     [data.days, date],
   );
   const picked = pickForDay(candidates, date, skip);
+  if (!picked) return null;
 
   return (
-    <section className="card p-4 md:p-5">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-extrabold text-ink">🕰️ Throwback</h2>
-          <p className="text-sm font-semibold text-ink-muted">A past entry from your journal. Nobody else sees this, including Claude.</p>
-        </div>
-        {candidates.length > 1 && journalState === "unlocked" && (
-          <button type="button" className="btn-ghost shrink-0 px-2" onClick={() => setSkip((n) => n + 1)}>
-            Another →
+    <section className="card px-4 py-3">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <h2 className="label">Throwback · {formatLong(picked)} {picked.slice(0, 4)}</h2>
+        {candidates.length > 1 && (
+          <button type="button" className="text-[12px] font-bold text-ocean-700" onClick={() => setSkip((n) => n + 1)}>
+            Another
           </button>
         )}
       </div>
-      {journalState !== "unlocked" ? (
-        <p className="flex items-center gap-2 rounded-2xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink-soft">
-          <LockIcon /> Unlock your journal (above) to see a throwback.
-        </p>
-      ) : !picked ? (
-        <p className="rounded-2xl bg-sand-50 px-4 py-3 text-sm font-semibold text-ink-muted">Write a few entries and one of them turns up here.</p>
-      ) : (
-        <div className="rounded-2xl bg-sand-50 px-4 py-3">
-          <div className="text-xs font-extrabold uppercase tracking-wider text-ink-muted">
-            {formatLong(picked)} {picked.slice(0, 4)}
-          </div>
-          <p className="mt-1 whitespace-pre-wrap text-[15px] font-semibold leading-relaxed text-ink">{journalText(picked) ?? "Decrypting…"}</p>
-        </div>
-      )}
+      <button type="button" onClick={() => setOpen((o) => !o)} className="block w-full text-left">
+        <p className={`whitespace-pre-wrap font-serif text-[17px] leading-snug text-ink-soft ${open ? "" : "line-clamp-3"}`}>{journalText(picked)}</p>
+      </button>
     </section>
   );
 }

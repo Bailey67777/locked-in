@@ -5,7 +5,7 @@ export type HabitDef = {
   color?: string; // hex, e.g. "#1a6fd1"
   time?: string; // "HH:MM" — when in the day it happens; used for ordering
   sound?: string; // id from sounds.ts
-  /** Must-do habit: if it's missed, the submitted day drops straight to the bottom tier. */
+  /** Must-do habit: it has to be ticked for the day to unlock the reward video. */
   keystone?: boolean;
 };
 
@@ -35,7 +35,7 @@ export type Submission = {
   pct: number;
   tier: TierId;
   keystoneMissed: boolean;
-  /** false until the tier video has been watched to the end without skipping; missing on older submissions. */
+  /** Only set when the day earned the reward video: false until it has been played. */
   watched?: boolean;
 };
 
@@ -50,17 +50,22 @@ export type QSubject = "maths" | "physics" | "econ";
 /** Your answers to the three questions Claude set for that day. */
 export type Answers = Partial<Record<QSubject, string>>;
 
+/** Time spent on one subject that day, plus what was done (topics, marks, past-paper scores). */
+export type StudyEntry = { mins: number; note?: string };
+
 export type DayRecord = {
   date: string; // YYYY-MM-DD
   habits: DayHabit[]; // snapshot of the habit list for this day
   todos: Todo[];
   ratings: Ratings;
-  /** Legacy plaintext journal. Only present until the journal has been encrypted; never written again after that. */
+  /** The personal journal (plain text). */
   journal?: string;
-  /** Legacy plaintext active recall (the old second journal). Merged into the encrypted journal on migration. */
+  /** Legacy plaintext active recall (the old second journal). Shown with the journal, folded into it on the next save. */
   recall?: string;
-  /** The personal journal, encrypted on the device. */
+  /** Legacy: journal entries from when the journal had a passphrase. Converted to `journal` once unlocked. */
   journalEnc?: EncryptedText;
+  /** What was studied, per subject. Read by the nightly Claude task. */
+  studyLog?: Partial<Record<Subject, StudyEntry>>;
   academic?: AcademicJournal;
   answers?: Answers;
   song?: string; // song of the day

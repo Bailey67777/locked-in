@@ -5,25 +5,19 @@ import { cn } from "@/lib/cn";
 
 export type RatingTone = "ocean" | "teal" | "sunset";
 
-const tones: Record<RatingTone, { on: string; dot: string }> = {
-  ocean: { on: "bg-ocean-500", dot: "bg-ocean-500" },
-  teal: { on: "bg-teal-500", dot: "bg-teal-500" },
-  sunset: { on: "bg-sunset-500", dot: "bg-sunset-500" },
-};
+const tones: Record<RatingTone, string> = { ocean: "bg-ocean-500", teal: "bg-teal-500", sunset: "bg-sunset-500" };
 
 type Props = {
   label: string;
-  hint?: string;
   value: number; // 0 = unset
   tone: RatingTone;
   onChange: (v: number) => void;
 };
 
-/** A 1–10 bar you can tap or drag with one thumb. */
-export default function RatingBar({ label, hint, value, tone, onChange }: Props) {
+/** A slim 1–10 bar you can tap or drag with one thumb. Tap the number to clear it. */
+export default function RatingBar({ label, value, tone, onChange }: Props) {
   const track = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
-  const t = tones[tone];
 
   const valueFromX = (clientX: number) => {
     const el = track.current;
@@ -34,22 +28,8 @@ export default function RatingBar({ label, hint, value, tone, onChange }: Props)
   };
 
   return (
-    <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <div className="flex items-center gap-2">
-          <span className={cn("h-2.5 w-2.5 rounded-full", t.dot)} />
-          <span className="text-base font-extrabold text-ink">{label}</span>
-          {hint && <span className="hidden text-xs font-semibold text-ink-muted sm:inline">{hint}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-8 text-right text-lg font-extrabold tabular-nums text-ink">{value > 0 ? value : "–"}</span>
-          {value > 0 && (
-            <button type="button" onClick={() => onChange(0)} className="text-xs font-bold text-ink-muted hover:text-ink" aria-label={`Clear ${label} rating`}>
-              clear
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="flex items-center gap-3">
+      <span className="w-[72px] shrink-0 text-[12.5px] font-bold text-ink-soft">{label}</span>
       <div
         ref={track}
         role="slider"
@@ -58,7 +38,7 @@ export default function RatingBar({ label, hint, value, tone, onChange }: Props)
         aria-valuemax={10}
         aria-valuenow={value || undefined}
         tabIndex={0}
-        className="grid h-11 grid-cols-10 gap-1 rounded-2xl"
+        className="grid h-[22px] flex-1 cursor-pointer grid-cols-10 gap-[3px]"
         style={{ touchAction: "none" }}
         onPointerDown={(e) => {
           dragging.current = true;
@@ -73,21 +53,22 @@ export default function RatingBar({ label, hint, value, tone, onChange }: Props)
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowUp") onChange(Math.min(10, (value || 0) + 1));
           if (e.key === "ArrowLeft" || e.key === "ArrowDown") onChange(Math.max(1, (value || 1) - 1));
+          if (e.key === "Backspace" || e.key === "Delete") onChange(0);
         }}
       >
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-          <div
-            key={n}
-            className={cn(
-              "flex items-end justify-center rounded-lg transition-colors",
-              n <= value ? t.on : "bg-sand-100",
-              n === value && "ring-2 ring-white ring-offset-1 ring-offset-sand-50",
-            )}
-          >
-            <span className={cn("pb-1 text-[10px] font-bold", n <= value ? "text-white/80" : "text-ink-muted/60")}>{n}</span>
-          </div>
+          <div key={n} className={cn("rounded-[5px] transition-colors", n <= value ? tones[tone] : "bg-sand-100")} style={n <= value ? { opacity: 0.45 + (n / 10) * 0.55 } : undefined} />
         ))}
       </div>
+      <button
+        type="button"
+        onClick={() => value > 0 && onChange(0)}
+        className="w-7 shrink-0 text-right text-[14px] font-extrabold tabular-nums text-ink"
+        aria-label={value > 0 ? `Clear ${label} rating` : `${label} not rated`}
+        title={value > 0 ? "Tap to clear" : undefined}
+      >
+        {value > 0 ? value : <span className="text-ink-muted/60">–</span>}
+      </button>
     </div>
   );
 }

@@ -47,9 +47,9 @@ export default function Journal({ value, onSave, placeholder, rows = 4 }: Props)
         onBlur={flush}
         rows={rows}
         placeholder={placeholder ?? "One honest paragraph. What went well, what you'd change, what tomorrow's block is."}
-        className="field min-h-28 resize-y leading-relaxed"
+        className="field min-h-20 resize-y text-[14px] leading-relaxed"
       />
-      <div className="mt-1 h-4 text-right text-[11px] font-bold text-ink-muted">
+      <div className="mt-0.5 h-3.5 text-right text-[10.5px] font-semibold text-ink-muted">
         {status === "typing" ? "Saving…" : status === "saved" ? "Saved" : ""}
       </div>
     </div>

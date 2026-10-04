@@ -2,14 +2,16 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { get, goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
-import type { AppData, DayRecord, JournalCrypto, Settings } from "./types";
-import { hasJournal, legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
+import type { AppData, DayRecord, Settings } from "./types";
+import { legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
 import { addDays, todayKey } from "./dates";
 import { DATA_PATH, getDb } from "./firebase";
-import { decryptText, deriveKey, encryptText, forgetKey, makeCryptoParams, newSalt, recallKey, rememberKey, verifyKey } from "./crypto";
+import { decryptText, deriveKey, forgetKey, recallKey, verifyKey } from "./crypto";
+import { type Season, type SeasonChoice, readSeasonChoice, resolveSeason, writeSeasonChoice } from "./season";
 
 export type SyncState = "local" | "connecting" | "online" | "offline";
-export type JournalState = "unavailable" | "none" | "locked" | "unlocked";
+/** ready: plain journal. locked: older entries still need the old passphrase once. unavailable: they do, but this browser can't decrypt. */
+export type JournalState = "ready" | "locked" | "unavailable";
 
 const LS_KEY = "locked-in:data:v1";
 const OUTBOX_KEY = "locked-in:outbox:v1";
@@ -28,15 +30,18 @@ type Store = {
   getDayPhoto: (date: string) => Promise<string | null>;
   setDayPhoto: (date: string, photo: { medium: string; thumb: string }) => Promise<void>;
   removeDayPhoto: (date: string) => Promise<void>;
-  /** Encrypted personal journal. */
+  /** Personal journal (plain text). */
   journalState: JournalState;
   journalBusy: boolean;
-  journalText: (date: string) => string | null; // decrypted text for this session, or null if none / locked
-  setupJournal: (passphrase: string) => Promise<number>; // creates the key, encrypts legacy entries; returns how many were migrated
+  /** Days whose entries are still locked behind the old passphrase. */
+  lockedEntries: number;
+  journalText: (date: string) => string;
+  saveJournal: (date: string, text: string) => void;
+  /** Enter the old passphrase once: every old entry becomes plain text and the passphrase is gone for good. */
   unlockJournal: (passphrase: string) => Promise<boolean>;
-  lockJournal: () => Promise<void>;
-  changePassphrase: (current: string, next: string) => Promise<number>; // returns how many entries were re-encrypted
-  saveJournal: (date: string, text: string) => Promise<void>;
+  season: Season;
+  seasonChoice: SeasonChoice;
+  setSeasonChoice: (choice: SeasonChoice) => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -90,13 +95,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const todayRef = useRef(today);
   const dbRef = useRef<ReturnType<typeof getDb>>(null);
 
-  // Journal key lives only in memory (and, non-extractable, in IndexedDB). Decrypted text only in memory.
-  const keyRef = useRef<CryptoKey | null>(null);
-  const [journalState, setJournalState] = useState<JournalState>("none");
+  // True once the cloud copy of the days has arrived (or there is no cloud), so the journal migration never acts on a stale cache.
+  const [remoteReady, setRemoteReady] = useState(false);
   const [journalBusy, setJournalBusy] = useState(false);
-  const [plain, setPlain] = useState<Record<string, string>>({});
-  // Which ciphertext each decrypted entry came from, so an entry is only decrypted once (and again if it changes).
-  const decryptedCt = useRef<Record<string, string>>({});
+  const [autoTried, setAutoTried] = useState(false);
+  const migrating = useRef(false);
+
+  const [seasonChoice, setSeasonChoiceState] = useState<SeasonChoice>("auto");
 
   const commit = useCallback((next: AppData) => {
     dataRef.current = next;
@@ -167,11 +172,19 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       }
       setLoaded(true);
       setPending(readOutbox().length);
+      setSeasonChoiceState(readSeasonChoice());
 
       const db = getDb();
-      if (!db) return;
+      if (!db) {
+        setRemoteReady(true);
+        return;
+      }
       dbRef.current = db;
       setSync("connecting");
+
+      let gotDays = false;
+      let gotCrypto = false;
+      const markReady = () => gotDays && gotCrypto && setRemoteReady(true);
 
       // Days, settings, study and crypto params are listened to separately so photos (under /photos) never ride along.
       let firstDays = true;
@@ -186,6 +199,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             }
             firstDays = false;
             commit({ ...dataRef.current, days: normalizeDays(snap.val()) });
+            gotDays = true;
+            markReady();
           },
           () => setSync("offline"),
         ),
@@ -204,6 +219,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       unsubs.push(
         onValue(ref(db, `${DATA_PATH}/journalCrypto`), (snap) => {
           commit({ ...dataRef.current, journalCrypto: normalizeJournalCrypto(snap.val()) });
+          gotCrypto = true;
+          markReady();
         }),
       );
       unsubs.push(
@@ -221,47 +238,70 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     };
   }, [commit, flushOutbox]);
 
-  // Work out the journal state whenever the crypto params change: try the remembered device key.
-  const cryptoSalt = data.journalCrypto?.salt ?? null;
-  const cryptoVerifierCt = data.journalCrypto?.verifier.ct ?? null;
-  useEffect(() => {
-    let cancelled = false;
-    const params = dataRef.current.journalCrypto;
-    if (typeof crypto === "undefined" || !crypto.subtle) {
-      window.setTimeout(() => !cancelled && setJournalState("unavailable"), 0);
-      return;
-    }
-    if (!params) {
-      keyRef.current = null;
-      window.setTimeout(() => !cancelled && setJournalState("none"), 0);
-      return;
-    }
-    if (keyRef.current) {
-      verifyKey(keyRef.current, params).then((ok) => {
-        if (cancelled) return;
-        if (!ok) {
-          keyRef.current = null;
-          decryptedCt.current = {};
-          setPlain({});
-          setJournalState("locked");
+  /* ---- journal: the passphrase is gone; old encrypted entries are converted to plain text once ---- */
+
+  const lockedEntries = useMemo(() => Object.values(data.days).filter((d) => d.journalEnc).length, [data.days]);
+  const hasCryptoParams = data.journalCrypto !== null;
+  const canDecrypt = typeof crypto !== "undefined" && Boolean(crypto.subtle);
+  const journalState: JournalState = lockedEntries === 0 ? "ready" : !hasCryptoParams ? "ready" : canDecrypt ? "locked" : "unavailable";
+
+  /** Decrypt every old entry with `key`, store it as plain text, and drop the passphrase data (one atomic write). */
+  const migrateJournal = useCallback(
+    async (key: CryptoKey | null) => {
+      if (migrating.current) return;
+      migrating.current = true;
+      try {
+        const prev = dataRef.current;
+        const changed: Record<string, DayRecord> = {};
+        let failed = 0;
+        for (const day of Object.values(prev.days)) {
+          if (!day.journalEnc) continue;
+          let text: string;
+          try {
+            if (!key) throw new Error("no key");
+            text = await decryptText(key, day.journalEnc);
+          } catch {
+            failed++;
+            continue;
+          }
+          const existing = legacyJournalText(day);
+          const merged = text.trim() && existing ? `${text}\n\n${existing}` : text.trim() || existing;
+          changed[day.date] = stripUndefined({ ...day, journal: merged || undefined, recall: undefined, journalEnc: undefined, updatedAt: Date.now() });
         }
-      });
-      return;
-    }
-    recallKey().then(async (remembered) => {
-      if (cancelled) return;
-      if (remembered && remembered.salt === params.salt && (await verifyKey(remembered.key, params))) {
-        keyRef.current = remembered.key;
-        if (!cancelled) setJournalState("unlocked");
-      } else {
-        if (remembered) await forgetKey();
-        if (!cancelled) setJournalState("locked");
+        const paths: Record<string, unknown> = {};
+        for (const [date, day] of Object.entries(changed)) paths[`days/${date}`] = day;
+        const done = failed === 0;
+        if (done) paths.journalCrypto = null;
+        if (!Object.keys(paths).length) return;
+        commit({ ...prev, days: { ...prev.days, ...changed }, journalCrypto: done ? null : prev.journalCrypto });
+        remote("update", DATA_PATH, paths);
+        if (done) await forgetKey();
+      } finally {
+        migrating.current = false;
       }
-    });
+    },
+    [commit, remote],
+  );
+
+  // On each device: once the cloud copy is in, convert with the key this device remembers (if any),
+  // or just drop leftover passphrase data when no encrypted entries remain.
+  useEffect(() => {
+    if (!remoteReady || autoTried || !hasCryptoParams) return;
+    let cancelled = false;
+    (async () => {
+      if (lockedEntries === 0) {
+        await migrateJournal(null);
+      } else if (canDecrypt) {
+        const params = dataRef.current.journalCrypto;
+        const remembered = await recallKey().catch(() => null);
+        if (!cancelled && params && remembered && remembered.salt === params.salt && (await verifyKey(remembered.key, params))) await migrateJournal(remembered.key);
+      }
+      if (!cancelled) setAutoTried(true);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [cryptoSalt, cryptoVerifierCt, loaded]);
+  }, [remoteReady, autoTried, hasCryptoParams, lockedEntries, canDecrypt, migrateJournal]);
 
   const pushDay = useCallback((date: string, day: DayRecord) => remote("set", `${DATA_PATH}/days/${date}`, day), [remote]);
 
@@ -353,155 +393,45 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     [updateDay, remote],
   );
 
-  /* ---- encrypted journal ---- */
+  /* ---- journal ---- */
 
-  const journalText = useCallback((date: string): string | null => (date in plain ? plain[date] : null), [plain]);
-
-  // Decrypt on demand whenever the key is present and a day has ciphertext we haven't read yet.
-  useEffect(() => {
-    const key = keyRef.current;
-    if (!key || journalState !== "unlocked") return;
-    let cancelled = false;
-    const todo = Object.values(data.days).filter((d) => d.journalEnc && decryptedCt.current[d.date] !== d.journalEnc.ct);
-    if (!todo.length) return;
-    (async () => {
-      const found: Record<string, string> = {};
-      for (const d of todo) {
-        try {
-          found[d.date] = await decryptText(key, d.journalEnc!);
-          decryptedCt.current[d.date] = d.journalEnc!.ct;
-        } catch {
-          /* written under a different key: leave it out */
-        }
-      }
-      if (!cancelled && Object.keys(found).length) setPlain((p) => ({ ...p, ...found }));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [data.days, journalState]);
-
-  /** Apply a set of day changes + crypto params locally, then send them as one atomic multi-path update. */
-  const applyJournalBatch = useCallback(
-    (params: JournalCrypto, days: Record<string, DayRecord>) => {
-      const prev = dataRef.current;
-      const nextDays = { ...prev.days, ...days };
-      commit({ ...prev, days: nextDays, journalCrypto: params });
-      const paths: Record<string, unknown> = { journalCrypto: params };
-      for (const [date, day] of Object.entries(days)) paths[`days/${date}`] = day;
-      remote("update", DATA_PATH, paths);
-    },
-    [commit, remote],
-  );
-
-  const setupJournal = useCallback(
-    async (passphrase: string): Promise<number> => {
-      setJournalBusy(true);
-      try {
-        const salt = newSalt();
-        const key = await deriveKey(passphrase, salt);
-        const params = await makeCryptoParams(key, salt);
-        const changed: Record<string, DayRecord> = {};
-        const texts: Record<string, string> = {};
-        for (const day of Object.values(dataRef.current.days)) {
-          if (!day.journal?.trim() && !day.recall?.trim()) continue;
-          const text = legacyJournalText(day);
-          const enc = await encryptText(key, text);
-          if ((await decryptText(key, enc)) !== text) throw new Error("Encryption round-trip failed; nothing was changed.");
-          const next: DayRecord = stripUndefined({ ...day, journalEnc: enc, journal: undefined, recall: undefined, updatedAt: Date.now() });
-          changed[day.date] = next;
-          texts[day.date] = text;
-        }
-        applyJournalBatch(params, changed);
-        for (const [date, day] of Object.entries(changed)) decryptedCt.current[date] = day.journalEnc!.ct;
-        keyRef.current = key;
-        await rememberKey(key, salt);
-        setPlain((p) => ({ ...p, ...texts }));
-        setJournalState("unlocked");
-        return Object.keys(changed).length;
-      } finally {
-        setJournalBusy(false);
-      }
-    },
-    [applyJournalBatch],
-  );
-
-  const unlockJournal = useCallback(async (passphrase: string): Promise<boolean> => {
-    const params = dataRef.current.journalCrypto;
-    if (!params) return false;
-    setJournalBusy(true);
-    try {
-      const key = await deriveKey(passphrase, params.salt, params.iterations);
-      if (!(await verifyKey(key, params))) return false;
-      keyRef.current = key;
-      await rememberKey(key, params.salt);
-      setJournalState("unlocked");
-      return true;
-    } finally {
-      setJournalBusy(false);
-    }
-  }, []);
-
-  const lockJournal = useCallback(async () => {
-    keyRef.current = null;
-    decryptedCt.current = {};
-    setPlain({});
-    await forgetKey();
-    setJournalState(dataRef.current.journalCrypto ? "locked" : "none");
-  }, []);
-
-  const changePassphrase = useCallback(
-    async (current: string, next: string): Promise<number> => {
-      const params = dataRef.current.journalCrypto;
-      if (!params) throw new Error("No passphrase set yet.");
-      setJournalBusy(true);
-      try {
-        const oldKey = await deriveKey(current, params.salt, params.iterations);
-        if (!(await verifyKey(oldKey, params))) throw new Error("Current passphrase is wrong.");
-        const salt = newSalt();
-        const newKey = await deriveKey(next, salt);
-        const newParams = await makeCryptoParams(newKey, salt);
-        const changed: Record<string, DayRecord> = {};
-        const texts: Record<string, string> = {};
-        for (const day of Object.values(dataRef.current.days)) {
-          if (!day.journalEnc) continue;
-          const text = await decryptText(oldKey, day.journalEnc);
-          const enc = await encryptText(newKey, text);
-          if ((await decryptText(newKey, enc)) !== text) throw new Error("Re-encryption check failed; nothing was changed.");
-          changed[day.date] = stripUndefined({ ...day, journalEnc: enc, updatedAt: Date.now() });
-          texts[day.date] = text;
-        }
-        applyJournalBatch(newParams, changed);
-        decryptedCt.current = {};
-        for (const [date, day] of Object.entries(changed)) decryptedCt.current[date] = day.journalEnc!.ct;
-        keyRef.current = newKey;
-        await rememberKey(newKey, salt);
-        setPlain(texts);
-        setJournalState("unlocked");
-        return Object.keys(changed).length;
-      } finally {
-        setJournalBusy(false);
-      }
-    },
-    [applyJournalBatch],
-  );
+  const journalText = useCallback((date: string): string => {
+    const d = data.days[date];
+    return d ? legacyJournalText(d) : "";
+  }, [data.days]);
 
   const saveJournal = useCallback(
-    async (date: string, text: string) => {
-      const key = keyRef.current;
-      if (!key) throw new Error("Journal is locked.");
-      setPlain((p) => ({ ...p, [date]: text }));
-      if (!text.trim()) {
-        delete decryptedCt.current[date];
-        updateDay(date, (d) => ({ ...d, journalEnc: undefined, journal: undefined, recall: undefined }));
-        return;
-      }
-      const enc = await encryptText(key, text);
-      decryptedCt.current[date] = enc.ct;
-      updateDay(date, (d) => ({ ...d, journalEnc: enc, journal: undefined, recall: undefined }));
-    },
+    (date: string, text: string) => updateDay(date, (d) => ({ ...d, journal: text.trim() ? text : undefined, recall: undefined })),
     [updateDay],
   );
+
+  const unlockJournal = useCallback(
+    async (passphrase: string): Promise<boolean> => {
+      const params = dataRef.current.journalCrypto;
+      if (!params) return false;
+      setJournalBusy(true);
+      try {
+        const key = await deriveKey(passphrase, params.salt, params.iterations);
+        if (!(await verifyKey(key, params))) return false;
+        await migrateJournal(key);
+        return true;
+      } finally {
+        setJournalBusy(false);
+      }
+    },
+    [migrateJournal],
+  );
+
+  /* ---- season ---- */
+
+  const season = useMemo(() => resolveSeason(seasonChoice, today ? new Date(`${today}T12:00`) : new Date()), [seasonChoice, today]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-season", season);
+  }, [season]);
+  const setSeasonChoice = useCallback((choice: SeasonChoice) => {
+    writeSeasonChoice(choice);
+    setSeasonChoiceState(choice);
+  }, []);
 
   // Dev-only hooks so offline sync can be exercised from the console.
   useEffect(() => {
@@ -510,16 +440,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       goOffline: () => dbRef.current && goOffline(dbRef.current),
       goOnline: () => dbRef.current && goOnline(dbRef.current),
       outbox: () => readOutbox().length,
-      hasJournalPlaintext: () => Object.values(dataRef.current.days).some((d) => hasJournal(d) && !d.journalEnc),
     };
   }, []);
 
   const value = useMemo<Store>(
     () => ({
       data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto,
-      journalState, journalBusy, journalText, setupJournal, unlockJournal, lockJournal, changePassphrase, saveJournal,
+      journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice,
     }),
-    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto, journalState, journalBusy, journalText, setupJournal, unlockJournal, lockJournal, changePassphrase, saveJournal],
+    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto, journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -1,18 +1,26 @@
 # Your photos go here
 
-Drop your own images into this folder, commit and push, and the app picks them up automatically:
+Drop your own images into this folder, commit and push, and the app picks them up automatically.
 
-| File                          | Where it shows                                                    |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `public/photos/hero.jpg`      | The banner at the top of the Today screen (landscape, ~3:2)       |
-| `public/photos/profile.jpg`   | The small round avatar next to the greeting (square)              |
-| `public/photos/wall-1.jpg`    | Photo wall, laptop only (side column), slot 1 (4:3 works best)    |
-| `public/photos/wall-2.jpg`    | Photo wall slot 2                                                  |
-| `public/photos/wall-3.jpg`    | Photo wall slot 3                                                  |
-| `public/photos/wall-4.jpg`    | Photo wall slot 4                                                  |
+## Today's banner (changes with the seasons)
 
-Use `.jpg`. Keep each under ~1 MB so the app stays quick on mobile.
-Until a file exists, a wave placeholder is shown in its place.
+The banner uses the first of these that exists:
 
-Photos for individual days are different: add those from inside the app (open a day → "Photo of the day").
+1. `public/photos/months/<month>.jpg`: just for that month. Names: `jan`, `feb`, `mar`, `apr`, `may`, `jun`,
+   `jul`, `aug`, `sep`, `oct`, `nov`, `dec` (e.g. `months/dec.jpg` for Christmas).
+2. `public/photos/seasons/<season>.jpg`: for the whole season. Names: `spring` (Mar–May), `summer` (Jun–Aug),
+   `autumn` (Sep–Nov), `winter` (Dec–Feb).
+3. `public/photos/hero.jpg`: all year, when there's nothing more specific.
+
+Landscape works best (about 3:1, the banner is wide and short). The colours of the whole app switch with the
+season on their own; Settings → Season lets you preview one.
+
+## Avatar
+
+`public/photos/profile.jpg`: the small round photo next to the greeting (square).
+
+Use `.jpg` and keep each under ~1 MB so the app stays quick on mobile. Until a file exists, a soft placeholder in
+the season's colours is shown.
+
+Photos for individual days are different: add those from inside the app (Calendar → camera on today).
 They're stored in your Firebase database, not in this folder.

@@ -3,6 +3,7 @@
 import type { DayHabit, Settings } from "@/lib/types";
 import { habitLook } from "@/lib/model";
 import { cn } from "@/lib/cn";
+import { CheckIcon } from "./Icons";
 
 type Props = {
   habits: DayHabit[];
@@ -13,10 +14,10 @@ type Props = {
 
 export default function HabitChecklist({ habits, settings, streaks = {}, onToggle }: Props) {
   if (habits.length === 0) {
-    return <p className="py-4 text-center text-sm font-semibold text-ink-muted">No habits yet. Add a few in Settings.</p>;
+    return <p className="py-3 text-center text-[13px] font-semibold text-ink-muted">No habits yet. Add a few in Settings.</p>;
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="-mx-1.5 flex flex-col">
       {habits.map((h) => {
         const look = habitLook(h.id, settings);
         const streak = streaks[h.id] ?? 0;
@@ -26,24 +27,22 @@ export default function HabitChecklist({ habits, settings, streaks = {}, onToggl
               type="button"
               onClick={() => onToggle(h.id)}
               aria-pressed={h.done}
-              className={cn("tap flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors", !h.done && "bg-sand-50 hover:bg-sand-100")}
-              style={h.done ? { backgroundColor: `${look.color}1c` } : undefined}
+              className="tap flex min-h-[34px] w-full items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-sand-50"
             >
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                style={{ borderColor: look.color, backgroundColor: h.done ? look.color : "#ffffff" }}
+                className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
+                style={{ borderColor: look.color, backgroundColor: h.done ? look.color : "transparent" }}
               >
-                {!h.done && <span className="text-lg leading-none">{look.emoji}</span>}
+                {h.done && <CheckIcon width={11} height={11} className="text-white" strokeWidth={3.5} />}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold leading-snug text-ink">{h.name}</span>
-                {look.time && <span className="text-[11px] font-bold text-ink-muted">{look.time}</span>}
-              </span>
+              <span className="w-4 shrink-0 text-center text-[13px] leading-none">{look.emoji}</span>
+              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] font-semibold transition-colors", h.done ? "text-ink-muted line-through decoration-ink-muted/40" : "text-ink")}>{h.name}</span>
               {streak >= 2 && (
-                <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-xs font-extrabold text-sunset-600 shadow-soft" title={`${streak}-day streak`}>
-                  🔥 {streak}
+                <span className="shrink-0 text-[10.5px] font-bold tabular-nums text-sunset-600" title={`${streak}-day streak`}>
+                  🔥{streak}
                 </span>
               )}
+              {look.time && <span className="w-9 shrink-0 text-right text-[11px] font-semibold tabular-nums text-ink-muted">{look.time}</span>}
             </button>
           </li>
         );

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { askBrowserPermission, browserNotificationsSupported, buildIcs, downloadText, randomTopic, sendTestPush } from "@/lib/reminders";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
-import { uid } from "@/lib/model";
+import { REWARD_PCT, uid } from "@/lib/model";
+import { SEASONS, SEASON_EMOJI, SEASON_LABEL } from "@/lib/season";
 import type { Countdown } from "@/lib/types";
 import { addDays, formatDateTime } from "@/lib/dates";
 import { AUTO_EMOJIS, DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
@@ -14,11 +15,9 @@ import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 
 export default function SettingsView() {
-  const { data, updateSettings, sync, today, journalState, journalBusy, unlockJournal, lockJournal, changePassphrase } = useStore();
-  const [jp, setJp] = useState({ current: "", next: "", confirm: "" });
+  const { data, updateSettings, sync, today, season, seasonChoice, setSeasonChoice } = useStore();
   const [cd, setCd] = useState({ title: "", date: "", time: "09:00", color: HABIT_COLORS[2].hex, emoji: "" });
   const [cdConfirm, setCdConfirm] = useState<string | null>(null);
-  const [jpMsg, setJpMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pushTest, setPushTest] = useState<"idle" | "sending" | "ok" | "fail">("idle");
   const [topicCopied, setTopicCopied] = useState(false);
   const settings = data.settings;
@@ -65,12 +64,12 @@ export default function SettingsView() {
           : "Connecting…";
 
   return (
-    <div className="rise flex flex-col gap-4">
+    <div className="rise flex flex-col gap-3">
       <h1 className="px-1 text-2xl font-extrabold text-ink">Settings</h1>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Core habits</h2>
-        <p className="mb-3 text-sm font-semibold text-ink-muted">
+      <section className="card p-4">
+        <h2 className="card-title">Core habits</h2>
+        <p className="card-sub mb-3 mt-0.5">
           Give each one an emoji, a colour, a time and a sound. Habits with a time sort themselves into day order. Changes apply from today onwards; past days keep what they had.
         </p>
         <ul className="flex flex-col gap-3">
@@ -186,7 +185,7 @@ export default function SettingsView() {
                     role="switch"
                     aria-checked={Boolean(h.keystone)}
                     onClick={() => patch(h.id, { keystone: !h.keystone })}
-                    title="If a must-do habit is missed, the submitted day drops straight to the bottom tier"
+                    title="A must-do habit has to be ticked to unlock the reward video"
                     className={cn("tap rounded-full px-3 py-1 text-xs font-extrabold", h.keystone ? "bg-sunset-500 text-white" : "bg-white text-ink-muted shadow-soft")}
                   >
                     {h.keystone ? "⭐ Must-do" : "☆ Must-do"}
@@ -211,11 +210,11 @@ export default function SettingsView() {
         <p className="mt-3 text-xs font-semibold text-ink-muted">Tip: keep it to six or so. Fewer things, done every day, is the whole idea.</p>
       </section>
 
-      <section className="card p-4 md:p-5">
+      <section className="card p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-extrabold text-ink">Sounds</h2>
-            <p className="text-sm font-semibold text-ink-muted">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
+            <h2 className="card-title">Sounds</h2>
+            <p className="card-sub mt-0.5">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
           </div>
           <button
             type="button"
@@ -262,9 +261,9 @@ export default function SettingsView() {
         </div>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">First A-level exam</h2>
-        <p className="text-sm font-semibold text-ink-muted">Drives the countdown on Today and the end of the Study graph. Linear A-levels, so probably May 2028; set it once you know.</p>
+      <section className="card p-4">
+        <h2 className="card-title">First A-level exam</h2>
+        <p className="card-sub mt-0.5">Drives the countdown on Today and the end of the Study graph. Linear A-levels, so probably May 2028; set it once you know.</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
             type="date"
@@ -281,9 +280,9 @@ export default function SettingsView() {
         </div>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Countdowns</h2>
-        <p className="text-sm font-semibold text-ink-muted">Shown on Today, live to the second. Tests, matches, trips, results day.</p>
+      <section className="card p-4">
+        <h2 className="card-title">Countdowns</h2>
+        <p className="card-sub mt-0.5">Shown on Today, live to the second. Tests, matches, trips, results day.</p>
         {settings.countdowns.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {[...settings.countdowns]
@@ -348,65 +347,32 @@ export default function SettingsView() {
         </form>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Journal passphrase</h2>
-        <p className="text-sm font-semibold text-ink-muted">Your personal journal is encrypted on your devices with this. Nobody can reset it, so keep it written down offline.</p>
-        {journalState === "unavailable" && <p className="mt-2 text-sm font-bold text-sunset-600">This browser can&apos;t do the encryption.</p>}
-        {journalState === "none" && <p className="mt-2 rounded-2xl bg-sand-50 px-3 py-2 text-sm font-semibold text-ink-soft">Not set yet. Create it in the Journal section on Today; your existing entries get encrypted at the same time.</p>}
-        {journalState === "locked" && (
-          <form
-            className="mt-2 flex gap-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setJpMsg(null);
-              const ok = await unlockJournal(jp.current);
-              setJpMsg(ok ? { ok: true, text: "Unlocked on this device." } : { ok: false, text: "Wrong passphrase." });
-              if (ok) setJp({ current: "", next: "", confirm: "" });
-            }}
-          >
-            <input type="password" className="field" placeholder="Passphrase to unlock" value={jp.current} onChange={(e) => setJp({ ...jp, current: e.target.value })} autoComplete="current-password" aria-label="Passphrase" />
-            <button type="submit" className="btn-primary px-4" disabled={journalBusy || !jp.current}>
-              Unlock
-            </button>
-          </form>
-        )}
-        {journalState === "unlocked" && (
-          <div className="mt-2 flex flex-col gap-3">
-            <button type="button" className="btn-ghost self-start bg-sand-50" onClick={() => lockJournal()}>
-              🔒 Lock journal now
-            </button>
-            <form
-              className="flex flex-col gap-2 rounded-2xl bg-sand-50 p-3"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setJpMsg(null);
-                if (jp.next.length < 8) return setJpMsg({ ok: false, text: "Use at least 8 characters." });
-                if (jp.next !== jp.confirm) return setJpMsg({ ok: false, text: "The new passphrases don't match." });
-                try {
-                  const n = await changePassphrase(jp.current, jp.next);
-                  setJpMsg({ ok: true, text: `Passphrase changed. ${n} ${n === 1 ? "entry" : "entries"} re-encrypted.` });
-                  setJp({ current: "", next: "", confirm: "" });
-                } catch (err) {
-                  setJpMsg({ ok: false, text: err instanceof Error ? err.message : "Couldn't change it; nothing was altered." });
-                }
-              }}
+      <section className="card p-4">
+        <h2 className="card-title">Season</h2>
+        <p className="card-sub mt-0.5">The colours and banner photo follow the seasons in Bristol and switch on their own. Pick one here to preview it on this device.</p>
+        <div className="mt-3 grid grid-cols-5 gap-1.5">
+          {(["auto", ...SEASONS] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setSeasonChoice(c)}
+              aria-pressed={seasonChoice === c}
+              className={cn("tap rounded-xl border px-1 py-2 text-center text-[12px] font-bold", seasonChoice === c ? "border-transparent bg-ink text-white" : "border-black/[0.06] bg-sand-50 text-ink-soft hover:bg-sand-100")}
             >
-              <div className="text-sm font-extrabold text-ink">Change passphrase</div>
-              <input type="password" className="field" placeholder="Current passphrase" value={jp.current} onChange={(e) => setJp({ ...jp, current: e.target.value })} autoComplete="current-password" />
-              <input type="password" className="field" placeholder="New passphrase (8+ characters)" value={jp.next} onChange={(e) => setJp({ ...jp, next: e.target.value })} autoComplete="new-password" />
-              <input type="password" className="field" placeholder="New passphrase again" value={jp.confirm} onChange={(e) => setJp({ ...jp, confirm: e.target.value })} autoComplete="new-password" />
-              <button type="submit" className="btn-primary" disabled={journalBusy || !jp.current || !jp.next || !jp.confirm}>
-                {journalBusy ? "Re-encrypting…" : "Change passphrase"}
-              </button>
-            </form>
-          </div>
-        )}
-        {jpMsg && <p className={cn("mt-2 text-sm font-bold", jpMsg.ok ? "text-teal-600" : "text-sunset-600")}>{jpMsg.text}</p>}
+              <div className="text-base leading-none">{c === "auto" ? "🔄" : SEASON_EMOJI[c]}</div>
+              <div className="mt-1">{c === "auto" ? "Auto" : SEASON_LABEL[c]}</div>
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] font-semibold text-ink-muted">
+          Now showing {SEASON_LABEL[season].toLowerCase()}. Banner photos: <code className="rounded bg-sand-100 px-1">public/photos/months/oct.jpg</code> (one month) beats{" "}
+          <code className="rounded bg-sand-100 px-1">public/photos/seasons/{season}.jpg</code> (the season) beats <code className="rounded bg-sand-100 px-1">public/photos/hero.jpg</code> (all year).
+        </p>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Claude sync</h2>
-        <p className="text-sm font-semibold text-ink-muted">The nightly Claude task reads your academic journal and answers, then writes questions, marks and estimates back.</p>
+      <section className="card p-4">
+        <h2 className="card-title">Claude sync</h2>
+        <p className="card-sub mt-0.5">Each night Claude reads your study log (time and what you did, marks included), writes tomorrow&apos;s economics, and estimates grades when there&apos;s evidence.</p>
         <dl className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-sand-50 px-3 py-2">
             <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Last read from the app</dt>
@@ -417,12 +383,12 @@ export default function SettingsView() {
             <dd className="text-sm font-extrabold text-ink">{fmtWhen(data.study.sync.lastWrite)}</dd>
           </div>
         </dl>
-        <p className="mt-2 text-[11px] font-semibold text-ink-muted">Setup lives in <code className="rounded bg-sand-100 px-1">docs/NIGHTLY_CLAUDE_TASK.md</code> in the repo. Your personal journal is never sent, not even encrypted.</p>
+        <p className="mt-2 text-[11px] font-semibold text-ink-muted">Setup lives in <code className="rounded bg-sand-100 px-1">docs/NIGHTLY_CLAUDE_TASK.md</code> in the repo. Your journal is never sent to Claude.</p>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Reminders</h2>
-        <p className="text-sm font-semibold text-ink-muted">
+      <section className="card p-4">
+        <h2 className="card-title">Reminders</h2>
+        <p className="card-sub mt-0.5">
           A reminder at each habit&apos;s time, plus a nudge to submit the day at{" "}
           <input
             type="time"
@@ -515,23 +481,17 @@ export default function SettingsView() {
         </div>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Submit-day videos</h2>
+      <section className="card p-4">
+        <h2 className="card-title">Reward video</h2>
         <p className="mt-1 text-sm font-semibold text-ink-soft">
-          Upload your MP4s to <code className="rounded bg-sand-100 px-1">public/media/</code> on GitHub with exactly these names. Any length.
+          Plays when you submit a day at {REWARD_PCT}% or more with every ⭐ must-do ticked. Anything less is just logged, no punishment. The file lives at{" "}
+          <code className="rounded bg-sand-100 px-1">public/media/day-80-100.mp4</code> on GitHub (25 MB max on the website).
         </p>
-        <ul className="mt-2 flex flex-col gap-1 text-sm font-semibold text-ink-soft">
-          <li>🎸 80–100% → <code className="rounded bg-sand-100 px-1">day-80-100.mp4</code></li>
-          <li>😐 50–79% → <code className="rounded bg-sand-100 px-1">day-50-80.mp4</code></li>
-          <li>😬 25–49% → <code className="rounded bg-sand-100 px-1">day-25-50.mp4</code> (optional: falls back to the one below)</li>
-          <li>💀 0–24%, or a ⭐ must-do habit missed → <code className="rounded bg-sand-100 px-1">day-0-25.mp4</code></li>
-        </ul>
-        <p className="mt-2 text-xs font-semibold text-ink-muted">GitHub&apos;s website only accepts files up to 25 MB, so trim or compress long videos first.</p>
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Your name</h2>
-        <p className="mb-2 text-sm font-semibold text-ink-muted">Used in the greeting on the Today screen.</p>
+      <section className="card p-4">
+        <h2 className="card-title">Your name</h2>
+        <p className="card-sub mb-2 mt-0.5">Used in the greeting on the Today screen.</p>
         <input
           value={settings.name}
           onChange={(e) => updateSettings((s) => ({ ...s, name: e.target.value }))}
@@ -543,8 +503,8 @@ export default function SettingsView() {
         />
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Sync</h2>
+      <section className="card p-4">
+        <h2 className="card-title">Sync</h2>
         <div className="mt-2 flex items-center gap-2 text-sm font-bold text-ink-soft">
           <span className={cn("h-2.5 w-2.5 rounded-full", sync === "online" ? "bg-teal-500" : sync === "offline" ? "bg-sunset-500" : sync === "local" ? "bg-sand-400" : "bg-ocean-300")} />
           {syncLabel}
@@ -556,12 +516,10 @@ export default function SettingsView() {
         )}
       </section>
 
-      <section className="card p-4 md:p-5">
-        <h2 className="text-lg font-extrabold text-ink">Your photos</h2>
+      <section className="card p-4">
+        <h2 className="card-title">Your photos</h2>
         <p className="mt-1 text-sm font-semibold text-ink-soft">
-          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">hero.jpg</code> (banner),{" "}
-          <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and <code className="rounded bg-sand-100 px-1">wall-1.jpg</code> to{" "}
-          <code className="rounded bg-sand-100 px-1">wall-4.jpg</code> (the side column on a laptop). Per-day photos are added from the day itself.
+          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and banners per season or month (see Season above). Per-day photos are added from the day itself.
         </p>
       </section>
     </div>

@@ -12,25 +12,28 @@ import ProgressRing from "./ProgressRing";
 import RatingBar from "./RatingBar";
 import Confetti from "./Confetti";
 import SubmitDay from "./SubmitDay";
-import EncryptedJournal from "./EncryptedJournal";
+import JournalCard from "./JournalCard";
+import StudyLogCard from "./StudyLogCard";
 import CountdownsCard from "./CountdownsCard";
 import ThrowbackJournal from "./ThrowbackJournal";
+import { LockIcon } from "./Icons";
 
 type Props = { date: string; compact?: boolean };
 
 /**
- * Everything for one day, in this order: progress, habits, to-do, journal (encrypted), ratings,
+ * Everything for one day: progress, habits, to-do, study, journal, ratings,
  * then (today only) countdowns and a throwback entry, then submit. Used by Today and the calendar's day view.
  */
-export default function DayEditor({ date, compact = false }: Props) {
+export default function DayEditor({ date }: Props) {
   const { data, getDay, updateDay, carryTodoOver, today } = useStore();
   const day = getDay(date);
-  const progress = dayProgress(day); // habits + to-dos only; questions never count
+  const progress = dayProgress(day); // habits + to-dos only
   const isPast = date < today;
   const settings = data.settings;
   const [celebrating, setCelebrating] = useState(false);
   const celebrateTimer = useRef<number | null>(null);
   const locked = Boolean(day.submitted);
+  const habitsDone = day.habits.filter((h) => h.done).length;
 
   // Render this day's sounds in the background so the first tap plays instantly.
   const soundIds = settings.habits.map((h) => h.sound).join(",");
@@ -76,47 +79,62 @@ export default function DayEditor({ date, compact = false }: Props) {
     updateDay(date, (d) => ({ ...d, todos: d.todos.map((x) => (x.id === id ? { ...x, done: !x.done } : x)) }));
   };
 
+  const lockedNote = locked && (
+    <span className="chip">
+      <LockIcon width={11} height={11} /> locked
+    </span>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {celebrating && <Confetti />}
 
-      <section className="card flex items-center gap-4 p-4 md:p-5">
-        <ProgressRing pct={progress.pct} size={compact ? 80 : 96} />
-        <div className="flex-1">
-          <div className="label">Progress</div>
-          <div className="mt-1 text-lg font-extrabold leading-tight text-ink">
-            {progress.total === 0
-              ? "Nothing to tick yet"
-              : progress.pct === 100
-                ? "Everything done. That's evidence."
-                : `${progress.done} of ${progress.total} done`}
+      <section className="card flex items-center gap-3.5 px-4 py-3">
+        <ProgressRing pct={progress.pct} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[15px] font-extrabold leading-tight text-ink">
+            {progress.total === 0 ? "Nothing to tick yet" : progress.pct === 100 ? "Everything done." : `${progress.done} of ${progress.total} done`}
           </div>
-          <div className="mt-1 text-sm font-semibold text-ink-muted">
+          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">
             {progress.pct === 100
               ? "Bank it and enjoy the evening."
-              : progress.pct >= 50
-                ? "Over halfway. Keep the anchors."
-                : isPast
-                  ? "You can still fill this day in."
-                  : "Start with the next thing on the list."}
+              : progress.pct >= 80
+                ? "Past 80%. Strong day."
+                : progress.pct >= 50
+                  ? "Over halfway. Keep the anchors."
+                  : isPast
+                    ? "You can still fill this day in."
+                    : "Start with the next thing on the list."}
           </div>
         </div>
       </section>
 
-      <section className={cn("card p-4 md:p-5", locked && "pointer-events-none opacity-75")}>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-extrabold text-ink">Core habits{locked ? " · locked" : ""}</h2>
-          <span className="text-sm font-bold text-ink-muted">
-            {day.habits.filter((h) => h.done).length}/{day.habits.length}
-          </span>
+      <section className={cn("card px-4 pb-2.5 pt-3.5", locked && "pointer-events-none opacity-70")}>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <h2 className="card-title">Core habits</h2>
+          <div className="flex items-center gap-2">
+            {lockedNote}
+            <span className="text-[12px] font-bold tabular-nums text-ink-muted">
+              {habitsDone}/{day.habits.length}
+            </span>
+          </div>
         </div>
+        {day.habits.length > 0 && (
+          <div className="mb-1.5 h-[3px] w-full overflow-hidden rounded-full bg-sand-100">
+            <div className="h-full rounded-full bg-ocean-500 transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
+          </div>
+        )}
         <HabitChecklist habits={day.habits} settings={settings} streaks={streaks} onToggle={toggleHabit} />
       </section>
 
-      <section className={cn("card p-4 md:p-5", locked && "pointer-events-none opacity-75")}>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-extrabold text-ink">To-do{locked ? " · locked" : ""}</h2>
-          <span className="text-sm font-bold text-ink-muted">just for this day</span>
+      <section className={cn("card px-4 pb-3 pt-3.5", locked && "pointer-events-none opacity-70")}>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <h2 className="card-title">To-do</h2>
+          {lockedNote || (
+            <span className="text-[12px] font-bold tabular-nums text-ink-muted">
+              {day.todos.length ? `${day.todos.filter((t) => t.done).length}/${day.todos.length}` : "just for this day"}
+            </span>
+          )}
         </div>
         <TodoList
           todos={day.todos}
@@ -127,17 +145,19 @@ export default function DayEditor({ date, compact = false }: Props) {
         />
       </section>
 
-      <EncryptedJournal date={date} />
+      <StudyLogCard date={date} />
 
-      <section className="card p-4 md:p-5">
-        <div className="mb-4">
-          <h2 className="text-lg font-extrabold text-ink">How was it?</h2>
-          <p className="text-sm font-semibold text-ink-muted">Tap or drag. 1 is rough, 10 is a great day.</p>
+      <JournalCard date={date} />
+
+      <section className="card p-4">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h2 className="card-title">How was it?</h2>
+          <span className="card-sub">1 rough · 10 great</span>
         </div>
-        <div className="flex flex-col gap-5">
-          <RatingBar label="Day" hint="overall" tone="ocean" value={day.ratings.day} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, day: v } }))} />
-          <RatingBar label="Health" hint="sleep, food, movement" tone="teal" value={day.ratings.health} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, health: v } }))} />
-          <RatingBar label="Happiness" hint="mood, people, energy" tone="sunset" value={day.ratings.happy} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, happy: v } }))} />
+        <div className="flex flex-col gap-2.5">
+          <RatingBar label="Day" tone="ocean" value={day.ratings.day} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, day: v } }))} />
+          <RatingBar label="Health" tone="teal" value={day.ratings.health} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, health: v } }))} />
+          <RatingBar label="Happiness" tone="sunset" value={day.ratings.happy} onChange={(v) => updateDay(date, (d) => ({ ...d, ratings: { ...d.ratings, happy: v } }))} />
         </div>
       </section>
 

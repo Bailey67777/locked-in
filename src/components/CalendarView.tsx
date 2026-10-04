@@ -72,15 +72,15 @@ export default function CalendarView() {
   const isCurrentMonth = year === t.getFullYear() && month === t.getMonth();
 
   return (
-    <div className="rise flex flex-col gap-4">
+    <div className="rise flex flex-col gap-3">
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
-      <section className="card p-4 md:p-5">
+      <section className="card p-4">
         <div className="mb-3 flex items-center justify-between">
           <button type="button" className="btn-icon" onClick={() => shift(-1)} aria-label="Previous month">
             <ChevronIcon dir="left" />
           </button>
           <div className="text-center">
-            <h1 className="text-xl font-extrabold text-ink">{monthLabel(year, month)}</h1>
+            <h1 className="font-serif text-[26px] leading-none text-ink">{monthLabel(year, month)}</h1>
             {!isCurrentMonth && (
               <button
                 type="button"
@@ -131,9 +131,9 @@ export default function CalendarView() {
                   type="button"
                   onClick={() => setSelected(key)}
                   className={cn(
-                    "tap relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-colors",
+                    "tap relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-xl text-[13px] font-semibold transition-colors",
                     thumb ? "bg-sand-200" : shade,
-                    isToday && "ring-2 ring-sunset-500 ring-offset-2 ring-offset-white",
+                    isToday && "ring-2 ring-ink ring-offset-2 ring-offset-white",
                   )}
                   aria-label={formatLong(key)}
                 >
@@ -173,22 +173,22 @@ export default function CalendarView() {
         </div>
         {photoError && <p className="mt-2 text-xs font-bold text-sunset-600">{photoError}</p>}
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold text-ink-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-semibold text-ink-muted">
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-100" /> blank day</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-400" /> most done</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-teal-500" /> all done</span>
           <span className="flex items-center gap-1.5"><CameraIcon width={13} height={13} /> today&apos;s photo</span>
-          <span className="flex items-center gap-1.5">🎸 😐 😬 💀 submitted</span>
+          <span className="flex items-center gap-1.5">✨ 👍 🌱 🌙 submitted</span>
         </div>
       </section>
 
-      <p className="px-2 text-center text-sm font-semibold text-ink-muted">Tap the camera on today to add a photo; a day you miss stays blank. Tap any day to open it.</p>
+      <p className="px-2 text-center text-[12px] font-semibold text-ink-muted">Tap the camera on today to add a photo; a day you miss stays blank. Tap any day to open it.</p>
 
       {selected &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-ocean-900/40 backdrop-blur-sm md:items-center md:p-6" onClick={() => setSelected(null)}>
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 backdrop-blur-sm md:items-center md:p-6" onClick={() => setSelected(null)}>
             <div
-              className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-sand-50 shadow-lift md:max-h-[88vh] md:rounded-3xl"
+              className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-sand-50 shadow-lift md:max-h-[88vh] md:rounded-3xl"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -197,7 +197,7 @@ export default function CalendarView() {
               <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-4 py-3 backdrop-blur">
                 <div>
                   <div className="label">{selected === today ? "Today" : selected > today ? "Upcoming" : "Looking back"}</div>
-                  <div className="text-lg font-extrabold text-ink">{formatLong(selected)}</div>
+                  <div className="font-serif text-[22px] leading-tight text-ink">{formatLong(selected)}</div>
                 </div>
                 <button type="button" className="btn-icon" onClick={() => setSelected(null)} aria-label="Close">
                   <CloseIcon />

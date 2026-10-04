@@ -4,69 +4,66 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 
 type Props = {
-  src: string;
+  /** One path, or several to try in order (the first that exists is shown). */
+  src: string | string[];
   alt: string;
   className?: string;
-  variant?: "hero" | "avatar" | "wall";
+  variant?: "hero" | "avatar";
+  /** Small text shown over the bottom-left of a hero. */
+  caption?: string;
 };
 
 /**
- * Shows your own photo if the file exists in /public/photos, otherwise a calm wave placeholder.
- * Swap the picture by dropping a file at the `src` path — no code changes needed.
+ * Shows your own photo if the file exists in /public/photos, otherwise a calm placeholder in the season's colours.
+ * Swap the picture by dropping a file at one of the `src` paths — no code changes needed.
  */
-export default function Photo({ src, alt, className, variant = "hero" }: Props) {
-  const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
+export default function Photo({ src, alt, className, variant = "hero", caption }: Props) {
+  const list = Array.isArray(src) ? src : [src];
+  const key = list.join("|");
+  const [state, setState] = useState<{ key: string; index: number; ok: boolean }>({ key, index: 0, ok: false });
+  // A new list (e.g. the season changed) starts again from the top.
+  const current = state.key === key ? state : { key, index: 0, ok: false };
+  const missing = current.index >= list.length;
   const isAvatar = variant === "avatar";
-  const isWall = variant === "wall";
+
+  const idx = current.index;
+  const same = (s: typeof state) => (s.key === key ? s.index : 0) === idx;
+  const fail = () => setState((s) => (same(s) ? { key, index: idx + 1, ok: false } : s));
+  const ok = () => setState((s) => (same(s) && !(s.key === key && s.ok) ? { key, index: idx, ok: true } : s));
 
   return (
     <div
-      className={cn(
-        "relative overflow-hidden bg-gradient-to-b from-ocean-100 via-sand-100 to-ocean-200",
-        isAvatar ? "rounded-full" : isWall ? "rounded-xl" : "rounded-3xl",
-        className,
-      )}
+      className={cn("relative overflow-hidden", isAvatar ? "rounded-full" : "rounded-3xl", className)}
+      style={{ background: "linear-gradient(160deg, var(--color-ocean-100), var(--color-sand-100) 55%, var(--color-sunset-100))" }}
     >
-      {state !== "missing" && (
+      {!missing && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          key={list[current.index]}
+          src={list[current.index]}
           alt={alt}
           // Small images can finish loading before React attaches onLoad (especially from the service-worker
           // cache), so also check the already-complete state the moment the element mounts.
           ref={(el) => {
-            if (el && el.complete && state === "loading") setState(el.naturalWidth > 0 ? "ok" : "missing");
+            if (el && el.complete && !current.ok) {
+              if (el.naturalWidth > 0) ok();
+              else if (el.currentSrc) fail();
+            }
           }}
-          onLoad={() => setState("ok")}
-          onError={() => setState("missing")}
-          className={cn(
-            "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
-            state === "ok" ? "opacity-100" : "opacity-0",
-          )}
+          onLoad={ok}
+          onError={fail}
+          className={cn("absolute inset-0 h-full w-full object-cover transition-opacity duration-700", current.ok ? "opacity-100" : "opacity-0")}
         />
       )}
-      {state === "missing" && (
-        <div className={cn("absolute inset-0 flex flex-col items-center text-ocean-800", isAvatar || isWall ? "justify-center" : "justify-start pt-[8%]")}>
-          <svg viewBox="0 0 200 120" className={cn("absolute inset-x-0 bottom-0 w-full", isAvatar ? "h-1/2" : "h-2/3")} preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 60 C 30 40, 60 40, 90 60 S 150 80, 180 60 S 200 50, 200 55 L200 120 L0 120 Z" fill="#7dbde0" opacity="0.55" />
-            <path d="M0 80 C 30 60, 60 60, 90 80 S 150 100, 180 80 S 200 70, 200 75 L200 120 L0 120 Z" fill="#1a6fd1" opacity="0.5" />
-            <path d="M0 100 C 30 85, 60 85, 90 100 S 150 115, 180 100 L200 100 L200 120 L0 120 Z" fill="#134a7f" opacity="0.55" />
-          </svg>
-          {!isAvatar && <div className={cn("absolute rounded-full bg-sunset-300/90 shadow-[0_0_30px_10px_rgba(246,178,107,0.45)]", isWall ? "right-[12%] top-[12%] h-6 w-6" : "right-[12%] top-[16%] h-10 w-10")} />}
-          {isAvatar ? (
-            <span className="relative text-[10px] font-extrabold uppercase tracking-wider text-ocean-800/80">You</span>
-          ) : isWall ? (
-            <div className="relative z-10 rounded-full bg-white/85 px-2.5 py-1 text-center shadow-soft backdrop-blur">
-              <div className="text-[11px] font-extrabold text-ocean-800">Add a photo</div>
-              <div className="text-[9px] font-semibold text-ink-muted">{src.replace(/^\//, "public/")}</div>
-            </div>
-          ) : (
-            <div className="relative z-10 flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 shadow-soft backdrop-blur">
-              <span className="text-xs font-extrabold text-ocean-800">Add your photo</span>
-              <span className="hidden text-[11px] font-semibold text-ink-muted sm:inline">· {src.replace(/^\//, "public/")}</span>
-            </div>
-          )}
-        </div>
+      {missing && !isAvatar && (
+        <svg viewBox="0 0 200 120" className="absolute inset-x-0 bottom-0 h-2/3 w-full" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 70 C 40 52, 80 52, 120 68 S 180 82, 200 66 L200 120 L0 120 Z" style={{ fill: "var(--color-ocean-200)" }} opacity="0.6" />
+          <path d="M0 92 C 40 78, 90 80, 130 92 S 185 102, 200 94 L200 120 L0 120 Z" style={{ fill: "var(--color-ocean-400)" }} opacity="0.45" />
+        </svg>
+      )}
+      {missing && isAvatar && <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-ocean-800/70">You</span>}
+      {!isAvatar && caption && (
+        <span className="absolute bottom-2.5 left-2.5 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">{caption}</span>
       )}
     </div>
   );

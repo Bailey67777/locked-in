@@ -57,55 +57,55 @@ export default function StudyView() {
   }, [today, needNews]);
 
   return (
-    <div className="rise flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2 px-1">
-        <h1 className="text-2xl font-extrabold text-ink">Study</h1>
+    <div className="rise flex flex-col gap-3">
+      <div className="flex items-end justify-between gap-2 px-1 pb-1">
+        <h1 className="font-serif text-[32px] leading-none text-ink">Study</h1>
         {daysToExam !== null ? (
-          <span className="rounded-full bg-white/80 px-3 py-1.5 text-sm font-extrabold text-sunset-600 shadow-soft">
-            ⏳ {daysToExam < 0 ? "exams started" : `${daysToExam} day${daysToExam === 1 ? "" : "s"} until your first A-level exam`}
+          <span className="text-right text-[12px] font-semibold text-ink-muted">
+            <span className="text-[15px] font-extrabold tabular-nums text-ink">{daysToExam < 0 ? "–" : daysToExam}</span> {daysToExam < 0 ? "exams started" : `day${daysToExam === 1 ? "" : "s"} to first exam`}
           </span>
         ) : (
-          <span className="text-xs font-bold text-ink-muted">Set your first exam date in Settings</span>
+          <span className="text-[11.5px] font-semibold text-ink-muted">Set your exam date in Settings</span>
         )}
       </div>
 
-      <section className="card p-4 md:p-5">
+      <section className="card p-4">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-extrabold text-ink">Grade trajectory</h2>
-          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Claude&apos;s estimate</span>
+          <h2 className="card-title">Grade trajectory</h2>
+          <span className="card-sub">Claude&apos;s estimate</span>
         </div>
         <GradeChart grades={data.study.grades} examDate={examDate} />
       </section>
 
-      <section className="card p-4 md:p-5">
+      <section className="card p-4">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-extrabold text-ink">Study hours</h2>
-          <span className="shrink-0 rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Estimated by Claude</span>
+          <h2 className="card-title">Study hours</h2>
+          <span className="card-sub">from your study log</span>
         </div>
-        <HoursChart hours={data.study.hours} today={today} />
+        <HoursChart hours={data.study.hours} days={data.days} today={today} />
       </section>
 
       <section className="card overflow-hidden">
-        <div className="bg-ocean-100 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-ocean-800">📈 Economics · concept of the day</div>
-        <div className="p-4 md:p-5">
+        <div className="p-4">
+          <div className="label mb-1.5">Economics · concept of the day</div>
           {econ?.concept ? (
             <>
-              <h2 className="text-xl font-extrabold leading-tight text-ink">{econ.concept.title}</h2>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] font-semibold leading-relaxed text-ink-soft">{econ.concept.explanation}</p>
+              <h2 className="font-serif text-[24px] leading-tight text-ink">{econ.concept.title}</h2>
+              <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-ink-soft">{econ.concept.explanation}</p>
               <p className="mt-2 text-[11px] font-bold text-ink-muted">Written by Claude for today.</p>
             </>
           ) : (
             <>
-              <h2 className="text-xl font-extrabold leading-tight text-ink">{staticConcept.term}</h2>
-              <p className="mt-2 text-[15px] font-semibold leading-relaxed text-ink-soft">{staticConcept.what}</p>
+              <h2 className="font-serif text-[24px] leading-tight text-ink">{staticConcept.term}</h2>
+              <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-soft">{staticConcept.what}</p>
               <dl className="mt-3 flex flex-col gap-2">
-                <div className="rounded-2xl bg-sand-50 px-3 py-2">
-                  <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Real world</dt>
-                  <dd className="text-sm font-semibold text-ink">{staticConcept.example}</dd>
+                <div className="rounded-xl bg-sand-50 px-3 py-2">
+                  <dt className="label">Real world</dt>
+                  <dd className="mt-0.5 text-[13px] font-medium text-ink">{staticConcept.example}</dd>
                 </div>
-                <div className="rounded-2xl bg-sand-50 px-3 py-2">
-                  <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Exam angle</dt>
-                  <dd className="text-sm font-semibold text-ink">{staticConcept.exam}</dd>
+                <div className="rounded-xl bg-sand-50 px-3 py-2">
+                  <dt className="label">Exam angle</dt>
+                  <dd className="mt-0.5 text-[13px] font-medium text-ink">{staticConcept.exam}</dd>
                 </div>
               </dl>
               <button type="button" className="btn-ghost mt-2 px-0" onClick={() => setEconSkip((n) => n + 1)}>
@@ -114,14 +114,14 @@ export default function StudyView() {
             </>
           )}
 
-          <div className="mt-4 border-t border-sand-100 pt-4">
-            <h3 className="text-sm font-extrabold text-ink">{econ?.reading?.length ? "Worth reading today" : "Today's economics headlines"}</h3>
+          <div className="mt-4 border-t border-sand-200 pt-3.5">
+            <h3 className="card-title text-[13.5px]">{econ?.reading?.length ? "Worth reading today" : "Today's economics headlines"}</h3>
             {econ?.reading?.length ? (
               <ul className="mt-2 flex flex-col gap-1.5">
                 {econ.reading.map((r) => (
                   <li key={r.url}>
-                    <a href={r.url} target="_blank" rel="noopener noreferrer" className="tap block rounded-2xl bg-sand-50 px-3 py-2 hover:bg-sand-100">
-                      <span className="block text-sm font-bold leading-snug text-ink">{r.title}</span>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer" className="tap block rounded-xl border border-black/[0.05] bg-sand-50 px-3 py-2 hover:bg-sand-100">
+                      <span className="block text-[13px] font-bold leading-snug text-ink">{r.title}</span>
                       {r.why && <span className="block text-xs font-semibold text-ink-soft">{r.why}</span>}
                       <span className="text-[11px] font-bold text-ink-muted">{r.source || "link"} ↗</span>
                     </a>
@@ -137,8 +137,8 @@ export default function StudyView() {
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {headlines.map((h) => (
                       <li key={h.link}>
-                        <a href={h.link} target="_blank" rel="noopener noreferrer" className="tap block rounded-2xl bg-sand-50 px-3 py-2 hover:bg-sand-100">
-                          <span className="block text-sm font-bold leading-snug text-ink">{h.title}</span>
+                        <a href={h.link} target="_blank" rel="noopener noreferrer" className="tap block rounded-xl border border-black/[0.05] bg-sand-50 px-3 py-2 hover:bg-sand-100">
+                          <span className="block text-[13px] font-bold leading-snug text-ink">{h.title}</span>
                           <span className="text-[11px] font-bold text-ink-muted">{h.source} ↗</span>
                         </a>
                       </li>

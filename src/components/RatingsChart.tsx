@@ -8,10 +8,12 @@ export type Series = { key: "day" | "health" | "happy"; label: string; color: st
 
 type Props = { dates: string[]; series: Series[] };
 
-const PAD = { l: 28, r: 14, t: 12, b: 26 };
-const H = 220;
+const PAD = { l: 22, r: 10, t: 10, b: 22 };
+const H = 190;
+const GRID = "var(--color-sand-200)";
+const AXIS_TEXT = "var(--color-ink-muted)";
 
-/** Line chart of the three ratings. One axis (1–10), gaps where a day wasn't rated, hover crosshair. */
+/** Line chart of the three ratings. One axis (1–10), gaps where a day wasn't rated, crosshair + tooltip on hover/touch. */
 export default function RatingsChart({ dates, series }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -47,7 +49,7 @@ export default function RatingsChart({ dates, series }: Props) {
     return d;
   };
 
-  const tickEvery = n > 14 ? Math.ceil(n / 6) : n > 7 ? 2 : 1;
+  const tickEvery = n > 14 ? Math.ceil(n / 5) : n > 7 ? 2 : 1;
   const ticks: { i: number; label: string }[] = [];
   let prevTick: string | null = null;
   dates.forEach((d, i) => {
@@ -69,6 +71,14 @@ export default function RatingsChart({ dates, series }: Props) {
 
   return (
     <div>
+      <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
+        {series.map((s) => (
+          <span key={s.key} className="flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-soft">
+            <i className="inline-block h-[2px] w-3.5 rounded" style={{ background: s.color }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
       <div
         ref={wrap}
         className="relative w-full select-none"
@@ -79,84 +89,74 @@ export default function RatingsChart({ dates, series }: Props) {
       >
         {width > 0 && (
           <svg width={width} height={H} className="block">
-            {[2, 4, 6, 8, 10].map((v) => (
+            {[1, 4, 7, 10].map((v) => (
               <g key={v}>
-                <line x1={PAD.l} x2={width - PAD.r} y1={y(v)} y2={y(v)} stroke="#ecdcc1" strokeWidth={1} />
-                <text x={PAD.l - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fontWeight={700} fill="#7a8b99">
+                <line x1={PAD.l} x2={width - PAD.r} y1={y(v)} y2={y(v)} strokeWidth={1} style={{ stroke: GRID }} />
+                <text x={PAD.l - 8} y={y(v) + 3.5} textAnchor="end" fontSize={10} fontWeight={500} style={{ fill: AXIS_TEXT }}>
                   {v}
                 </text>
               </g>
             ))}
-            <line x1={PAD.l} x2={width - PAD.r} y1={y(1)} y2={y(1)} stroke="#dcc39a" strokeWidth={1} />
             {ticks.map(({ i, label }) => (
-              <text key={dates[i]} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} fontSize={11} fontWeight={700} fill="#7a8b99">
+              <text key={dates[i]} x={x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} fontSize={10} fontWeight={500} style={{ fill: AXIS_TEXT }}>
                 {label}
               </text>
             ))}
-            {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={PAD.t + innerH} stroke="#7a8b99" strokeWidth={1} strokeDasharray="3 3" />}
+            {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={PAD.t + innerH} strokeWidth={1} style={{ stroke: "var(--color-sand-300)" }} />}
             {series.map((s) => (
               <g key={s.key}>
                 <path d={pathFor(s.values)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                 {s.values.map((v, i) => {
                   if (v === null) return null;
                   const isolated = (i === 0 || s.values[i - 1] === null) && (i === n - 1 || s.values[i + 1] === null);
-                  const show = isolated || i === hover || n <= 10;
-                  if (!show) return null;
+                  const lastPoint = s.values.slice(i + 1).every((u) => u === null);
+                  if (!isolated && !lastPoint && i !== hover) return null;
                   return <circle key={i} cx={x(i)} cy={y(v)} r={i === hover ? 5 : 4} fill={s.color} stroke="#ffffff" strokeWidth={2} />;
                 })}
               </g>
             ))}
             {!hasAny && (
-              <text x={width / 2} y={H / 2} textAnchor="middle" fontSize={13} fontWeight={700} fill="#7a8b99">
-                Rate a few days and the lines will appear here.
+              <text x={width / 2} y={H / 2} textAnchor="middle" fontSize={12} fontWeight={500} style={{ fill: AXIS_TEXT }}>
+                Rate a few days and the lines appear here.
               </text>
             )}
           </svg>
         )}
         {hover !== null && hasAny && (
           <div
-            className="pointer-events-none absolute top-2 z-10 rounded-xl border border-sand-200 bg-white/95 px-3 py-2 text-xs shadow-soft"
-            style={{ left: Math.min(Math.max(0, x(hover) - 60), Math.max(0, width - 130)) }}
+            className="pointer-events-none absolute top-0 z-10 min-w-[120px] rounded-xl border border-black/[0.06] bg-white/95 px-2.5 py-2 text-[11.5px] shadow-lift backdrop-blur"
+            style={{ left: Math.min(Math.max(0, x(hover) - 60), Math.max(0, width - 124)) }}
           >
-            <div className="mb-1 font-extrabold text-ink">{formatShort(dates[hover])}</div>
+            <div className="mb-1 font-bold text-ink">{formatShort(dates[hover])}</div>
             {series.map((s) => (
-              <div key={s.key} className="flex items-center justify-between gap-3 font-bold text-ink-soft">
+              <div key={s.key} className="flex items-center justify-between gap-3 font-semibold text-ink-soft">
                 <span className="flex items-center gap-1.5">
                   <i className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
                   {s.label}
                 </span>
-                <span className="tabular-nums text-ink">{s.values[hover] ?? "–"}</span>
+                <span className="tabular-nums font-bold text-ink">{s.values[hover] ?? "–"}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1">
-        {series.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5 text-xs font-bold text-ink-soft">
-            <i className="inline-block h-0.5 w-4 rounded" style={{ background: s.color }} />
-            {s.label}
-          </span>
-        ))}
-      </div>
-
-      <details className="mt-3">
-        <summary className="cursor-pointer text-xs font-bold text-ocean-700">Show as table</summary>
+      <details className="mt-2">
+        <summary className="cursor-pointer text-[11.5px] font-bold text-ink-muted hover:text-ink">Table view</summary>
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-[11.5px]">
             <thead>
               <tr className="text-ink-muted">
-                <th className="py-1 pr-3 font-extrabold">Date</th>
+                <th className="py-1 pr-3 font-bold">Date</th>
                 {series.map((s) => (
-                  <th key={s.key} className="py-1 pr-3 font-extrabold">{s.label}</th>
+                  <th key={s.key} className="py-1 pr-3 font-bold">{s.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {dates.map((d, i) => (
                 <tr key={d} className={cn("border-t border-sand-100", i === hover && "bg-sand-50")}>
-                  <td className="py-1 pr-3 font-bold text-ink">{formatShort(d)}</td>
+                  <td className="py-1 pr-3 font-semibold text-ink">{formatShort(d)}</td>
                   {series.map((s) => (
                     <td key={s.key} className="py-1 pr-3 tabular-nums text-ink-soft">{s.values[i] ?? "–"}</td>
                   ))}

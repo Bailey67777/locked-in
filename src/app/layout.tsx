@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Nunito } from "next/font/google";
+import { Inter, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/lib/store";
+import { SEASON_BOOT_SCRIPT } from "@/lib/season";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const nunito = Nunito({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
-  variable: "--font-nunito",
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const serif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif-display",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Locked In",
-  description: "Daily habits, to-dos, ratings and a mini journal.",
+  description: "Daily habits, to-dos, ratings and a journal.",
   applicationName: "Locked In",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -26,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fbf7f0",
+  themeColor: "#f7f4ef",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -36,7 +44,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${nunito.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} ${serif.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SEASON_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full font-sans">
         <AppProviders>{children}</AppProviders>
         <ServiceWorkerRegister />

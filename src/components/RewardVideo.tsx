@@ -1,80 +1,61 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { TierId } from "@/lib/types";
-import { tierById } from "@/lib/model";
+import { REWARD_FILE } from "@/lib/model";
 import { formatLong } from "@/lib/dates";
-import { cn } from "@/lib/cn";
 import { CloseIcon } from "./Icons";
 
 const EXTENSIONS = ["mp4", "mov", "m4v", "webm"];
 
 type Props = {
   date: string;
-  tier: TierId;
   pct: number;
-  keystoneMissed: boolean;
-  /** Must be watched to the end: no close button, no skipping, until it finishes. */
-  required: boolean;
   onWatched: () => void;
   onClose: () => void;
 };
 
 /**
- * Full-screen player for a submitted day's tier video (public/media/day-80-100.mp4 etc).
- * When `required`, the only way out is to watch the whole thing: seeking forward is snapped back,
- * playback speed is pinned, and the close button appears only once the video has ended.
- * If the video can't be loaded (not uploaded yet, offline, or the site is blocking the file) it is NOT
- * counted as watched: the overlay can be dismissed and the video is owed again next time the app opens.
+ * Full-screen player for the reward video (public/media/day-80-100.mp4). Close it whenever you like:
+ * once it has started playing it counts as seen. If it can't load (offline, not uploaded) it stays owed
+ * and plays next time the app opens.
  */
-export default function RewardVideo({ date, tier, pct, keystoneMissed, required, onWatched, onClose }: Props) {
-  const info = tierById(tier);
-  const candidates = useMemo(() => {
-    const bases = tier === "t25" ? [info.file, tierById("t0").file] : [info.file];
-    return bases.flatMap((b) => EXTENSIONS.map((ext) => `/media/${b}.${ext}`));
-  }, [tier, info.file]);
+export default function RewardVideo({ date, pct, onWatched, onClose }: Props) {
+  const candidates = useMemo(() => EXTENSIONS.map((ext) => `/media/${REWARD_FILE}.${ext}`), []);
   const [index, setIndex] = useState(0);
   const [needsTap, setNeedsTap] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [ended, setEnded] = useState(false);
   const [progress, setProgress] = useState(0);
   const [started, setStarted] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
-  const maxPlayed = useRef(0);
   const reported = useRef(false);
   const missing = index >= candidates.length;
-  const canClose = !required || ended || missing;
 
-  const markWatched = useCallback(() => {
+  const markWatched = () => {
     if (reported.current) return;
     reported.current = true;
     onWatched();
-  }, [onWatched]);
-
-  const retry = () => {
-    maxPlayed.current = 0;
-    setStarted(false);
-    setProgress(0);
-    setIndex(0);
   };
+
+  const close = () => {
+    if (started) markWatched();
+    onClose();
+  };
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && canClose) onClose();
-    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
-    // Take over the whole screen where the browser allows it (not on iPhone, where the overlay already fills the page).
-    const root = document.documentElement;
-    if (required && root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => undefined);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
-      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => undefined);
     };
-  }, [canClose, onClose, required]);
+  }, []);
 
   const tryPlay = () => {
     const el = video.current;
@@ -91,52 +72,40 @@ export default function RewardVideo({ date, tier, pct, keystoneMissed, required,
 
   const toggle = () => {
     const el = video.current;
-    if (!el || ended) return;
+    if (!el) return;
     if (el.paused) tryPlay();
-    else {
-      el.pause();
-      setPlaying(false);
-    }
-  };
-
-  const guardSeek = () => {
-    const el = video.current;
-    if (!el || !required || ended) return;
-    if (el.currentTime > maxPlayed.current + 0.75) el.currentTime = maxPlayed.current; // no skipping ahead
+    else el.pause();
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex flex-col bg-ocean-900/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={`${info.label} video`}>
-      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4 text-white">
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black/90 backdrop-blur-xl" role="dialog" aria-modal="true" aria-label="Reward video">
+      <div className="pt-safe" />
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 pb-2 pt-4 text-white">
         <div className="min-w-0">
-          <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-white/70">
-            {formatLong(date)} · {pct}%{keystoneMissed ? " · must-do missed" : ""}
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60">
+            {formatLong(date)} · {pct}%
           </div>
-          <div className="truncate text-xl font-extrabold">
-            {info.emoji} {info.label}
-          </div>
+          <div className="font-serif text-2xl leading-tight">✨ Locked in</div>
         </div>
-        {canClose ? (
-          <button type="button" onClick={onClose} className="tap flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white" aria-label="Close">
-            <CloseIcon />
-          </button>
-        ) : (
-          <span className="shrink-0 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-white/80">Watch to the end</span>
-        )}
+        <button type="button" onClick={close} className="tap flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white" aria-label="Close">
+          <CloseIcon width={18} height={18} />
+        </button>
       </div>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center p-3">
         {missing ? (
-          <div className="max-w-md rounded-3xl bg-white/10 p-6 text-center text-white">
-            <div className="text-5xl">{info.emoji}</div>
-            <p className="mt-3 text-lg font-extrabold">{info.blurb}</p>
-            <p className="mt-3 text-sm font-semibold text-white/80">
-              The video for this tier couldn&apos;t be loaded (<code className="rounded bg-white/15 px-1">public/media/{info.file}.mp4</code>). If you&apos;re offline or the site is blocking it, try again in a bit.
-              {required && " It still counts as owed, so it plays next time you open the app."}
+          <div className="max-w-sm rounded-2xl bg-white/10 p-5 text-center text-white">
+            <p className="text-[15px] font-bold">The video couldn&apos;t load.</p>
+            <p className="mt-2 text-[13px] text-white/70">
+              It lives at <code className="rounded bg-white/15 px-1">public/media/{REWARD_FILE}.mp4</code>. If you&apos;re offline, it&apos;ll play next time you open the app.
             </p>
             <div className="mt-4 flex justify-center gap-2">
-              <button type="button" onClick={retry} className="tap rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-ocean-900">Try again</button>
-              <button type="button" onClick={onClose} className="tap rounded-full bg-white/15 px-5 py-2.5 text-sm font-extrabold text-white">Not now</button>
+              <button type="button" onClick={() => setIndex(0)} className="tap rounded-full bg-white px-4 py-2 text-[13px] font-bold text-black">
+                Try again
+              </button>
+              <button type="button" onClick={onClose} className="tap rounded-full bg-white/15 px-4 py-2 text-[13px] font-bold text-white">
+                Not now
+              </button>
             </div>
           </div>
         ) : (
@@ -148,54 +117,39 @@ export default function RewardVideo({ date, tier, pct, keystoneMissed, required,
               playsInline
               autoPlay
               preload="auto"
-              disablePictureInPicture
-              controlsList="nodownload noplaybackrate noremoteplayback"
+              controlsList="nodownload noremoteplayback"
               onLoadedData={tryPlay}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onSeeking={guardSeek}
-              onRateChange={() => {
-                if (video.current && video.current.playbackRate !== 1) video.current.playbackRate = 1;
+              onPlay={() => {
+                setPlaying(true);
+                setStarted(true);
               }}
+              onPause={() => setPlaying(false)}
               onTimeUpdate={() => {
                 const el = video.current;
-                if (!el) return;
-                if (el.currentTime > maxPlayed.current + 0.75 && required && !ended) {
-                  el.currentTime = maxPlayed.current;
-                  return;
-                }
-                if (el.currentTime > maxPlayed.current) maxPlayed.current = el.currentTime;
-                if (el.duration) setProgress(el.currentTime / el.duration);
+                if (el?.duration) setProgress(el.currentTime / el.duration);
               }}
               onEnded={() => {
-                setEnded(true);
                 setPlaying(false);
                 setProgress(1);
                 markWatched();
               }}
               onError={() => setIndex((i) => i + 1)}
               onClick={toggle}
-              className="max-h-[70vh] w-full rounded-2xl bg-black object-contain shadow-lift"
+              className="max-h-[72vh] w-full rounded-2xl bg-black object-contain"
             />
-            {(needsTap || (!playing && !ended)) && (
-              <button type="button" onClick={tryPlay} className="tap absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-8 py-4 text-lg font-extrabold text-ocean-900 shadow-lift">
-                ▶ {started ? "Resume" : "Play"}
+            {needsTap && (
+              <button type="button" onClick={tryPlay} className="tap absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-6 py-3 text-[15px] font-bold text-black shadow-lift">
+                ▶ Play
               </button>
             )}
             <div className="mt-3 flex items-center gap-3 px-1">
-              <button type="button" onClick={toggle} disabled={ended} className="tap flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white disabled:opacity-40" aria-label={playing ? "Pause" : "Play"}>
+              <button type="button" onClick={toggle} className="tap flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-[11px] text-white" aria-label={playing ? "Pause" : "Play"}>
                 {playing ? "❚❚" : "▶"}
               </button>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
-                <div className={cn("h-full rounded-full transition-[width] duration-300", ended ? "bg-teal-400" : "bg-white")} style={{ width: `${Math.round(progress * 100)}%` }} />
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
+                <div className="h-full rounded-full bg-white transition-[width] duration-300" style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>
-              <span className="w-10 text-right text-xs font-extrabold tabular-nums text-white/80">{Math.round(progress * 100)}%</span>
             </div>
-            {ended ? (
-              <p className="mt-2 text-center text-sm font-bold text-teal-300">Watched. You can close it now.</p>
-            ) : (
-              required && <p className="mt-2 text-center text-xs font-semibold text-white/70">Pausing is fine. Skipping isn&apos;t. If you leave before the end, it plays again next time you open the app.</p>
-            )}
           </div>
         )}
       </div>

@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
-import { CalendarIcon, HealthIcon, SettingsIcon, StudyIcon, SunIcon, WaveMark } from "./Icons";
-import WaveDivider from "./WaveDivider";
+import { SEASON_LABEL } from "@/lib/season";
+import { CalendarIcon, HealthIcon, SettingsIcon, StudyIcon, SunIcon } from "./Icons";
 import TodayView from "./TodayView";
 import StudyView from "./StudyView";
 import CalendarView from "./CalendarView";
 import TrendsView from "./TrendsView";
 import SettingsView from "./SettingsView";
-import PhotoWall from "./PhotoWall";
 import ReminderRunner from "./ReminderRunner";
 import VideoGate from "./VideoGate";
 
@@ -25,7 +24,7 @@ const TABS: { id: Tab; label: string; Icon: typeof SunIcon }[] = [
 ];
 
 export default function AppShell() {
-  const { loaded, today, sync, pending } = useStore();
+  const { loaded, today, sync, pending, season } = useStore();
   const [tab, setTab] = useState<Tab>("today");
 
   useEffect(() => {
@@ -58,78 +57,70 @@ export default function AppShell() {
       <ReminderRunner />
       <VideoGate />
 
-      {/* Sky header */}
-      <div className="bg-gradient-to-b from-ocean-100 via-sand-100 to-sand-50">
+      <header className="sticky top-0 z-40 border-b border-black/[0.05] bg-sand-50/75 backdrop-blur-xl">
         <div className="pt-safe" />
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 pb-2 pt-3 lg:max-w-5xl">
-          <div className="flex shrink-0 items-center gap-2">
-            <WaveMark />
-            <span className="text-lg font-extrabold tracking-tight text-ocean-900">Locked In</span>
+        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-4 py-2.5 md:max-w-2xl">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ocean-600 text-[13px] font-extrabold text-white shadow-soft">L</span>
+            <span className="text-[15px] font-extrabold tracking-[-0.02em] text-ink">Locked In</span>
+            <span className="hidden text-[11px] font-semibold text-ink-muted sm:inline">· {SEASON_LABEL[season]}</span>
             {sync === "offline" && (
-              <span className="ml-1 rounded-full bg-sunset-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sunset-700">
-                offline{pending > 0 ? ` · ${pending} to sync` : ""}
+              <span className="chip ml-1 bg-sunset-100 text-sunset-700">
+                offline{pending > 0 ? ` · ${pending}` : ""}
               </span>
             )}
           </div>
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Sections">
-            {TABS.map(({ id, label, Icon }) => (
+          <nav className="hidden items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/70 p-1 md:flex" aria-label="Sections">
+            {TABS.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => go(id)}
                 className={cn(
-                  "tap flex items-center gap-2 rounded-full px-4 py-2 text-sm font-extrabold transition-colors",
-                  tab === id ? "bg-white text-ocean-800 shadow-soft" : "text-ink-soft hover:bg-white/60",
+                  "tap rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors",
+                  tab === id ? "bg-ink text-white" : "text-ink-soft hover:text-ink",
                 )}
+                aria-current={tab === id ? "page" : undefined}
               >
-                <Icon width={18} height={18} />
                 {label}
               </button>
             ))}
           </nav>
         </div>
-        <WaveDivider />
-      </div>
+      </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-1 md:pb-12 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10">
-        <div className="min-w-0">
-          {!ready ? (
-            <div className="flex flex-col gap-4">
-              <div className="h-14 animate-pulse rounded-2xl bg-sand-100" />
-              <div className="h-40 animate-pulse rounded-3xl bg-sand-100" />
-              <div className="h-64 animate-pulse rounded-3xl bg-sand-100" />
-            </div>
-          ) : tab === "today" ? (
-            <TodayView />
-          ) : tab === "study" ? (
-            <StudyView />
-          ) : tab === "health" ? (
-            <TrendsView />
-          ) : tab === "calendar" ? (
-            <CalendarView />
-          ) : (
-            <SettingsView />
-          )}
-        </div>
-        <div className="hidden lg:block">
-          <PhotoWall />
-        </div>
+      <main className="mx-auto w-full max-w-xl flex-1 px-4 pb-32 pt-5 md:max-w-2xl md:pb-16">
+        {!ready ? (
+          <div className="flex flex-col gap-3">
+            <div className="h-12 animate-pulse rounded-2xl bg-sand-100" />
+            <div className="h-36 animate-pulse rounded-3xl bg-sand-100" />
+            <div className="h-56 animate-pulse rounded-3xl bg-sand-100" />
+          </div>
+        ) : tab === "today" ? (
+          <TodayView />
+        ) : tab === "study" ? (
+          <StudyView />
+        ) : tab === "health" ? (
+          <TrendsView />
+        ) : tab === "calendar" ? (
+          <CalendarView />
+        ) : (
+          <SettingsView />
+        )}
       </main>
 
       {/* Bottom nav (phone) */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/70 bg-white/90 backdrop-blur md:hidden" aria-label="Sections">
-        <div className="mx-auto grid max-w-2xl grid-cols-5">
+      <nav className="fixed inset-x-0 bottom-0 z-50 px-4 md:hidden" aria-label="Sections">
+        <div className="mx-auto mb-2 grid max-w-sm grid-cols-5 rounded-2xl border border-black/[0.06] bg-white/85 p-1 shadow-lift backdrop-blur-xl">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => go(id)}
-              className={cn("tap flex flex-col items-center gap-0.5 pb-1 pt-2 text-[11px] font-extrabold", tab === id ? "text-ocean-700" : "text-ink-muted")}
+              className={cn("tap flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[10px] font-bold transition-colors", tab === id ? "bg-ocean-50 text-ocean-700" : "text-ink-muted")}
               aria-current={tab === id ? "page" : undefined}
             >
-              <span className={cn("flex h-8 w-11 items-center justify-center rounded-full transition-colors", tab === id && "bg-ocean-100")}>
-                <Icon />
-              </span>
+              <Icon width={19} height={19} strokeWidth={tab === id ? 2.2 : 1.8} />
               {label}
             </button>
           ))}
