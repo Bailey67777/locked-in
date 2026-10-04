@@ -1,16 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { useBanners, useProfilePhoto } from "@/lib/banners";
 import { formatLong, greetingFor, keyFromDate } from "@/lib/dates";
-import { processBanner } from "@/lib/images";
 import { dayStreak } from "@/lib/stats";
 import { pickForDay } from "@/lib/model";
 import type { SeasonPhotos } from "@/lib/season";
 import DayEditor from "./DayEditor";
 import Photo from "./Photo";
-import { CameraIcon } from "./Icons";
 
 export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos }) {
   const { today, data, season } = useStore();
@@ -18,8 +16,6 @@ export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos
   const streak = useMemo(() => dayStreak(data.days, data.settings, today), [data, today]);
   const banners = useBanners(season);
   const profile = useProfilePhoto();
-  const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
 
   // Photos added in the app come first (one added today shows today), then this season's photos in the repo,
   // a different one each day, then hero.jpg.
@@ -32,19 +28,6 @@ export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos
     const repo = pickForDay(seasonPhotos[season], today);
     return repo ? [repo, "/photos/hero.jpg"] : ["/photos/hero.jpg"];
   }, [banners.ready, banners.list, seasonPhotos, season, today]);
-
-  const pick = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      banners.add(await processBanner(file));
-    } catch {
-      /* unreadable image: nothing changes */
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = "";
-    }
-  };
 
   return (
     <div className="rise flex flex-col gap-3">
@@ -65,18 +48,7 @@ export default function TodayView({ seasonPhotos }: { seasonPhotos: SeasonPhotos
         </div>
       </header>
 
-      <div className="relative">
-        <Photo src={banner} alt="Banner" className="h-40 w-full shadow-soft md:h-48" />
-        <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
-        <button
-          type="button"
-          onClick={() => input.current?.click()}
-          disabled={busy}
-          className="tap absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.1em] text-white backdrop-blur-md hover:bg-black/50 disabled:opacity-60"
-        >
-          <CameraIcon width={13} height={13} /> {busy ? "Adding…" : "Change photo"}
-        </button>
-      </div>
+      <Photo src={banner} alt="Banner" className="h-40 w-full shadow-soft md:h-48" />
 
       <DayEditor date={today} />
     </div>

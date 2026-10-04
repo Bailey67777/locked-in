@@ -30,8 +30,7 @@ export default function HabitChecklist({ habits, settings, streaks = {}, onToggl
               className="tap relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/50"
               style={h.done ? { background: `linear-gradient(90deg, ${look.color}5c, ${look.color}38 70%, ${look.color}26)` } : undefined}
             >
-              {h.done && <span className="absolute inset-y-0 left-0 w-1" style={{ background: look.color }} aria-hidden="true" />}
-              <span className={cn("w-10 shrink-0 font-mono text-[11.5px] tabular-nums", h.done ? "text-ink" : "text-ink-muted")}>{look.time ?? "—"}</span>
+              {look.time && <span className={cn("w-10 shrink-0 font-mono text-[11.5px] tabular-nums", h.done ? "text-ink" : "text-ink-muted")}>{look.time}</span>}
               <span
                 className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: h.done ? "#ffffff" : look.color, backgroundColor: h.done ? "#ffffff" : `${look.color}12` }}
