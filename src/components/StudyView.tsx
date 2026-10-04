@@ -80,9 +80,9 @@ export default function StudyView() {
       <section className="card p-4">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h2 className="card-title">Study hours</h2>
-          <span className="card-sub">from your study log</span>
+          <span className="card-sub">Claude&apos;s estimate</span>
         </div>
-        <HoursChart hours={data.study.hours} days={data.days} today={today} />
+        <HoursChart hours={data.study.hours} today={today} />
       </section>
 
       <section className="card overflow-hidden">

@@ -9,15 +9,13 @@ type Props = {
   alt: string;
   className?: string;
   variant?: "hero" | "avatar";
-  /** Small text shown over the bottom-left of a hero. */
-  caption?: string;
 };
 
 /**
  * Shows your own photo if the file exists in /public/photos, otherwise a calm placeholder in the season's colours.
  * Swap the picture by dropping a file at one of the `src` paths — no code changes needed.
  */
-export default function Photo({ src, alt, className, variant = "hero", caption }: Props) {
+export default function Photo({ src, alt, className, variant = "hero" }: Props) {
   const list = Array.isArray(src) ? src : [src];
   const key = list.join("|");
   const [state, setState] = useState<{ key: string; index: number; ok: boolean }>({ key, index: 0, ok: false });
@@ -62,9 +60,6 @@ export default function Photo({ src, alt, className, variant = "hero", caption }
         </svg>
       )}
       {missing && isAvatar && <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider text-ocean-800/70">You</span>}
-      {!isAvatar && caption && (
-        <span className="absolute bottom-2.5 left-2.5 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">{caption}</span>
-      )}
     </div>
   );
 }

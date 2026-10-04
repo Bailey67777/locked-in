@@ -52,13 +52,13 @@ export default function SubmitDay({ date }: { date: string }) {
       <section className="card px-4 py-3.5">
         {party && <Confetti />}
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sand-100 text-xl">{info.emoji}</span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-xl shadow-soft">{info.emoji}</span>
           <div className="min-w-0 flex-1">
             <div className="label flex items-center gap-1">
               <LockIcon width={11} height={11} /> Submitted
             </div>
-            <div className="text-[15px] font-extrabold leading-tight text-ink">
-              {sub.pct}% · {info.label}
+            <div className="font-serif text-[22px] leading-tight text-ink">
+              {sub.pct}% · <span className="italic">{info.label}</span>
             </div>
             <div className="text-[12.5px] font-semibold text-ink-muted">{info.blurb}</div>
           </div>
@@ -90,10 +90,10 @@ export default function SubmitDay({ date }: { date: string }) {
     <section className="card p-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="card-title">Submit the day</h2>
-        <span className="text-[13px] font-extrabold tabular-nums text-ink">{preview.pct}%</span>
+        <span className="font-serif text-[22px] leading-none tabular-nums text-ink">{preview.pct}%</span>
       </div>
 
-      <div className="relative mt-2.5 h-1.5 w-full rounded-full bg-sand-100">
+      <div className="relative mt-3 h-1 w-full rounded-full bg-black/[0.06]">
         <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${preview.pct}%`, background: preview.reward ? "var(--color-teal-500)" : "var(--color-ocean-500)" }} />
         <span className="absolute -top-1 h-3.5 w-[2px] rounded-full bg-ink/40" style={{ left: `${REWARD_PCT}%` }} aria-hidden="true" />
       </div>

@@ -36,7 +36,7 @@ export default function HabitChecklist({ habits, settings, streaks = {}, onToggl
                 {h.done && <CheckIcon width={11} height={11} className="text-white" strokeWidth={3.5} />}
               </span>
               <span className="w-4 shrink-0 text-center text-[13px] leading-none">{look.emoji}</span>
-              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] font-semibold transition-colors", h.done ? "text-ink-muted line-through decoration-ink-muted/40" : "text-ink")}>{h.name}</span>
+              <span className={cn("min-w-0 flex-1 truncate text-[13.5px] font-semibold transition-colors", h.done ? "text-ink-muted" : "text-ink")}>{h.name}</span>
               {streak >= 2 && (
                 <span className="shrink-0 text-[10.5px] font-bold tabular-nums text-sunset-600" title={`${streak}-day streak`}>
                   🔥{streak}

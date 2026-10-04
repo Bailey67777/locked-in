@@ -98,19 +98,6 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
     for (const k of Q_SUBJECTS) if (str(an[k])) answers[k] = str(an[k]);
     if (Object.keys(answers).length) day.answers = answers;
   }
-  const sl = (r.studyLog && typeof r.studyLog === "object" ? r.studyLog : null) as Record<string, unknown> | null;
-  if (sl) {
-    const log: NonNullable<DayRecord["studyLog"]> = {};
-    for (const s of SUBJECTS) {
-      const e = (sl[s] && typeof sl[s] === "object" ? sl[s] : null) as Record<string, unknown> | null;
-      if (!e) continue;
-      const mins = Math.max(0, Math.min(24 * 60, Math.round(Number(e.mins) || 0)));
-      const note = str(e.note).slice(0, 2000);
-      if (!mins && !note.trim()) continue;
-      log[s] = note.trim() ? { mins, note } : { mins };
-    }
-    if (Object.keys(log).length) day.studyLog = log;
-  }
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
   if (typeof r.song === "string" && r.song) day.song = r.song;
@@ -412,11 +399,6 @@ export function owedVideos(days: Record<string, DayRecord>): DayRecord[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Total study minutes logged on a day. */
-export function studyMinutes(day: DayRecord | undefined): number {
-  if (!day?.studyLog) return 0;
-  return Object.values(day.studyLog).reduce((a, e) => a + (e?.mins ?? 0), 0);
-}
 
 /** A stable "random" pick for a given day, so the throwback doesn't change every render. */
 export function pickForDay<T>(items: T[], dateKey: string, skip = 0): T | null {

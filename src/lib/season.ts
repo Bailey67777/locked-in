@@ -6,7 +6,6 @@ export const SEASON_LABEL: Record<Season, string> = { spring: "Spring", summer: 
 export const SEASON_EMOJI: Record<Season, string> = { spring: "🌱", summer: "☀️", autumn: "🍂", winter: "❄️" };
 
 const CHOICE_KEY = "locked-in:season";
-const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** Month (0–11) in Bristol, whatever timezone the device is set to. */
 export function londonMonth(now = new Date()): number {
@@ -44,13 +43,8 @@ export function resolveSeason(choice: SeasonChoice, now = new Date()): Season {
   return choice === "auto" ? seasonForMonth(londonMonth(now)) : choice;
 }
 
-/** Banner photos to try in order: this month, then this season, then the all-year banner. */
-export function heroCandidates(season: Season, month: number | null): string[] {
-  const list: string[] = [];
-  if (month !== null) list.push(`/photos/months/${MONTHS[month]}.jpg`);
-  list.push(`/photos/seasons/${season}.jpg`, "/photos/hero.jpg");
-  return list;
-}
+/** Photos found in public/photos/<season>/ at build time. */
+export type SeasonPhotos = Record<Season, string[]>;
 
 /** Runs before first paint (inlined in <head>) so the right palette shows with no flash. */
 export const SEASON_BOOT_SCRIPT = `(function(){try{var c=localStorage.getItem("${CHOICE_KEY}");var s=c;if(!s){var m=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",month:"numeric"}).format(new Date()))-1;s=m>=2&&m<=4?"spring":m>=5&&m<=7?"summer":m>=8&&m<=10?"autumn":"winter";}document.documentElement.setAttribute("data-season",s);}catch(e){}})();`;

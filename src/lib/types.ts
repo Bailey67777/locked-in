@@ -50,9 +50,6 @@ export type QSubject = "maths" | "physics" | "econ";
 /** Your answers to the three questions Claude set for that day. */
 export type Answers = Partial<Record<QSubject, string>>;
 
-/** Time spent on one subject that day, plus what was done (topics, marks, past-paper scores). */
-export type StudyEntry = { mins: number; note?: string };
-
 export type DayRecord = {
   date: string; // YYYY-MM-DD
   habits: DayHabit[]; // snapshot of the habit list for this day
@@ -64,8 +61,6 @@ export type DayRecord = {
   recall?: string;
   /** Legacy: journal entries from when the journal had a passphrase. Converted to `journal` once unlocked. */
   journalEnc?: EncryptedText;
-  /** What was studied, per subject. Read by the nightly Claude task. */
-  studyLog?: Partial<Record<Subject, StudyEntry>>;
   academic?: AcademicJournal;
   answers?: Answers;
   song?: string; // song of the day

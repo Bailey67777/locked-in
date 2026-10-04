@@ -13,7 +13,6 @@ import RatingBar from "./RatingBar";
 import Confetti from "./Confetti";
 import SubmitDay from "./SubmitDay";
 import JournalCard from "./JournalCard";
-import StudyLogCard from "./StudyLogCard";
 import CountdownsCard from "./CountdownsCard";
 import ThrowbackJournal from "./ThrowbackJournal";
 import { LockIcon } from "./Icons";
@@ -21,7 +20,7 @@ import { LockIcon } from "./Icons";
 type Props = { date: string; compact?: boolean };
 
 /**
- * Everything for one day: progress, habits, to-do, study, journal, ratings,
+ * Everything for one day: progress, habits, to-do, journal, ratings,
  * then (today only) countdowns and a throwback entry, then submit. Used by Today and the calendar's day view.
  */
 export default function DayEditor({ date }: Props) {
@@ -92,10 +91,10 @@ export default function DayEditor({ date }: Props) {
       <section className="card flex items-center gap-3.5 px-4 py-3">
         <ProgressRing pct={progress.pct} />
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-extrabold leading-tight text-ink">
+          <div className="font-serif text-[23px] leading-none text-ink">
             {progress.total === 0 ? "Nothing to tick yet" : progress.pct === 100 ? "Everything done." : `${progress.done} of ${progress.total} done`}
           </div>
-          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">
+          <div className="mt-1 text-[12.5px] text-ink-muted">
             {progress.pct === 100
               ? "Bank it and enjoy the evening."
               : progress.pct >= 80
@@ -120,7 +119,7 @@ export default function DayEditor({ date }: Props) {
           </div>
         </div>
         {day.habits.length > 0 && (
-          <div className="mb-1.5 h-[3px] w-full overflow-hidden rounded-full bg-sand-100">
+          <div className="mb-2 mt-2.5 h-[2px] w-full overflow-hidden rounded-full bg-black/[0.06]">
             <div className="h-full rounded-full bg-ocean-500 transition-[width] duration-500" style={{ width: `${(habitsDone / day.habits.length) * 100}%` }} />
           </div>
         )}
@@ -144,8 +143,6 @@ export default function DayEditor({ date }: Props) {
           onCarryOver={(id) => carryTodoOver(date, id)}
         />
       </section>
-
-      <StudyLogCard date={date} />
 
       <JournalCard date={date} />
 

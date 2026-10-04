@@ -62,17 +62,13 @@ export async function touchSync(field: "lastRead" | "lastWrite") {
 
 const Q_SUBJECTS = ["maths", "physics", "econ"] as const;
 type QSubject = (typeof Q_SUBJECTS)[number];
-const SUBJECTS = ["maths", "further", "physics", "econ"] as const;
-type Subject = (typeof SUBJECTS)[number];
-const SUBJECT_NAME: Record<Subject, string> = { maths: "Maths", further: "Further Maths", physics: "Physics", econ: "Economics" };
+
 
 export type DayView = {
   date: string;
   submitted: { at: number; iso: string; local: string; pct: number; tier: string } | null;
   habits: { done: number; total: number };
   todos: { done: number; total: number };
-  /** What Hugo logged per subject: minutes and a note (topics, marks, past-paper scores). */
-  study: Partial<Record<Subject, { mins: number; note: string }>>;
   academic: { econ: string; maths: string; physics: string };
   questions: Record<QSubject, { topic: string; question: string; why?: string; answer: string; feedback?: { mark: string; comment: string; correctAnswer?: string } } | null>;
 };
@@ -95,15 +91,6 @@ export function buildDayView(date: string, dayRaw: unknown, questionsRaw: unknow
   const todos = list(day.todos);
   const ac = (day.academic && typeof day.academic === "object" ? day.academic : {}) as Record<string, unknown>;
   const answers = (day.answers && typeof day.answers === "object" ? day.answers : {}) as Record<string, unknown>;
-  const log = (day.studyLog && typeof day.studyLog === "object" ? day.studyLog : {}) as Record<string, unknown>;
-  const study: DayView["study"] = {};
-  for (const s of SUBJECTS) {
-    const e = (log[s] && typeof log[s] === "object" ? log[s] : null) as Record<string, unknown> | null;
-    if (!e) continue;
-    const mins = Math.max(0, Math.round(Number(e.mins) || 0));
-    const note = str(e.note).slice(0, 2000);
-    if (mins || note.trim()) study[s] = { mins, note };
-  }
   const qs = (questionsRaw && typeof questionsRaw === "object" ? questionsRaw : {}) as Record<string, unknown>;
   const fbs = (feedbackRaw && typeof feedbackRaw === "object" ? feedbackRaw : {}) as Record<string, unknown>;
   const questions = {} as DayView["questions"];
@@ -128,7 +115,6 @@ export function buildDayView(date: string, dayRaw: unknown, questionsRaw: unknow
     submitted: at ? { at, iso: new Date(at).toISOString(), local: londonTime(at), pct: Number(sub?.pct) || 0, tier: str(sub?.tier) } : null,
     habits: { done: habits.filter((h) => h.done === true).length, total: habits.length },
     todos: { done: todos.filter((t) => t.done === true).length, total: todos.length },
-    study,
     academic: { econ: str(ac.econ), maths: str(ac.maths), physics: str(ac.physics) },
     questions,
   };
@@ -155,15 +141,6 @@ export function dayToMarkdown(v: DayView): string {
   lines.push(`# ${v.date} (${weekday(v.date)})`, "");
   lines.push(v.submitted ? `Submitted: yes, ${v.submitted.local} (${v.submitted.pct}%, tier ${v.submitted.tier})` : "Submitted: no (still open)");
   lines.push(`Habits: ${v.habits.done}/${v.habits.total} done · To-dos: ${v.todos.done}/${v.todos.total} done`, "");
-  lines.push("## Study log");
-  const logged = SUBJECTS.filter((s) => v.study[s]);
-  if (!logged.length) lines.push("_(nothing logged)_");
-  for (const s of logged) {
-    const e = v.study[s]!;
-    const time = e.mins >= 60 ? `${Math.floor(e.mins / 60)}h${e.mins % 60 ? ` ${e.mins % 60}m` : ""}` : `${e.mins}m`;
-    lines.push(`- ${SUBJECT_NAME[s]}: ${e.mins ? time : "no time logged"}${e.note.trim() ? ` — ${e.note.trim()}` : ""}`);
-  }
-  lines.push("");
   lines.push("## Academic journal");
   for (const [k, label] of [["econ", "Economics"], ["maths", "Maths (incl. Further Maths)"], ["physics", "Physics"]] as const) {
     lines.push(`### ${label}`, v.academic[k].trim() ? v.academic[k].trim() : "_(nothing written)_", "");

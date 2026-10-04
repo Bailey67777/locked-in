@@ -3,7 +3,8 @@
 /*
  * Design tokens. The colour scales are semantic, not literal:
  *   ocean  = the season's primary accent      teal = positive / done
- *   sunset = warm highlight / attention       sand = neutral surfaces
+ *   sunset = the sun: warm highlight          sand = neutral surfaces
+ *   --sky / --sun / --ground paint the morning-sun backdrop behind everything.
  * Each season (html[data-season=…], set from the date in src/lib/season.ts) swaps the values,
  * so every screen re-themes without touching component code. The @theme values are summer.
  */
@@ -11,109 +12,119 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: var(--font-serif-display), ui-serif, Georgia, serif;
 
-  --font-weight-semibold: 500;
-  --font-weight-bold: 550;
-  --font-weight-extrabold: 620;
+  --font-weight-semibold: 450;
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 560;
 
-  --radius-xl: 0.625rem;
-  --radius-2xl: 0.8rem;
-  --radius-3xl: 1.15rem;
+  --radius-xl: 0.7rem;
+  --radius-2xl: 0.9rem;
+  --radius-3xl: 1.35rem;
 
-  --color-ocean-50: #eef4fc;
-  --color-ocean-100: #dce8f8;
-  --color-ocean-200: #b9d0f1;
-  --color-ocean-300: #8db2e6;
-  --color-ocean-400: #5b8dd8;
-  --color-ocean-500: #356cc6;
-  --color-ocean-600: #2858aa;
-  --color-ocean-700: #214788;
+  --color-ocean-50: #eef5fd;
+  --color-ocean-100: #dbe9fa;
+  --color-ocean-200: #b5d2f4;
+  --color-ocean-300: #86b4eb;
+  --color-ocean-400: #5791dd;
+  --color-ocean-500: #3471c9;
+  --color-ocean-600: #285bab;
+  --color-ocean-700: #214989;
   --color-ocean-800: #1b3866;
   --color-ocean-900: #142a4a;
 
-  --color-teal-100: #d9f0ec;
-  --color-teal-200: #b0e0d7;
-  --color-teal-300: #7cc9bb;
-  --color-teal-400: #48ad9c;
-  --color-teal-500: #2a907f;
-  --color-teal-600: #217466;
-  --color-teal-700: #1b5c51;
+  --color-teal-100: #d8f1ec;
+  --color-teal-200: #ade2d6;
+  --color-teal-300: #77cab9;
+  --color-teal-400: #43ae9a;
+  --color-teal-500: #26917f;
+  --color-teal-600: #1f7466;
+  --color-teal-700: #195c51;
 
-  --color-sunset-100: #fcecdf;
-  --color-sunset-200: #f8d5b8;
-  --color-sunset-300: #f2b37c;
-  --color-sunset-400: #e88d4a;
-  --color-sunset-500: #d26a27;
-  --color-sunset-600: #ae531b;
-  --color-sunset-700: #873f15;
+  --color-sunset-100: #fef1d9;
+  --color-sunset-200: #fcdfa8;
+  --color-sunset-300: #f8c56a;
+  --color-sunset-400: #f1a73a;
+  --color-sunset-500: #db871c;
+  --color-sunset-600: #b26a15;
+  --color-sunset-700: #885112;
 
-  --color-sand-50: #f8f6f2;
-  --color-sand-100: #f0ece4;
-  --color-sand-200: #e4ded2;
-  --color-sand-300: #d1c8b6;
-  --color-sand-400: #b7aa91;
-  --color-sand-700: #756a55;
+  --color-sand-50: #f9f6f0;
+  --color-sand-100: #f2ece2;
+  --color-sand-200: #e6ddcf;
+  --color-sand-300: #d3c6b1;
+  --color-sand-400: #b9a88c;
+  --color-sand-700: #776a52;
 
-  --color-ink: #17212b;
-  --color-ink-soft: #46525e;
-  --color-ink-muted: #828c96;
+  --color-ink: #1a1f26;
+  --color-ink-soft: #4a525c;
+  --color-ink-muted: #858c94;
 
-  --shadow-soft: 0 1px 2px rgb(15 23 32 / 0.04), 0 4px 16px -8px rgb(15 23 32 / 0.08);
-  --shadow-lift: 0 12px 40px -16px rgb(15 23 32 / 0.3), 0 2px 8px -4px rgb(15 23 32 / 0.08);
+  --color-sky: #d3e6fb;
+  --color-sun: #ffd789;
+  --color-ground: #f9f6f0;
+
+  --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 10px 30px -20px rgb(40 30 20 / 0.3);
+  --shadow-lift: 0 16px 48px -20px rgb(30 22 14 / 0.35), 0 2px 8px -4px rgb(30 22 14 / 0.08);
 }
 
-/* ---------- seasons ---------- */
+/* ---------- seasons: each one its own morning light ---------- */
 
+/* Autumn: low golden sun, copper leaves, warm cream. */
 html[data-season="autumn"] {
-  --color-ocean-50: #fbf3ee;
-  --color-ocean-100: #f6e4d8;
-  --color-ocean-200: #ecc8b1;
-  --color-ocean-300: #dda283;
-  --color-ocean-400: #c97d55;
-  --color-ocean-500: #b05f37;
-  --color-ocean-600: #934c2b;
-  --color-ocean-700: #763e24;
-  --color-ocean-800: #5a301e;
-  --color-ocean-900: #3e2217;
+  --color-ocean-50: #fdf4ea;
+  --color-ocean-100: #fae6d0;
+  --color-ocean-200: #f4c99e;
+  --color-ocean-300: #eaa666;
+  --color-ocean-400: #dc8339;
+  --color-ocean-500: #c4671f;
+  --color-ocean-600: #a05218;
+  --color-ocean-700: #7f4216;
+  --color-ocean-800: #5f3214;
+  --color-ocean-900: #41230f;
 
-  --color-teal-100: #e7ebd8;
-  --color-teal-200: #ced8b0;
-  --color-teal-300: #adbc80;
-  --color-teal-400: #8a9e57;
-  --color-teal-500: #6d813d;
-  --color-teal-600: #566730;
-  --color-teal-700: #424f27;
+  --color-teal-100: #ecefd6;
+  --color-teal-200: #d8dfad;
+  --color-teal-300: #bcc779;
+  --color-teal-400: #9dab4d;
+  --color-teal-500: #7f8f33;
+  --color-teal-600: #64712a;
+  --color-teal-700: #4c5622;
 
-  --color-sunset-100: #fbf0d6;
-  --color-sunset-200: #f5dda8;
-  --color-sunset-300: #ebc16d;
-  --color-sunset-400: #dda23c;
-  --color-sunset-500: #c28121;
-  --color-sunset-600: #9d671a;
-  --color-sunset-700: #784f15;
+  --color-sunset-100: #fef2d2;
+  --color-sunset-200: #fce2a0;
+  --color-sunset-300: #f7c85f;
+  --color-sunset-400: #efab2b;
+  --color-sunset-500: #d78d13;
+  --color-sunset-600: #ad6f10;
+  --color-sunset-700: #84540e;
 
-  --color-sand-50: #f8f4ef;
-  --color-sand-100: #f0e9df;
-  --color-sand-200: #e3d8c8;
-  --color-sand-300: #cfbfa7;
-  --color-sand-400: #b39e80;
-  --color-sand-700: #6e5b45;
+  --color-sand-50: #fbf6ee;
+  --color-sand-100: #f5ecdf;
+  --color-sand-200: #eadcc8;
+  --color-sand-300: #d8c4a5;
+  --color-sand-400: #bea482;
+  --color-sand-700: #735c43;
 
-  --color-ink: #27201b;
-  --color-ink-soft: #594d44;
-  --color-ink-muted: #8e8277;
+  --color-ink: #2a1e16;
+  --color-ink-soft: #5d4b3e;
+  --color-ink-muted: #94816f;
+
+  --color-sky: #f8dcbb;
+  --color-sun: #ffc66b;
+  --color-ground: #fbf6ee;
 }
 
+/* Winter: crisp blue sky, pale low sun, frost. */
 html[data-season="winter"] {
-  --color-ocean-50: #f1f3f8;
-  --color-ocean-100: #e3e8f2;
-  --color-ocean-200: #c7d0e4;
-  --color-ocean-300: #a0aed0;
-  --color-ocean-400: #7688b7;
-  --color-ocean-500: #55689b;
-  --color-ocean-600: #435381;
-  --color-ocean-700: #364367;
-  --color-ocean-800: #2a3350;
-  --color-ocean-900: #1d2438;
+  --color-ocean-50: #eff4fa;
+  --color-ocean-100: #dde7f4;
+  --color-ocean-200: #bccfe8;
+  --color-ocean-300: #90afd6;
+  --color-ocean-400: #6389bf;
+  --color-ocean-500: #456ba3;
+  --color-ocean-600: #375688;
+  --color-ocean-700: #2d456d;
+  --color-ocean-800: #233652;
+  --color-ocean-900: #19263a;
 
   --color-teal-100: #dcefee;
   --color-teal-200: #b7dfdc;
@@ -123,37 +134,42 @@ html[data-season="winter"] {
   --color-teal-600: #2f6f6d;
   --color-teal-700: #255756;
 
-  --color-sunset-100: #f8e4e6;
-  --color-sunset-200: #efc3c8;
-  --color-sunset-300: #e0959d;
-  --color-sunset-400: #cc6874;
-  --color-sunset-500: #b04554;
-  --color-sunset-600: #913644;
-  --color-sunset-700: #722a36;
+  --color-sunset-100: #fdf0dc;
+  --color-sunset-200: #f9ddb4;
+  --color-sunset-300: #f1c27f;
+  --color-sunset-400: #e5a352;
+  --color-sunset-500: #cc8534;
+  --color-sunset-600: #a66a29;
+  --color-sunset-700: #7f5221;
 
-  --color-sand-50: #f4f5f8;
-  --color-sand-100: #eaedf1;
-  --color-sand-200: #dadee5;
-  --color-sand-300: #bfc5d0;
-  --color-sand-400: #9ba3b2;
-  --color-sand-700: #5a6274;
+  --color-sand-50: #f5f7fa;
+  --color-sand-100: #ebeff4;
+  --color-sand-200: #dbe1e9;
+  --color-sand-300: #c0c8d4;
+  --color-sand-400: #9ca6b6;
+  --color-sand-700: #5b6476;
 
-  --color-ink: #1b2130;
-  --color-ink-soft: #4a5165;
-  --color-ink-muted: #7f8698;
+  --color-ink: #161d2b;
+  --color-ink-soft: #465066;
+  --color-ink-muted: #7e8799;
+
+  --color-sky: #cfe1f5;
+  --color-sun: #ffe2b0;
+  --color-ground: #f5f7fa;
 }
 
+/* Spring: fresh leaf green, blossom, bright soft sun. */
 html[data-season="spring"] {
-  --color-ocean-50: #f0f6f2;
-  --color-ocean-100: #ddebe2;
-  --color-ocean-200: #bad7c4;
-  --color-ocean-300: #8ebd9f;
-  --color-ocean-400: #619f79;
-  --color-ocean-500: #45835e;
-  --color-ocean-600: #366a4b;
-  --color-ocean-700: #2c563d;
-  --color-ocean-800: #234432;
-  --color-ocean-900: #1a3325;
+  --color-ocean-50: #f1f8ef;
+  --color-ocean-100: #dfefd9;
+  --color-ocean-200: #bfdeb3;
+  --color-ocean-300: #97c785;
+  --color-ocean-400: #6fac5c;
+  --color-ocean-500: #528f42;
+  --color-ocean-600: #417336;
+  --color-ocean-700: #355b2d;
+  --color-ocean-800: #2a4724;
+  --color-ocean-900: #1f351b;
 
   --color-teal-100: #ddeef4;
   --color-teal-200: #b8dce9;
@@ -163,24 +179,28 @@ html[data-season="spring"] {
   --color-teal-600: #306d85;
   --color-teal-700: #27576b;
 
-  --color-sunset-100: #fbe7ed;
-  --color-sunset-200: #f5cad6;
-  --color-sunset-300: #eba3b7;
-  --color-sunset-400: #dd7a95;
-  --color-sunset-500: #c45879;
-  --color-sunset-600: #a24661;
-  --color-sunset-700: #7f374c;
+  --color-sunset-100: #fbe8ee;
+  --color-sunset-200: #f6cbd7;
+  --color-sunset-300: #eca4b8;
+  --color-sunset-400: #de7c97;
+  --color-sunset-500: #c55a7b;
+  --color-sunset-600: #a34763;
+  --color-sunset-700: #80384d;
 
-  --color-sand-50: #f6f7f2;
-  --color-sand-100: #edefe7;
-  --color-sand-200: #dde0d4;
-  --color-sand-300: #c4c9b8;
-  --color-sand-400: #a4ab95;
-  --color-sand-700: #616955;
+  --color-sand-50: #f8faf3;
+  --color-sand-100: #eff2e8;
+  --color-sand-200: #dfe4d5;
+  --color-sand-300: #c6cdb9;
+  --color-sand-400: #a6ae96;
+  --color-sand-700: #626b56;
 
-  --color-ink: #1d2922;
-  --color-ink-soft: #4a574f;
-  --color-ink-muted: #7e8982;
+  --color-ink: #1b2619;
+  --color-ink-soft: #485646;
+  --color-ink-muted: #7e8a7b;
+
+  --color-sky: #dcecf6;
+  --color-sun: #fff0a0;
+  --color-ground: #f8faf3;
 }
 
 /* ---------- base ---------- */
@@ -191,60 +211,57 @@ html {
 }
 
 body {
-  background: var(--color-sand-50);
+  background: var(--color-ground);
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   min-height: 100dvh;
   font-feature-settings: "cv11", "ss01", "ss03";
-  letter-spacing: -0.006em;
-  transition: background-color 0.6s ease;
+  letter-spacing: -0.008em;
 }
 
-/* A soft wash of the season's colours behind the top of the page. */
+/* Morning sun: sky at the top fading to the ground colour, with a low sun glowing in the top right. */
 body::before {
   content: "";
   position: fixed;
-  inset: 0 0 auto 0;
-  height: 420px;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60% 100% at 15% 0%, color-mix(in oklab, var(--color-ocean-200) 55%, transparent), transparent 70%),
-    radial-gradient(50% 90% at 90% 0%, color-mix(in oklab, var(--color-sunset-200) 45%, transparent), transparent 70%);
-  opacity: 0.7;
+    radial-gradient(circle at 88% 2%, color-mix(in oklab, var(--color-sun) 95%, white) 0, color-mix(in oklab, var(--color-sun) 70%, transparent) 9%, color-mix(in oklab, var(--color-sun) 28%, transparent) 26%, transparent 52%),
+    linear-gradient(180deg, var(--color-sky) 0%, color-mix(in oklab, var(--color-sky) 45%, var(--color-ground)) 28%, var(--color-ground) 60%);
 }
 
 @layer components {
   .card {
-    @apply rounded-3xl border border-black/[0.06] bg-white/90 shadow-soft backdrop-blur;
+    @apply rounded-3xl border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl;
   }
   .card-title {
-    @apply text-[15px] font-extrabold tracking-[-0.01em] text-ink;
+    @apply font-serif text-[22px] leading-none font-normal tracking-[-0.005em] text-ink;
   }
   .card-sub {
-    @apply text-[12.5px] font-semibold text-ink-muted;
+    @apply text-[12px] font-normal text-ink-muted;
   }
   .tap {
     @apply select-none transition active:scale-[0.98];
   }
   .field {
-    @apply w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/80 focus:border-ocean-300 focus:outline-none focus:ring-4 focus:ring-ocean-100;
+    @apply w-full rounded-xl border border-black/[0.06] bg-white/70 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/80 focus:border-ocean-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-ocean-100/70;
   }
   .btn-primary {
-    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-2 rounded-xl bg-ocean-600 px-4 py-2.5 text-[14px] font-extrabold text-white shadow-soft hover:bg-ocean-700 disabled:opacity-50;
+    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[13.5px] font-bold tracking-[0.01em] text-white hover:bg-ink/90 disabled:opacity-40;
   }
   .btn-ghost {
-    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold text-ocean-700 hover:bg-ocean-50;
+    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold text-ink-soft hover:bg-white/70;
   }
   .btn-icon {
-    @apply inline-flex select-none transition active:scale-[0.98] h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-sand-100 disabled:opacity-30 disabled:hover:bg-transparent;
+    @apply inline-flex select-none transition active:scale-[0.98] h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-white/70 disabled:opacity-30 disabled:hover:bg-transparent;
   }
   .label {
-    @apply text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted;
+    @apply text-[10px] font-bold uppercase tracking-[0.18em] text-ink-muted;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-bold text-ink-soft;
+    @apply inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-ink-soft;
   }
 }
 

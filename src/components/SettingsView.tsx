@@ -365,14 +365,13 @@ export default function SettingsView() {
           ))}
         </div>
         <p className="mt-2 text-[11px] font-semibold text-ink-muted">
-          Now showing {SEASON_LABEL[season].toLowerCase()}. Banner photos: <code className="rounded bg-sand-100 px-1">public/photos/months/oct.jpg</code> (one month) beats{" "}
-          <code className="rounded bg-sand-100 px-1">public/photos/seasons/{season}.jpg</code> (the season) beats <code className="rounded bg-sand-100 px-1">public/photos/hero.jpg</code> (all year).
+          Now showing {SEASON_LABEL[season].toLowerCase()}. Banner photos come from <code className="rounded bg-sand-100 px-1">public/photos/{season}/</code> on GitHub: add as many as you like and Today shows a different one each day.
         </p>
       </section>
 
       <section className="card p-4">
         <h2 className="card-title">Claude sync</h2>
-        <p className="card-sub mt-0.5">Each night Claude reads your study log (time and what you did, marks included), writes tomorrow&apos;s economics, and estimates grades when there&apos;s evidence.</p>
+        <p className="card-sub mt-0.5">Each night Claude reads your day, writes tomorrow&apos;s economics, and updates your grade trajectory from the marks you&apos;ve given it.</p>
         <dl className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-sand-50 px-3 py-2">
             <dt className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">Last read from the app</dt>
@@ -519,7 +518,7 @@ export default function SettingsView() {
       <section className="card p-4">
         <h2 className="card-title">Your photos</h2>
         <p className="mt-1 text-sm font-semibold text-ink-soft">
-          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and banners per season or month (see Season above). Per-day photos are added from the day itself.
+          Drop files into <code className="rounded bg-sand-100 px-1">public/photos/</code> and push: <code className="rounded bg-sand-100 px-1">profile.jpg</code> (avatar), and banner photos per season in <code className="rounded bg-sand-100 px-1">autumn/</code>, <code className="rounded bg-sand-100 px-1">winter/</code>, <code className="rounded bg-sand-100 px-1">spring/</code> and <code className="rounded bg-sand-100 px-1">summer/</code>. Per-day photos are added from the day itself.
         </p>
       </section>
     </div>

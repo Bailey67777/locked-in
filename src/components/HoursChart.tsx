@@ -1,41 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DayRecord, Subject } from "@/lib/types";
+import type { Subject } from "@/lib/types";
 import { SUBJECTS, SUBJECT_COLOR, SUBJECT_LABEL } from "@/lib/model";
 import { addDays, formatWeekLabel, weekStartOf } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 
-type Props = { hours: Record<string, Partial<Record<Subject, number>>>; days: Record<string, DayRecord>; today: string };
+type Props = { hours: Record<string, Partial<Record<Subject, number>>>; today: string };
 
 const BAR_MAX = 120;
 const fmt = (h: number) => (h % 1 ? h.toFixed(1) : String(h));
 
-/** Study hours per week, stacked by subject. From your study log; weeks with no log fall back to Claude's estimate. */
-export default function HoursChart({ hours, days, today }: Props) {
+/** Study hours per week, stacked by subject, as estimated by Claude. */
+export default function HoursChart({ hours, today }: Props) {
   const thisWeek = weekStartOf(today);
   const [picked, setPicked] = useState<string | null>(null);
 
   const rows = useMemo(() => {
-    const logged: Record<string, Partial<Record<Subject, number>>> = {};
-    for (const d of Object.values(days)) {
-      if (!d.studyLog || d.date > today) continue;
-      const wk = weekStartOf(d.date);
-      for (const s of SUBJECTS) {
-        const mins = d.studyLog[s]?.mins ?? 0;
-        if (mins) logged[wk] = { ...logged[wk], [s]: (logged[wk]?.[s] ?? 0) + mins / 60 };
-      }
-    }
-    const earliest = [...Object.keys(logged), ...Object.keys(hours)].sort()[0];
+    const earliest = Object.keys(hours).sort()[0];
     const all: string[] = [];
     for (let w = earliest && earliest < thisWeek ? earliest : thisWeek; w <= thisWeek; w = addDays(w, 7)) all.push(w);
     return all.slice(-8).map((wk) => {
-      const fromLog = Boolean(logged[wk]);
-      const src = logged[wk] ?? hours[wk] ?? {};
+      const src = hours[wk] ?? {};
       const parts = SUBJECTS.map((s) => ({ s, h: Math.round((src[s] ?? 0) * 10) / 10 })).filter((p) => p.h > 0);
-      return { wk, fromLog, parts, total: Math.round(parts.reduce((a, p) => a + p.h, 0) * 10) / 10 };
+      return { wk, parts, total: Math.round(parts.reduce((a, p) => a + p.h, 0) * 10) / 10 };
     });
-  }, [days, hours, today, thisWeek]);
+  }, [hours, thisWeek]);
 
   const max = Math.max(1, ...rows.map((r) => r.total));
   const current = rows[rows.length - 1];
@@ -52,13 +42,12 @@ export default function HoursChart({ hours, days, today }: Props) {
           </div>
           <div className="mt-1 text-[11.5px] font-semibold text-ink-muted">
             {shown?.wk === thisWeek ? "this week" : `week of ${formatWeekLabel(shown?.wk ?? thisWeek)}`}
-            {shown && shown.total > 0 && !shown.fromLog ? " · Claude's estimate" : ""}
           </div>
         </div>
       </div>
 
       {!any ? (
-        <p className="mt-3 rounded-xl bg-sand-50 px-3 py-4 text-center text-[12.5px] font-semibold text-ink-muted">Log study time on Today and your weeks build up here.</p>
+        <p className="mt-3 rounded-xl bg-sand-50 px-3 py-4 text-center text-[12.5px] font-semibold text-ink-muted">No estimates yet. Claude fills this in when it has something to go on.</p>
       ) : (
         <>
           <div className="mt-4 flex items-end justify-between gap-1" style={{ height: BAR_MAX + 22 }}>

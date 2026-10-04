@@ -7,10 +7,10 @@ placeholders (`APP_URL`, `SECRET`) first. The secret is `CLAUDE_API_SECRET` from
 longer marks answers or sets questions. The API still accepts `questions` and `feedback` (nothing displays
 them), and still returns the empty academic fields; they are simply unused now.
 
-**Note (Oct 2026):** grades were never being plotted because the task had nothing to base them on (step 3 told
-it not to guess, correctly). The app now has a **study log** on Today: minutes per subject plus a note of what was
-done, marks included. Each day's Markdown has a `## Study log` section, and step 3 below uses it. Study hours
-are added up by the app itself from the log, so the task no longer needs to post `studyHours`.
+**Note (Oct 2026):** grades were never plotted because the task had nothing to base them on (it rightly refuses
+to guess). Marks now reach it as an extra message on a run: tell any Claude session "send my study coach: Physics
+mechanics test 14/20" and it fires this routine with that text (the `fire_trigger` tool, routine
+"Locked In — Nightly Study Coach"). The task stores every mark in `memory` and plots an estimate from it.
 
 Which scheduler to use, and why, is in [Setting it up](#setting-it-up) at the bottom.
 
@@ -34,9 +34,9 @@ Read endpoints (GET):
 - `/api/claude/day?date=YYYY-MM-DD&format=markdown` → one day, readable Markdown (prefer this)
 - `/api/claude/range?from=YYYY-MM-DD&to=YYYY-MM-DD&format=markdown` → every day in the range (max 31)
 
-A day contains: whether it was submitted (finalised) and when, habit and to-do counts, and a `## Study log`:
-minutes per subject (Maths, Further Maths, Physics, Economics) with Hugo's note of what he did, often including
-marks or past-paper scores. The academic journal and questions sections are always empty now; ignore them. `memory` at the end
+A day contains: whether it was submitted (finalised) and when, and habit and to-do counts. The academic journal
+and questions sections are always empty now; ignore them. `memory` at the end is your own notes from previous
+nights (free text you write with the `memory` field below), including every mark Hugo has sent you. `memory` at the end
 is your own notes from previous nights (free text you write with the `memory` field below).
 
 Hugo's personal journal is private. It is never returned and you must never ask for it.
@@ -70,13 +70,12 @@ posting the same date/subject again overwrites.
    and two or three current, relevant reads (`title`, `source`, https `url`, one-line `why`). Prefer BBC, FT,
    The Economist, Guardian, ONS, Bank of England, IFS. Only include URLs you have actually fetched and confirmed
    exist; if a site blocks fetching, choose a different source rather than guessing.
-3. **Grade estimates from the study log.** When a subject's study-log notes in the last seven days contain
-   a mark, a score or other clear evidence of his level (e.g. "Paper 1 2019, 58/80", "chapter test 14/20",
-   "couldn't do the integration questions"), post one `gradeEstimates` entry for that subject dated today, with
-   a `reason` that quotes the evidence and names the main weakness. Use the specification's grade boundaries
-   where you know them. Stay consistent with your previous estimates in `memory` and move in small steps unless
-   the evidence is strong. A subject with no evidence gets nothing: never post placeholder grades. Do not post
-   `studyHours`; the app totals those from the log.
+3. **Grade estimates from Hugo's marks.** If this run comes with an extra message from Hugo after these
+   instructions (marks, test scores, past-paper results, a teacher's predicted grade), record each one in `memory`
+   with its date and subject, then post one `gradeEstimates` entry per subject it covers, dated today, with a
+   `reason` that quotes the evidence and names the main weakness. Weigh it against the earlier marks in `memory`
+   (use the specification's grade boundaries where you know them) and move in small steps unless the evidence is
+   strong. With no new marks, post no grades. Never post placeholder grades. Don't post `studyHours`.
 4. **Memory.** Write the whole of your notes back with `memory` (it replaces the previous text; keep it under
    about 3,000 words; include the dates you have posted econ for so you don't repeat a concept).
 
@@ -106,9 +105,8 @@ So no single option does both. The setup that works today:
    economics, and keeping its notes, all **from what it can see in the app**.
 2. Give it the memory it needs through the app itself: the `memory` field above is its long-term notes, and
    it reads them back every night. That replaces "project memory" for this job.
-3. Grade and hours estimates need evidence the app no longer collects. If you want them, tell the routine
-   yourself (a note it can store in `memory`), or build a small MCP connector that bridges your A-level
-   project chats later; that is a separate build, worth doing only once the rest is running.
+3. Grade estimates come from marks you send the routine (an extra message on a run, see the note at the top).
+   It keeps every mark in `memory`, so each new one is weighed against the history.
 
 ### Steps
 

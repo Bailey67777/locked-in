@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
-import { SEASON_LABEL } from "@/lib/season";
+import type { SeasonPhotos } from "@/lib/season";
 import { CalendarIcon, HealthIcon, SettingsIcon, StudyIcon, SunIcon } from "./Icons";
 import TodayView from "./TodayView";
 import StudyView from "./StudyView";
@@ -23,8 +23,8 @@ const TABS: { id: Tab; label: string; Icon: typeof SunIcon }[] = [
   { id: "settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-export default function AppShell() {
-  const { loaded, today, sync, pending, season } = useStore();
+export default function AppShell({ seasonPhotos }: { seasonPhotos: SeasonPhotos }) {
+  const { loaded, today, sync, pending } = useStore();
   const [tab, setTab] = useState<Tab>("today");
 
   useEffect(() => {
@@ -57,27 +57,27 @@ export default function AppShell() {
       <ReminderRunner />
       <VideoGate />
 
-      <header className="sticky top-0 z-40 border-b border-black/[0.05] bg-sand-50/75 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/50 bg-white/30 backdrop-blur-2xl">
         <div className="pt-safe" />
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-4 py-2.5 md:max-w-2xl">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ocean-600 text-[13px] font-extrabold text-white shadow-soft">L</span>
-            <span className="text-[15px] font-extrabold tracking-[-0.02em] text-ink">Locked In</span>
-            <span className="hidden text-[11px] font-semibold text-ink-muted sm:inline">· {SEASON_LABEL[season]}</span>
+            <span className="font-serif text-[22px] leading-none text-ink">
+              Locked <span className="italic">In</span>
+            </span>
             {sync === "offline" && (
               <span className="chip ml-1 bg-sunset-100 text-sunset-700">
                 offline{pending > 0 ? ` · ${pending}` : ""}
               </span>
             )}
           </div>
-          <nav className="hidden items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/70 p-1 md:flex" aria-label="Sections">
+          <nav className="hidden items-center gap-0.5 rounded-full border border-white/70 bg-white/50 p-1 backdrop-blur-xl md:flex" aria-label="Sections">
             {TABS.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => go(id)}
                 className={cn(
-                  "tap rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors",
+                  "tap rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-colors",
                   tab === id ? "bg-ink text-white" : "text-ink-soft hover:text-ink",
                 )}
                 aria-current={tab === id ? "page" : undefined}
@@ -97,7 +97,7 @@ export default function AppShell() {
             <div className="h-56 animate-pulse rounded-3xl bg-sand-100" />
           </div>
         ) : tab === "today" ? (
-          <TodayView />
+          <TodayView seasonPhotos={seasonPhotos} />
         ) : tab === "study" ? (
           <StudyView />
         ) : tab === "health" ? (
@@ -111,13 +111,13 @@ export default function AppShell() {
 
       {/* Bottom nav (phone) */}
       <nav className="fixed inset-x-0 bottom-0 z-50 px-4 md:hidden" aria-label="Sections">
-        <div className="mx-auto mb-2 grid max-w-sm grid-cols-5 rounded-2xl border border-black/[0.06] bg-white/85 p-1 shadow-lift backdrop-blur-xl">
+        <div className="mx-auto mb-2 grid max-w-sm grid-cols-5 rounded-full border border-white/70 bg-white/70 p-1 shadow-lift backdrop-blur-2xl">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => go(id)}
-              className={cn("tap flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[10px] font-bold transition-colors", tab === id ? "bg-ocean-50 text-ocean-700" : "text-ink-muted")}
+              className={cn("tap flex flex-col items-center gap-0.5 rounded-full py-1.5 text-[9.5px] font-bold tracking-[0.02em] transition-colors", tab === id ? "bg-ink text-white" : "text-ink-muted")}
               aria-current={tab === id ? "page" : undefined}
             >
               <Icon width={19} height={19} strokeWidth={tab === id ? 2.2 : 1.8} />

@@ -1,4 +1,4 @@
-export default function ProgressRing({ pct, size = 56, stroke = 5 }: { pct: number; size?: number; stroke?: number }) {
+export default function ProgressRing({ pct, size = 54, stroke = 3.5 }: { pct: number; size?: number; stroke?: number }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, pct));
@@ -7,7 +7,7 @@ export default function ProgressRing({ pct, size = 56, stroke = 5 }: { pct: numb
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" style={{ stroke: "var(--color-sand-200)" }} />
+        <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" style={{ stroke: "rgb(0 0 0 / 0.07)" }} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -21,7 +21,7 @@ export default function ProgressRing({ pct, size = 56, stroke = 5 }: { pct: numb
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[13px] font-extrabold tabular-nums text-ink">{clamped}%</span>
+        <span className="text-[12.5px] font-bold tabular-nums text-ink">{clamped}%</span>
       </div>
     </div>
   );

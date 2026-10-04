@@ -6,19 +6,18 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 **What's in it** (five tabs: Today · Study · Health · Calendar · Settings)
 
 - **Today** – greeting and day streak, seasonal banner photo, progress ring (habits + to-dos), core habits (emoji,
-  colour, time, sound, must-do), to-do list, the **study log** (time per A-level plus what you did, marks included;
-  Claude reads it), the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
+  colour, time, sound, must-do), to-do list, the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
   Settings), a **throwback** journal entry, and **Submit day** (locks the ticks and logs the percentage; no
   punishment. A day of 80%+ with every ⭐ must-do ticked plays the reward video).
 - **Study** – Claude's grade trajectory (U–A*, one line per A-level, dashed trend to the exam, tap a point for the reason),
-  weekly study hours from your study log, and the Economics concept of the day plus reading (Claude's version when it has written
+  estimated weekly study hours, and the Economics concept of the day plus reading (Claude's version when it has written
   one, otherwise the built-in cards and live BBC / Guardian headlines).
 - **Health** – streaks, submitted-day tiers, insights, ratings chart, per-habit stats, habit heatmap. Health only.
 - **Calendar** – month view; a camera on today's cell adds today's photo, past days show theirs or stay plain blue.
   Tap any day to open its full record.
 - **Settings** – habits, sounds, first exam date, countdowns, season, Claude sync status, reminders, video, photos, sync.
-- **Seasons** – the palette and banner switch with the seasons in Bristol (spring Mar–May, summer Jun–Aug, autumn
-  Sep–Nov, winter Dec–Feb). Settings → Season previews one on that device.
+- **Seasons** – the palette (a different morning-sun light each season) and the banner photo switch with the seasons
+  in Bristol (spring Mar–May, summer Jun–Aug, autumn Sep–Nov, winter Dec–Feb). Settings → Season previews one.
 
 Old Plan and Countdowns data is kept in the database but no longer shown.
 
@@ -141,12 +140,9 @@ Drop files here (then commit + push so Vercel picks them up):
 
 | File                          | Shows as                                         |
 | ----------------------------- | ------------------------------------------------ |
-| `public/photos/months/oct.jpg` (`jan` … `dec`) | Today's banner for that month only (landscape, ~3:1) |
-| `public/photos/seasons/autumn.jpg` (`spring`, `summer`, `autumn`, `winter`) | Today's banner for that season |
-| `public/photos/hero.jpg`      | the banner when there's no month or season photo |
+| `public/photos/autumn/` (also `winter/`, `spring/`, `summer/`) | Today's banner in that season: any number of photos, any names; a different one each day |
+| `public/photos/hero.jpg`      | the banner when that season's folder is empty     |
 | `public/photos/profile.jpg`   | round avatar next to the greeting (square)       |
-
-The banner uses the first file that exists: month, then season, then `hero.jpg`.
 
 Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a quick load on mobile.
 
@@ -192,8 +188,6 @@ server-only environment variable; never `NEXT_PUBLIC_`). Missing or wrong secret
 | `GET /api/claude/range?from=…&to=…[&format=markdown]` | the same for every day in the range (max 31) |
 | `POST /api/claude/update` | `questions`, `feedback`, `gradeEstimates`, `studyHours`, `econ`, `memory` (zod-validated; keyed by date/subject, so re-posting overwrites) |
 
-A day now includes its **study log** (minutes + note per subject); that is what grade estimates are based on.
-
 Reads copy an explicit allow-list of fields; the personal journal is never returned in any form.
 The full nightly prompt and setup steps are in `docs/NIGHTLY_CLAUDE_TASK.md`.
 
@@ -209,7 +203,6 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
     "2026-09-25": {
       "habits": [ … ], "todos": [ … ], "ratings": { "day": 7, "health": 8, "happy": 6 },
       "journal": "…",                                             // personal journal (plain text)
-      "studyLog": { "maths": { "mins": 90, "note": "Paper 1 2019, 58/80" } },
       "academic": { "econ": "…", "maths": "…", "physics": "…" },  // active recall, plaintext
       "answers": { "maths": "…", "physics": "…", "econ": "…" },   // answers to that day's questions
       "song": "…", "screenMinutes": 185, "thumb": "data:image/jpeg;base64,…",
@@ -243,7 +236,7 @@ the `SOUNDS` array; the 🎲 button in Settings picks a random one.
 
 ```
 src/app/            layout, page, manifest, global styles, icons
-src/components/     AppShell (tabs), TodayView, DayEditor, StudyLogCard, CalendarView, TrendsView, SettingsView, …
+src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
 src/lib/            types, dates, model (normalise days/study, tiers, reward rule), season (palettes + banners), crypto (old journal conversion), stats, sounds, images, daily (econ cards), reminders, store (state, outbox), firebase
 src/lib/server/     claude.ts: auth, allow-listed reads, zod-validated writes for the nightly task
 src/app/api/        econ-news (headlines proxy), claude/day, claude/range, claude/update

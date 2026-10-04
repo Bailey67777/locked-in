@@ -64,7 +64,7 @@ export default function GradeChart({ grades, examDate }: Props) {
   if (allDates.length === 0) {
     return (
       <p className="rounded-xl bg-sand-50 px-3 py-4 text-center text-[12.5px] font-semibold text-ink-muted">
-        No estimates yet. Log study on Today with marks or scores (e.g. “Paper 1, 58/80”) and Claude starts plotting each night.
+        No estimates yet. Once Claude has a mark or two from you, it starts plotting here each night.
       </p>
     );
   }
