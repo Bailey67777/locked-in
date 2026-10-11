@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { askBrowserPermission, browserNotificationsSupported, buildIcs, downloadText, randomTopic, sendTestPush } from "@/lib/reminders";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
-import { REWARD_PCT, uid } from "@/lib/model";
+import { REWARD_PCT, formatBytes, uid } from "@/lib/model";
+import { VLOG_BUDGET_BYTES, VLOG_MAX_SECONDS, storedSize } from "@/lib/vlog";
 import { SEASONS, SEASON_EMOJI, SEASON_LABEL } from "@/lib/season";
 import type { Countdown } from "@/lib/types";
 import { addDays, formatDateTime } from "@/lib/dates";
 import { AUTO_EMOJIS, DEFAULT_COLOR, EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
-import { SOUNDS, pickSoundForHabit, playSound, randomSound, soundById } from "@/lib/sounds";
+import { SOUNDS, pickSoundForHabit, playRandomSound, playSound, randomSound, soundById } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
@@ -217,7 +218,7 @@ export default function SettingsView() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="card-title">Sounds</h2>
-            <p className="card-desc mt-1">Fifty long, daft noises, all matched to the same loudness and boosted. New habits get a random one that loosely fits their name. Silent mode on your phone still mutes them.</p>
+            <p className="card-desc mt-1">Fifty daft ones: school teachers, goats, weird whistles and old tunes on silly instruments. All the same loudness. Silent mode on your phone still mutes them.</p>
           </div>
           <button
             type="button"
@@ -231,8 +232,21 @@ export default function SettingsView() {
           </button>
         </div>
         <div className="mt-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-sand-50 px-3 py-2.5">
+            <div>
+              <div className="text-sm font-bold text-ink">🎲 Lucky dip</div>
+              <p className="card-desc">Every tick plays a different random sound, and you hear all fifty before any repeats. Turn it off to give each habit its own.</p>
+            </div>
+            <Toggle on={settings.randomSounds} onClick={() => updateSettings((s) => ({ ...s, randomSounds: !s.randomSounds }))} label="Lucky dip: random sound every tick" />
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-bold text-ink">Every habit</span>
+            <span className="text-sm font-bold text-ink">Hear one</span>
+            <button type="button" className="btn-ghost bg-sand-50" onClick={() => playRandomSound()}>
+              ▶ Play a random sound
+            </button>
+          </div>
+          <div className={cn("flex flex-wrap items-center justify-between gap-2", settings.randomSounds && "opacity-50")}>
+            <span className="text-sm font-bold text-ink">Every habit{settings.randomSounds ? " (lucky dip is on)" : ""}</span>
             <button
               type="button"
               className="btn-ghost bg-sand-50"
@@ -253,8 +267,8 @@ export default function SettingsView() {
               🎲 Shuffle all habit sounds
             </button>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-bold text-ink">To-do ticked</span>
+          <div className={cn("flex flex-wrap items-center justify-between gap-2", settings.randomSounds && "opacity-50")}>
+            <span className="text-sm font-bold text-ink">To-do ticked{settings.randomSounds ? " (lucky dip is on)" : ""}</span>
             <SoundPicker value={settings.todoSound} onChange={(todoSound) => updateSettings((s) => ({ ...s, todoSound }))} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -481,6 +495,39 @@ export default function SettingsView() {
             Download reminders (.ics)
           </button>
         </div>
+      </section>
+
+      <section className="card p-4">
+        <h2 className="card-title">Vlogs</h2>
+        <p className="card-desc mt-1">
+          Film one from the Calendar: tap the camera on today, take the photo, and the recorder opens. Up to {Math.round(VLOG_MAX_SECONDS / 60)} minutes each. They are stored like your photos and journal (no passphrase) and never go to
+          Claude.
+        </p>
+        {(() => {
+          const vlogs = Object.values(data.days).filter((d) => d.vlog);
+          const used = vlogs.reduce((n, d) => n + storedSize(d.vlog!.bytes), 0);
+          const pct = Math.min(100, Math.round((used / VLOG_BUDGET_BYTES) * 100));
+          const room = vlogs.length ? Math.max(0, Math.floor((VLOG_BUDGET_BYTES - used) / (used / vlogs.length))) : null;
+          return (
+            <div className="mt-3 rounded-xl bg-sand-50 px-3 py-2.5">
+              <div className="flex items-baseline justify-between gap-3 text-sm font-bold text-ink">
+                <span>
+                  {vlogs.length} {vlogs.length === 1 ? "vlog" : "vlogs"} saved
+                </span>
+                <span className="font-mono text-[11.5px] tabular-nums text-ink-muted">
+                  {formatBytes(used)} of {formatBytes(VLOG_BUDGET_BYTES)}
+                </span>
+              </div>
+              <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-black/[0.06]" aria-hidden="true">
+                <div className={cn("h-full rounded-full", pct >= 85 ? "bg-sunset-500" : "grad-fill")} style={{ width: `${Math.max(pct, vlogs.length ? 2 : 0)}%` }} />
+              </div>
+              <p className="card-desc mt-2">
+                {room === null ? "The free storage holds roughly 240 one-minute vlogs, or 120 two-minute ones." : `Room for about ${room} more at your usual length.`} When it fills up, open an old day in the Calendar, save its vlog to your
+                device, then delete it there.
+              </p>
+            </div>
+          );
+        })()}
       </section>
 
       <section className="card p-4">

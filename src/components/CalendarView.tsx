@@ -7,13 +7,15 @@ import { formatLong, monthGrid, monthLabel, parseKey } from "@/lib/dates";
 import { dayHasEntry, dayProgress, hasJournal, hasRatings, tierById } from "@/lib/model";
 import { processPhoto } from "@/lib/images";
 import { cn } from "@/lib/cn";
-import { CameraIcon, ChevronIcon, CloseIcon } from "./Icons";
+import { CameraIcon, ChevronIcon, CloseIcon, VideoIcon } from "./Icons";
 import DayEditor from "./DayEditor";
+import VlogCard from "./VlogCard";
+import VlogRecorder from "./VlogRecorder";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 export default function CalendarView() {
-  const { today, data, getDay, setDayPhoto, getDayPhoto } = useStore();
+  const { today, data, getDay, setDayPhoto, getDayPhoto, vlogPending } = useStore();
   const t = parseKey(today);
   const [year, setYear] = useState(t.getFullYear());
   const [month, setMonth] = useState(t.getMonth());
@@ -22,18 +24,20 @@ export default function CalendarView() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const [banner, setBanner] = useState<{ date: string; data: string } | null>(null);
+  /** The day a vlog is being recorded for (the recorder covers the whole screen). */
+  const [recording, setRecording] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selected) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !recording && setSelected(null);
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [selected]);
+  }, [selected, recording]);
 
   // The bigger version of a day's photo, shown as a banner at the top of that day's record.
   const selectedThumb = selected ? data.days[selected]?.thumb : undefined;
@@ -60,6 +64,8 @@ export default function CalendarView() {
     setPhotoError(null);
     try {
       await setDayPhoto(today, await processPhoto(file));
+      // Photo done: straight on to the day's vlog (unless today already has one).
+      if (!data.days[today]?.vlog && !vlogPending[today]) setRecording(today);
     } catch {
       setPhotoError("Couldn't read that image. Try a JPG or PNG.");
     } finally {
@@ -113,6 +119,7 @@ export default function CalendarView() {
             const entry = dayHasEntry(stored);
             const pct = entry ? dayProgress(getDay(key)).pct : 0;
             const thumb = stored?.thumb;
+            const hasVlog = Boolean(stored?.vlog) || Boolean(vlogPending[key]);
             // Past days: plain blue when empty, deeper blue / teal as more got done.
             const shade = isFuture
               ? "text-ink-muted/70 hover:bg-sand-100"
@@ -142,12 +149,14 @@ export default function CalendarView() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
                       <span className="absolute left-1 top-1 rounded-md bg-white/85 px-1 text-[11px] font-extrabold tabular-nums text-ink shadow-soft">{parseKey(key).getDate()}</span>
+                      {hasVlog && <span className="absolute right-1 top-1 rounded-md bg-white/85 px-0.5 text-[10px] leading-tight shadow-soft">🎬</span>}
                       {entry && <span className={cn("absolute inset-x-0 bottom-0 h-1.5", pct >= 100 ? "bg-teal-500" : pct >= 60 ? "bg-ocean-400" : "bg-ocean-200")} />}
                     </>
                   ) : (
                     <>
                       <span className="tabular-nums">{parseKey(key).getDate()}</span>
                       {stored?.submitted && <span className="absolute right-0.5 top-0.5 text-[10px] leading-none">{tierById(stored.submitted.tier).emoji}</span>}
+                      {hasVlog && <span className="absolute left-0.5 top-0.5 text-[10px] leading-none">🎬</span>}
                       {(hasRatings(stored) || hasJournal(stored)) && <span className={cn("absolute bottom-1.5 h-1.5 w-1.5 rounded-full", pct >= 60 ? "bg-white/90" : "bg-sunset-500")} />}
                     </>
                   )}
@@ -167,6 +176,20 @@ export default function CalendarView() {
                     <CameraIcon width={15} height={15} />
                   </button>
                 )}
+                {isToday && thumb && !hasVlog && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecording(today);
+                    }}
+                    className="tap absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white shadow-soft ring-2 ring-white"
+                    aria-label="Record today's vlog"
+                    title="Record today's vlog"
+                  >
+                    <VideoIcon width={15} height={15} />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -178,11 +201,12 @@ export default function CalendarView() {
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-400" /> most done</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-teal-500" /> all done</span>
           <span className="flex items-center gap-1.5"><CameraIcon width={13} height={13} /> today&apos;s photo</span>
+          <span className="flex items-center gap-1.5">🎬 vlog</span>
           <span className="flex items-center gap-1.5">✨ 👍 🌱 🌙 submitted</span>
         </div>
       </section>
 
-      <p className="px-2 text-center text-[12px] font-semibold text-ink-muted">Tap the camera on today to add a photo; a day you miss stays blank. Tap any day to open it.</p>
+      <p className="px-2 text-center text-[12px] font-semibold text-ink-muted">Tap the camera on today to add a photo, then film your vlog straight after. A day you miss stays blank. Tap any day to open it and watch its vlog.</p>
 
       {selected &&
         createPortal(
@@ -208,6 +232,7 @@ export default function CalendarView() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={banner?.date === selected ? banner.data : selectedThumb} alt={`Photo from ${selected}`} className="mb-4 block max-h-72 w-full rounded-3xl object-cover shadow-soft" />
                 )}
+                <VlogCard date={selected} onRecord={() => setRecording(selected)} />
                 <DayEditor date={selected} compact />
                 <div className="h-4" />
               </div>
@@ -215,6 +240,8 @@ export default function CalendarView() {
           </div>,
           document.body,
         )}
+
+      {recording && <VlogRecorder date={recording} onClose={() => setRecording(null)} />}
     </div>
   );
 }

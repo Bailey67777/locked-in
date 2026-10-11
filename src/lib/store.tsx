@@ -2,16 +2,20 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { get, goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
-import type { AppData, DayRecord, Settings } from "./types";
+import type { AppData, DayRecord, Settings, VlogMeta } from "./types";
 import { legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
 import { addDays, todayKey } from "./dates";
 import { DATA_PATH, getDb } from "./firebase";
+import { cachedChunks, cacheChunks, downloadChunks, dropCached, dropPending, getPending, listPending, promoteToCache, queueVlog, uploadPending, vlogPath, vlogStorageAvailable } from "./vlog";
 import { decryptText, deriveKey, forgetKey, recallKey, verifyKey } from "./crypto";
 import { type Season, type SeasonChoice, readSeasonChoice, resolveSeason, writeSeasonChoice } from "./season";
 
 export type SyncState = "local" | "connecting" | "online" | "offline";
 /** ready: plain journal. locked: older entries still need the old passphrase once. unavailable: they do, but this browser can't decrypt. */
 export type JournalState = "ready" | "locked" | "unavailable";
+
+/** A vlog recorded on this device that hasn't finished uploading yet. */
+export type VlogProgress = { uploaded: number; total: number; state: "uploading" | "waiting" };
 
 const LS_KEY = "locked-in:data:v1";
 const OUTBOX_KEY = "locked-in:outbox:v1";
@@ -42,6 +46,11 @@ type Store = {
   season: Season;
   seasonChoice: SeasonChoice;
   setSeasonChoice: (choice: SeasonChoice) => void;
+  /** The day's vlog: saved on this device straight away, uploaded in the background. */
+  vlogPending: Record<string, VlogProgress>;
+  saveVlog: (date: string, video: Blob, seconds: number) => Promise<void>;
+  loadVlog: (date: string, onProgress?: (fraction: number) => void) => Promise<Blob>; // ready to play
+  removeVlog: (date: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -422,6 +431,129 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     [migrateJournal],
   );
 
+  /* ---- the day's vlog ---- */
+
+  const [vlogPending, setVlogPending] = useState<Record<string, VlogProgress>>({});
+  const vlogRunning = useRef(false);
+  const vlogAgain = useRef(false);
+
+  /**
+   * Work through vlogs recorded on this device that haven't finished saving: upload the remaining pieces,
+   * then put the label on the day so every device can see it. Safe to call at any time.
+   */
+  const runVlogQueue = useCallback(async () => {
+    if (!vlogStorageAvailable()) return;
+    if (vlogRunning.current) {
+      vlogAgain.current = true;
+      return;
+    }
+    vlogRunning.current = true;
+    try {
+      do {
+        vlogAgain.current = false;
+        const queue = await listPending();
+        const seen = new Set(queue.map((p) => p.date));
+        setVlogPending((m) => (Object.keys(m).every((d) => seen.has(d)) ? m : Object.fromEntries(Object.entries(m).filter(([d]) => seen.has(d)))));
+        for (const p of queue) {
+          const total = p.chunks.length;
+          const show = (uploaded: number, state: VlogProgress["state"]) => setVlogPending((m) => ({ ...m, [p.date]: { uploaded, total, state } }));
+          try {
+            if (p.uploaded < total) {
+              show(p.uploaded, "uploading");
+              await uploadPending(p, (n) => show(n, "uploading"));
+            }
+          } catch (e) {
+            if (!(e instanceof Error && e.message === "replaced")) show(p.uploaded, "waiting"); // offline: tried again on the next connection
+            continue;
+          }
+          const still = await getPending(p.date);
+          if (!still || still.at !== p.at) continue; // deleted or re-recorded while it was uploading
+          const meta: VlogMeta = { v: 1, at: p.at, dur: p.dur, bytes: p.bytes, chunks: total, mime: p.mime };
+          updateDay(p.date, (d) => ({ ...d, vlog: meta }));
+          await promoteToCache(p);
+          setVlogPending((m) => {
+            const next = { ...m };
+            delete next[p.date];
+            return next;
+          });
+        }
+      } while (vlogAgain.current);
+    } finally {
+      vlogRunning.current = false;
+    }
+  }, [updateDay]);
+
+  // Pick the queue back up when the app opens and whenever the connection returns.
+  useEffect(() => {
+    if (!loaded) return;
+    const id = window.setTimeout(() => void runVlogQueue(), 0);
+    return () => window.clearTimeout(id);
+  }, [loaded, sync, runVlogQueue]);
+
+  // An upload that failed while the app stayed open is retried every half minute.
+  const vlogWaiting = Object.values(vlogPending).some((v) => v.state === "waiting");
+  useEffect(() => {
+    if (!vlogWaiting) return;
+    const id = window.setInterval(() => void runVlogQueue(), 30_000);
+    return () => window.clearInterval(id);
+  }, [vlogWaiting, runVlogQueue]);
+
+  const saveVlog = useCallback(
+    async (date: string, video: Blob, seconds: number) => {
+      const previous = dataRef.current.days[date]?.vlog;
+      const replaced = await getPending(date);
+      const p = await queueVlog(date, video, seconds);
+      setVlogPending((m) => ({ ...m, [date]: { uploaded: 0, total: p.chunks.length, state: "uploading" } }));
+      // A re-record replaces the old one: take its label off the day and delete its pieces.
+      if (previous) {
+        updateDay(date, (d) => ({ ...d, vlog: undefined }));
+        remote("remove", vlogPath(date, previous.at));
+        await dropCached(date);
+      }
+      if (replaced && replaced.uploaded > 0) remote("remove", vlogPath(date, replaced.at));
+      void runVlogQueue();
+    },
+    [updateDay, remote, runVlogQueue],
+  );
+
+  const loadVlog = useCallback(async (date: string, onProgress?: (fraction: number) => void): Promise<Blob> => {
+    const pending = await getPending(date);
+    if (pending) return new Blob(pending.chunks, { type: pending.mime });
+    const meta = dataRef.current.days[date]?.vlog;
+    if (!meta) throw new Error("There's no vlog for this day.");
+    let chunks = await cachedChunks(date, meta.at);
+    if (!chunks) {
+      try {
+        chunks = await downloadChunks(date, meta.at, meta.chunks, onProgress);
+      } catch {
+        throw new Error("Couldn't download this vlog. Check your connection and try again.");
+      }
+      void cacheChunks(date, meta.at, chunks);
+    }
+    return new Blob(chunks, { type: meta.mime });
+  }, []);
+
+  const removeVlog = useCallback(
+    async (date: string) => {
+      const pending = await getPending(date);
+      const meta = dataRef.current.days[date]?.vlog;
+      await dropPending(date);
+      await dropCached(date);
+      setVlogPending((m) => {
+        if (!(date in m)) return m;
+        const next = { ...m };
+        delete next[date];
+        return next;
+      });
+      if (pending && pending.uploaded > 0) remote("remove", vlogPath(date, pending.at));
+      if (meta) {
+        updateDay(date, (d) => ({ ...d, vlog: undefined }));
+        remote("remove", vlogPath(date, meta.at));
+      }
+    },
+    [updateDay, remote],
+  );
+
   /* ---- season ---- */
 
   const season = useMemo(() => resolveSeason(seasonChoice, today ? new Date(`${today}T12:00`) : new Date()), [seasonChoice, today]);
@@ -447,8 +579,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     () => ({
       data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto,
       journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice,
+      vlogPending, saveVlog, loadVlog, removeVlog,
     }),
-    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto, journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice],
+    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto, journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice, vlogPending, saveVlog, loadVlog, removeVlog],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

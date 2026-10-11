@@ -222,3 +222,13 @@ export function CameraIcon(p: P) {
     </svg>
   );
 }
+
+export function VideoIcon(p: P) {
+  // camcorder
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <rect x="3" y="6.5" width="12.5" height="11" rx="2.5" />
+      <path d="M15.5 10.5l5-3v9l-5-3z" />
+    </svg>
+  );
+}

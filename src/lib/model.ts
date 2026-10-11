@@ -1,4 +1,4 @@
-import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo } from "./types";
+import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
@@ -24,6 +24,21 @@ export function normalizeEncrypted(raw: unknown): EncryptedText | null {
   const e = (raw && typeof raw === "object" ? raw : null) as Partial<EncryptedText> | null;
   if (!e || typeof e.iv !== "string" || typeof e.ct !== "string" || !e.iv || !e.ct) return null;
   return { iv: e.iv, ct: e.ct };
+}
+
+export function normalizeVlog(raw: unknown): VlogMeta | null {
+  const v = (raw && typeof raw === "object" ? raw : null) as Record<string, unknown> | null;
+  if (!v) return null;
+  const chunks = Math.round(Number(v.chunks));
+  if (typeof v.at !== "number" || !Number.isFinite(chunks) || chunks < 1) return null;
+  return {
+    v: 1,
+    at: v.at,
+    dur: Math.max(0, Math.round(Number(v.dur) || 0)),
+    bytes: Math.max(0, Math.round(Number(v.bytes) || 0)),
+    chunks,
+    mime: typeof v.mime === "string" && /^video\/[\w.+-]+/.test(v.mime) ? v.mime : "video/mp4",
+  };
 }
 
 /** Does this day have a personal journal entry (encrypted, or legacy plaintext awaiting migration)? */
@@ -99,6 +114,8 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
     if (Object.keys(answers).length) day.answers = answers;
   }
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
+  const vlog = normalizeVlog(r.vlog);
+  if (vlog) day.vlog = vlog;
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
   if (typeof r.song === "string" && r.song) day.song = r.song;
   if (typeof r.screenMinutes === "number" && r.screenMinutes >= 0 && r.screenMinutes <= 24 * 60) day.screenMinutes = Math.round(r.screenMinutes);
@@ -153,6 +170,7 @@ export function normalizeSettings(raw: unknown): Settings {
     soundsOn: typeof r.soundsOn === "boolean" ? r.soundsOn : true,
     dayCompleteSound: typeof r.dayCompleteSound === "string" && SOUND_IDS.includes(r.dayCompleteSound) ? r.dayCompleteSound : DEFAULT_DAY_COMPLETE_SOUND,
     todoSound: typeof r.todoSound === "string" && SOUND_IDS.includes(r.todoSound) ? r.todoSound : DEFAULT_TODO_SOUND,
+    randomSounds: typeof r.randomSounds === "boolean" ? r.randomSounds : true,
     countdowns: asArray<Partial<Countdown>>(r.countdowns)
       .filter((c) => typeof c.id === "string" && typeof c.at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(c.at))
       .map((c) => {
@@ -384,7 +402,8 @@ export function dayHasEntry(day: DayRecord | undefined): boolean {
     Boolean(day.song?.trim()) ||
     Boolean(day.plan?.length) ||
     Boolean(day.submitted) ||
-    Boolean(day.thumb)
+    Boolean(day.thumb) ||
+    Boolean(day.vlog)
   );
 }
 
@@ -406,4 +425,17 @@ export function pickForDay<T>(items: T[], dateKey: string, skip = 0): T | null {
   let h = 17;
   for (let i = 0; i < dateKey.length; i++) h = (h * 31 + dateKey.charCodeAt(i)) >>> 0;
   return items[(h + skip) % items.length];
+}
+
+/** "1:32" for a length in seconds. */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** "4.2 MB" */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }

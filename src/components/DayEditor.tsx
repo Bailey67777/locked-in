@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { dayProgress, habitLook, habitsComplete, uid } from "@/lib/model";
 import { habitStreak } from "@/lib/stats";
-import { haptic, playSound, prewarmSounds } from "@/lib/sounds";
+import { haptic, playRandomSound, playSound, precacheSounds, prewarmRandom, prewarmSounds } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
 import HabitChecklist from "./HabitChecklist";
 import TodoList from "./TodoList";
@@ -38,8 +38,12 @@ export default function DayEditor({ date }: Props) {
   const soundIds = settings.habits.map((h) => h.sound).join(",");
   useEffect(() => {
     if (!settings.soundsOn) return;
-    prewarmSounds([...soundIds.split(","), settings.todoSound, settings.dayCompleteSound]);
-  }, [soundIds, settings.soundsOn, settings.todoSound, settings.dayCompleteSound]);
+    if (settings.randomSounds) {
+      prewarmRandom();
+      prewarmSounds([settings.dayCompleteSound]);
+    } else prewarmSounds([...soundIds.split(","), settings.todoSound, settings.dayCompleteSound]);
+    precacheSounds(); // all fifty into the offline cache, in the background
+  }, [soundIds, settings.soundsOn, settings.randomSounds, settings.todoSound, settings.dayCompleteSound]);
 
   const streaks = useMemo(() => {
     const out: Record<string, number> = {};
@@ -56,7 +60,11 @@ export default function DayEditor({ date }: Props) {
     updateDay(date, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }));
     if (turningOn) {
       haptic(12);
-      if (settings.soundsOn) playSound(habitLook(id, settings).sound);
+      // Lucky dip plays a different random sound every tick; otherwise the habit's own one.
+      if (settings.soundsOn) {
+        if (settings.randomSounds) playRandomSound();
+        else playSound(habitLook(id, settings).sound);
+      }
       const nowComplete = nextHabits.length > 0 && nextHabits.every((h) => h.done);
       if (nowComplete && !wasComplete) {
         haptic([20, 60, 20, 60, 40]);
@@ -73,7 +81,10 @@ export default function DayEditor({ date }: Props) {
     const t = day.todos.find((x) => x.id === id);
     if (t && !t.done) {
       haptic(10);
-      if (settings.soundsOn) playSound(settings.todoSound);
+      if (settings.soundsOn) {
+        if (settings.randomSounds) playRandomSound();
+        else playSound(settings.todoSound);
+      }
     }
     updateDay(date, (d) => ({ ...d, todos: d.todos.map((x) => (x.id === id ? { ...x, done: !x.done } : x)) }));
   };

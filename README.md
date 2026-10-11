@@ -7,15 +7,17 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 
 - **Today** – greeting and day streak, seasonal banner photo, progress ring (habits + to-dos), core habits (emoji,
   colour, time, sound, must-do), to-do list, the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
-  Settings), a **throwback** journal entry, and **Submit day** (locks the ticks and logs the percentage; no
+  Settings), a **throwback** (a past journal entry, with a button to watch that day's vlog if there is one), and
+  **Submit day** (locks the ticks and logs the percentage; no
   punishment. A day of 80%+ with every ⭐ must-do ticked plays the reward video).
 - **Study** – Claude's grade trajectory (U–A*, one line per A-level, dashed trend to the exam, tap a point for the reason),
   estimated weekly study hours, and the Economics concept of the day plus reading (Claude's version when it has written
   one, otherwise the built-in cards and live BBC / Guardian headlines).
 - **Health** – streaks, submitted-day tiers, insights, ratings chart, per-habit stats, habit heatmap. Health only.
-- **Calendar** – month view; a camera on today's cell adds today's photo, past days show theirs or stay plain blue.
-  Tap any day to open its full record.
-- **Settings** – habits, sounds, first exam date, countdowns, season, Claude sync status, reminders, video, photos, sync.
+- **Calendar** – month view; a camera on today's cell adds today's photo, and the **vlog recorder** opens straight
+  after (up to 3 minutes, with prompts). Past days show their photo or stay plain blue; 🎬 marks a day with a vlog.
+  Tap any day to open its full record and watch, redo or delete its vlog.
+- **Settings** – habits, sounds (with lucky dip), first exam date, countdowns, season, Claude sync status, reminders, vlog storage, video, photos, sync.
 - **Seasons** – the palette (a different morning-sun light each season) and the banner photo switch with the seasons
   in Bristol (spring Mar–May, summer Jun–Aug, autumn Sep–Nov, winter Dec–Feb). Settings → Season previews one.
 
@@ -177,6 +179,17 @@ opens on a device that remembers the old key, it converts them to plain text and
 write. On a device that doesn't, the Journal card asks for the old passphrase once. Encryption code lives in
 `src/lib/crypto.ts` only for that conversion.
 
+## Vlogs
+
+A vlog is recorded in the app (`src/components/VlogRecorder.tsx`), cut into 384 KB pieces and uploaded to
+`vlogs/<date>/<recordedAt>/<n>` (`src/lib/vlog.ts`); the day record only carries a small `vlog` label. Uploads run
+from a queue in IndexedDB, so a vlog recorded offline (or interrupted) finishes later, and the last few stay cached
+on the device so they play instantly. Like the journal and photos, vlogs have no passphrase: anyone with the site
+URL and data key could fetch them. They are never sent to Claude (the API's allow-list doesn't include them).
+
+Recording is deliberately small (about 2 MB a minute) because the free database holds 1 GB in total. Settings shows
+how much vlogs use, and recording stops at 700 MB until some are saved to the device and deleted.
+
 ## The Claude API
 
 Server-only routes under `/api/claude/*`, protected by `Authorization: Bearer <CLAUDE_API_SECRET>` (a
@@ -206,6 +219,7 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
       "academic": { "econ": "…", "maths": "…", "physics": "…" },  // active recall, plaintext
       "answers": { "maths": "…", "physics": "…", "econ": "…" },   // answers to that day's questions
       "song": "…", "screenMinutes": 185, "thumb": "data:image/jpeg;base64,…",
+      "vlog": { "v": 1, "at": 1791745317939, "dur": 92, "bytes": 3412345, "chunks": 9, "mime": "video/mp4" },
       "submitted": { "at": 1789286956869, "pct": 86, "tier": "t80", "keystoneMissed": false }
     }
   },
@@ -218,7 +232,8 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
     "memory":    { "text": "…" },
     "sync":      { "lastRead": …, "lastWrite": … }
   },
-  "photos": { "2026-09-25": { "data": "data:image/jpeg;base64,…" } }   // 720px versions, loaded on demand
+  "photos": { "2026-09-25": { "data": "data:image/jpeg;base64,…" } },  // 720px versions, loaded on demand
+  "vlogs": { "2026-09-25": { "1791745317939": [ "<base64 piece>", … ] } } // video pieces, fetched only to play
 }
 ```
 
@@ -226,21 +241,25 @@ Today and future days always follow the current habit list (with ticks preserved
 the snapshot they were saved with, so editing the habit list never rewrites history. Habits with a time are
 kept in time order automatically.
 
-Sounds are synthesised in the browser with the Web Audio API (`src/lib/sounds.ts`): fifty of them, 2–5 seconds
-each, no audio files to host, works offline. Each is rendered offline, measured, normalised to the same loudness and
-soft-limited, so they all play at one (boosted) volume. New habits get a random one, biased towards sounds whose `tags`
-match words in the habit name (e.g. "sleep" → snore, "basketball" → bouncy ball). Add a new one by appending to
-the `SOUNDS` array; the 🎲 button in Settings picks a random one.
+**Sounds.** Fifty small MP3s in `public/sounds`, built by `node scripts/make-sounds.mjs` (needs a Mac for `say`, plus
+`ffmpeg`). Nothing is downloaded or sampled from anyone's recording: the teachers and other voices are the Mac's
+built-in speech voices, every tune is a public-domain melody written out as notes in the script, and the goats,
+whistles, kazoos and horns are synthesised there. Every clip is levelled to the same loudness when built and checked
+again after decoding (`src/lib/sounds.ts`). With **lucky dip** on (the default) each tick plays a random one from a
+shuffled bag of all fifty; turn it off in Settings to give each habit its own. To change a sound, edit its entry in
+the script and run it again; it rewrites the files and `src/lib/sound-list.ts`. The 50 ids never change, because
+saved habits point at them. Bump `VERSION` in the script when files change so phones drop their cached copies.
 
 ## Project layout
 
 ```
 src/app/            layout, page, manifest, global styles, icons
 src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
-src/lib/            types, dates, model (normalise days/study, tiers, reward rule), season (palettes + banners), crypto (old journal conversion), stats, sounds, images, daily (econ cards), reminders, store (state, outbox), firebase
+src/lib/            types, dates, model (normalise days/study, tiers, reward rule), season (palettes + banners), crypto (old journal conversion), vlog (video storage and upload queue), stats, sounds (+ generated sound-list), images, daily (econ cards), reminders, store (state, outbox), firebase
 src/lib/server/     claude.ts: auth, allow-listed reads, zod-validated writes for the nightly task
 src/app/api/        econ-news (headlines proxy), claude/day, claude/range, claude/update
 public/media/       your submit-day videos
+public/sounds/      the fifty habit sounds (regenerate with `node scripts/make-sounds.mjs`)
 public/sw.js        service worker (offline app shell)
 public/icons/       PWA icons (regenerate with `node scripts/gen-icons.mjs`)
 public/photos/      your photos

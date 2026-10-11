@@ -50,6 +50,19 @@ export type QSubject = "maths" | "physics" | "econ";
 /** Your answers to the three questions Claude set for that day. */
 export type Answers = Partial<Record<QSubject, string>>;
 
+/**
+ * The label for a day's vlog. The video itself is stored in pieces under /vlogs/<date>/<at>;
+ * this only says how to put it back together.
+ */
+export type VlogMeta = {
+  v: 1;
+  at: number; // when it was recorded (also names the folder the pieces live in)
+  dur: number; // seconds
+  bytes: number; // size of the video
+  chunks: number; // how many pieces
+  mime: string; // e.g. "video/mp4"
+};
+
 export type DayRecord = {
   date: string; // YYYY-MM-DD
   habits: DayHabit[]; // snapshot of the habit list for this day
@@ -68,6 +81,7 @@ export type DayRecord = {
   plan?: PlanItem[];
   submitted?: Submission;
   thumb?: string; // tiny JPEG data URL shown on the calendar
+  vlog?: VlogMeta; // the day's video diary (stored separately, fetched only to play)
   updatedAt?: number;
 };
 
@@ -95,6 +109,8 @@ export type Settings = {
   soundsOn: boolean;
   dayCompleteSound: string;
   todoSound: string;
+  /** Lucky dip: every tick plays a random sound instead of the habit's own one. */
+  randomSounds: boolean;
   /** Old Countdowns tab data. No longer shown, kept so nothing is lost. */
   countdowns: Countdown[];
   reminders: Reminders;

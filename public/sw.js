@@ -1,5 +1,5 @@
 /* Locked In service worker: app shell offline + cache-first static assets. */
-const VERSION = "locked-in-v1";
+const VERSION = "locked-in-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -40,11 +40,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed build assets, icons and photos: cache first.
+  // Hashed build assets, icons, photos and the habit sounds: cache first.
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/photos/") ||
+    url.pathname.startsWith("/sounds/") ||
     url.pathname === "/manifest.webmanifest"
   ) {
     event.respondWith(
