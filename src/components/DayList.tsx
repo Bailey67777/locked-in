@@ -12,11 +12,11 @@ const COLORS = HABIT_COLORS.filter((c) => c.name !== "Slate");
 export function itemLook(t: Todo, settings: Settings): { emoji: string; color: string; time?: string; name: string } {
   if (t.habitId) {
     const look = habitLook(t.habitId, settings);
-    return { emoji: look.emoji, color: look.color, time: look.time, name: settings.habits.find((h) => h.id === t.habitId)?.name ?? t.text };
+    return { emoji: t.emoji ?? look.emoji, color: t.color ?? look.color, time: look.time, name: settings.habits.find((h) => h.id === t.habitId)?.name ?? t.text };
   }
   let h = 7;
   for (let i = 0; i < t.id.length; i++) h = (h * 31 + t.id.charCodeAt(i)) >>> 0;
-  return { emoji: AUTO_EMOJIS[h % AUTO_EMOJIS.length], color: COLORS[(h >>> 5) % COLORS.length].hex, name: t.text };
+  return { emoji: t.emoji ?? AUTO_EMOJIS[h % AUTO_EMOJIS.length], color: t.color ?? COLORS[(h >>> 5) % COLORS.length].hex, name: t.text };
 }
 
 type Props = {

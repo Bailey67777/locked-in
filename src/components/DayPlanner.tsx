@@ -9,6 +9,7 @@ import { habitItem, uid } from "@/lib/model";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { ChevronIcon, CloseIcon, PlusIcon } from "./Icons";
+import { EMOJI_SUGGESTIONS, HABIT_COLORS } from "@/lib/defaults";
 import { itemLook } from "./DayList";
 import EditPicker from "./EditPicker";
 
@@ -31,13 +32,17 @@ export default function DayPlanner({ date, onClose }: { date: string; onClose: (
   const sourceLabel = source === today ? "today's" : date === today ? "yesterday's" : `${formatLong(source)}'s`;
   const [text, setText] = useState("");
   const [picking, setPicking] = useState<string | null>(null);
+  const [styling, setStyling] = useState<string | null>(null);
+  const [customEmoji, setCustomEmoji] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const missingHabits = settings.habits.filter((h) => !items.some((t) => t.habitId === h.id));
 
   const write = (next: Todo[]) => updateDay(date, (d) => ({ ...d, list: true, todos: next }));
 
   const importFrom = () => {
-    const extra = sourceItems.filter((s) => !items.some((t) => sameItem(t, s))).map((s) => (s.habitId ? { ...habitItem({ id: s.habitId, name: s.text }), ...(s.editId ? { editId: s.editId } : {}) } : { ...s, id: uid(), done: false }));
+    const extra = sourceItems
+      .filter((s) => !items.some((t) => sameItem(t, s)))
+      .map((s) => (s.habitId ? { ...s, ...habitItem({ id: s.habitId, name: s.text }) } : { ...s, id: uid(), done: false }));
     write([...items, ...extra]);
   };
   const addAllHabits = () => write([...items, ...missingHabits.map((h) => habitItem(h))]);
@@ -104,10 +109,21 @@ export default function DayPlanner({ date, onClose }: { date: string; onClose: (
                 const look = itemLook(t, settings);
                 const edit = t.editId ? bank.byId[t.editId] : undefined;
                 return (
-                  <li key={t.id} className="flex items-center gap-2 py-2 pl-3 pr-1.5">
-                    <span className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full border-[1.5px] text-[14px]" style={{ borderColor: look.color, backgroundColor: `${look.color}12` }}>
+                  <li key={t.id}>
+                    <div className="flex items-center gap-2 py-2 pl-3 pr-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStyling(styling === t.id ? null : t.id);
+                        setCustomEmoji("");
+                      }}
+                      className={cn("tap flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] text-[14px]", styling === t.id && "ring-2 ring-ink ring-offset-1")}
+                      style={{ borderColor: look.color, backgroundColor: `${look.color}12` }}
+                      aria-label={`Change emoji and colour for ${look.name}`}
+                      aria-expanded={styling === t.id}
+                    >
                       {t.done ? "✓" : look.emoji}
-                    </span>
+                    </button>
                     {t.habitId ? (
                       <span className="min-w-0 flex-1">
                         <span className="fancy block truncate text-[15.5px] text-ink">{look.name}</span>
@@ -146,6 +162,57 @@ export default function DayPlanner({ date, onClose }: { date: string; onClose: (
                     <button type="button" className="btn-icon h-8 w-8 text-ink-muted" onClick={() => write(items.filter((x) => x.id !== t.id))} aria-label={`Remove ${look.name}`}>
                       <CloseIcon width={14} height={14} />
                     </button>
+                    </div>
+                    {styling === t.id && (
+                      <div className="border-t border-black/[0.05] bg-sand-50/80 px-3 py-2.5">
+                        <div className="flex flex-wrap gap-1">
+                          {EMOJI_SUGGESTIONS.map((e) => (
+                            <button key={e} type="button" onClick={() => patch(t.id, { emoji: e })} className={cn("tap h-8 w-8 rounded-lg text-[16px]", look.emoji === e ? "bg-ink/10 ring-1 ring-ink/40" : "hover:bg-white")} aria-label={`Use ${e}`}>
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                        <form
+                          className="mt-2 flex items-center gap-1.5"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const v = customEmoji.trim();
+                            if (v) patch(t.id, { emoji: v.slice(0, 8) });
+                            setCustomEmoji("");
+                          }}
+                        >
+                          <input value={customEmoji} onChange={(e) => setCustomEmoji(e.target.value)} placeholder="Or type any emoji" className="field w-36 py-1.5 text-[14px]" aria-label="Custom emoji" />
+                          <button type="submit" className="btn-ghost bg-white/80 px-3 py-1.5 text-[12px]" disabled={!customEmoji.trim()}>
+                            Use
+                          </button>
+                        </form>
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {HABIT_COLORS.map((c) => (
+                            <button
+                              key={c.hex}
+                              type="button"
+                              onClick={() => patch(t.id, { color: c.hex })}
+                              className={cn("tap h-7 w-7 rounded-full border-2", look.color.toLowerCase() === c.hex.toLowerCase() ? "border-ink" : "border-white")}
+                              style={{ backgroundColor: c.hex }}
+                              aria-label={c.name}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          {t.emoji || t.color ? (
+                            <button type="button" className="text-[12px] font-bold text-ink-muted underline" onClick={() => patch(t.id, { emoji: undefined, color: undefined })}>
+                              {t.habitId ? "Back to the habit's own" : "Back to the default"}
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                          <button type="button" className="btn-ghost bg-white/80 px-3 py-1.5 text-[12px]" onClick={() => setStyling(null)}>
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -207,7 +274,7 @@ export default function DayPlanner({ date, onClose }: { date: string; onClose: (
                 </button>
               ))}
           </div>
-          <p className="mt-2 text-[11.5px] text-ink-muted">Saves as you go. 🎬 picks an edit that plays when you tick that item.</p>
+          <p className="mt-2 text-[11.5px] text-ink-muted">Saves as you go. Tap an emoji to change it and its colour. 🎬 picks an edit that plays when you tick that item.</p>
         </div>
       </div>
       {pickingItem && (

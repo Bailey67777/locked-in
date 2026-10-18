@@ -95,6 +95,8 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
         const todo: Todo = { id: t.id as string, text: String(t.text ?? ""), done: Boolean(t.done) };
         if (typeof t.habitId === "string" && t.habitId) todo.habitId = t.habitId;
         if (typeof t.editId === "string" && t.editId) todo.editId = t.editId;
+        if (typeof t.emoji === "string" && t.emoji.trim()) todo.emoji = t.emoji.trim().slice(0, 8);
+        if (typeof t.color === "string" && HEX_RE.test(t.color)) todo.color = t.color.toLowerCase();
         return todo;
       }),
     ratings: {

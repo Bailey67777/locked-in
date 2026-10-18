@@ -19,6 +19,9 @@ export type Todo = {
   habitId?: string;
   /** An edit from the bank that plays full screen when this item is ticked. */
   editId?: string;
+  /** Chosen while writing the day; otherwise a habit's own emoji/colour, or one picked from the id. */
+  emoji?: string;
+  color?: string; // hex
 };
 
 /** A video in the edit bank. The video is stored in pieces under /edits/<id>; this is its label. */
