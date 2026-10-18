@@ -11,10 +11,11 @@ import { DATA_PATH, getDb } from "./firebase";
 
 export type ReminderItem = { key: string; time: string; title: string; body: string };
 
-/** What should fire today: each timed habit, plus the evening "submit your day" nudge. */
-export function remindersFor(settings: Settings): ReminderItem[] {
+/** What should fire today: each timed habit (only those on the day's To Do, when a day is given), plus the evening "submit your day" nudge. */
+export function remindersFor(settings: Settings, day?: DayRecord): ReminderItem[] {
+  const onList = day ? new Set(day.habits.map((h) => h.id)) : null;
   const items: ReminderItem[] = settings.habits
-    .filter((h) => h.time)
+    .filter((h) => h.time && (!onList || onList.has(h.id)))
     .map((h) => ({ key: `${h.id}@${h.time}`, time: h.time as string, title: `${h.emoji ?? "⏰"} ${h.name}`, body: "Time for this one. Tick it when it's done." }));
   items.push({ key: `submit@${settings.reminders.submitTime}`, time: settings.reminders.submitTime, title: "🔒 Submit your day", body: "Tick what you did, rate it, write a line, then lock it in." });
   return items;
@@ -80,7 +81,7 @@ export async function scheduleTodayPushes(settings: Settings, today: string, day
   }
   const soon = Date.now() + 90_000;
   const doneHabits = new Set(day.habits.filter((h) => h.done).map((h) => h.id));
-  const due = remindersFor(settings).filter((r) => {
+  const due = remindersFor(settings, day).filter((r) => {
     if (done.includes(r.key)) return false;
     if (atToday(r.time).getTime() < soon) return false;
     const id = r.key.split("@")[0];
@@ -126,7 +127,7 @@ export function fireDueBrowserReminders(settings: Settings, today: string, day: 
     /* ignore */
   }
   const doneHabits = new Set(day.habits.filter((h) => h.done).map((h) => h.id));
-  for (const r of remindersFor(settings)) {
+  for (const r of remindersFor(settings, day)) {
     if (r.time !== hhmm || fired.includes(r.key)) continue;
     const id = r.key.split("@")[0];
     if (id === "submit" ? Boolean(day.submitted) : doneHabits.has(id)) continue;

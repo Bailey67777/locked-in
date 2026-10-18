@@ -88,7 +88,7 @@ export function buildDayView(date: string, dayRaw: unknown, questionsRaw: unknow
   const day = (dayRaw && typeof dayRaw === "object" ? dayRaw : {}) as Record<string, unknown>;
   const sub = (day.submitted && typeof day.submitted === "object" ? day.submitted : null) as Record<string, unknown> | null;
   const habits = list(day.habits);
-  const todos = list(day.todos);
+  const todos = list(day.todos).filter((t) => !t.habitId); // habit items on a written list are counted as habits
   const ac = (day.academic && typeof day.academic === "object" ? day.academic : {}) as Record<string, unknown>;
   const answers = (day.answers && typeof day.answers === "object" ? day.answers : {}) as Record<string, unknown>;
   const qs = (questionsRaw && typeof questionsRaw === "object" ? questionsRaw : {}) as Record<string, unknown>;

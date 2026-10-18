@@ -1,4 +1,4 @@
-import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta } from "./types";
+import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta, EditMeta } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
@@ -91,7 +91,12 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
       .map((h) => ({ id: h.id as string, name: String(h.name ?? ""), done: Boolean(h.done) })),
     todos: asArray<Partial<Todo>>(r.todos)
       .filter((t) => typeof t.id === "string")
-      .map((t) => ({ id: t.id as string, text: String(t.text ?? ""), done: Boolean(t.done) })),
+      .map((t) => {
+        const todo: Todo = { id: t.id as string, text: String(t.text ?? ""), done: Boolean(t.done) };
+        if (typeof t.habitId === "string" && t.habitId) todo.habitId = t.habitId;
+        if (typeof t.editId === "string" && t.editId) todo.editId = t.editId;
+        return todo;
+      }),
     ratings: {
       day: clampRating(ratings.day),
       health: clampRating(ratings.health),
@@ -100,6 +105,7 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
   };
   if (typeof r.journal === "string" && r.journal.trim()) day.journal = r.journal; // legacy plaintext, pre-encryption only
   if (typeof r.recall === "string" && r.recall.trim()) day.recall = r.recall; // legacy plaintext, pre-encryption only
+  if (r.list === true) day.list = true;
   const je = normalizeEncrypted(r.journalEnc);
   if (je) day.journalEnc = je;
   const ac = (r.academic && typeof r.academic === "object" ? r.academic : null) as Partial<AcademicJournal> | null;
@@ -344,8 +350,30 @@ export function normalizeData(raw: unknown): AppData {
   return { settings: normalizeSettings(r.settings), days: normalizeDays(r.days), study: normalizeStudy(r.study), journalCrypto: normalizeJournalCrypto(r.journalCrypto) };
 }
 
+/** The id a habit gets when it is an item on a day's To Do. */
+export const habitItemId = (habitId: string) => `h_${habitId}`;
+
+/** A day's habits, worked out from its written list (so streaks, stats and the must-do rule keep working). */
+export function habitsFromList(todos: Todo[], settings: Settings): DayHabit[] {
+  const seen = new Set<string>();
+  const out: DayHabit[] = [];
+  for (const t of todos) {
+    if (!t.habitId || seen.has(t.habitId)) continue;
+    seen.add(t.habitId);
+    out.push({ id: t.habitId, name: settings.habits.find((h) => h.id === t.habitId)?.name ?? t.text, done: t.done });
+  }
+  return out;
+}
+
+/** A habit as an item on a day's To Do. */
+export function habitItem(h: { id: string; name: string }, done = false): Todo {
+  return { id: habitItemId(h.id), text: h.name, done, habitId: h.id };
+}
+
 /**
- * The day as it should be displayed.
+ * The day as it should be displayed: always one To Do list.
+ * A day that was written as a list shows exactly that list. Any other day gets one built for it: today and later
+ * from the current habits (ticks kept), past days from the habits they were saved with; then that day's to-dos.
  * Today and future days follow the current habit list (names/order/additions apply going forward),
  * keeping any ticks already made. Past days keep their own snapshot so history is never rewritten.
  */
@@ -356,6 +384,7 @@ export function materializeDay(
   today: string,
 ): DayRecord {
   const base = stored ?? emptyDay(date);
+  if (base.list) return { ...base, habits: habitsFromList(base.todos, settings) };
   let habits: DayHabit[];
   if (date >= today || base.habits.length === 0) {
     const done = new Map(base.habits.map((h) => [h.id, h.done] as const));
@@ -363,7 +392,8 @@ export function materializeDay(
   } else {
     habits = base.habits;
   }
-  return { ...base, habits };
+  const todos = [...habits.map((h) => habitItem(h, h.done)), ...base.todos.filter((t) => !t.habitId)];
+  return { ...base, habits, todos, list: true };
 }
 
 /** Look up a habit's look (emoji/colour) by id, with sensible defaults for habits no longer in the list. */
@@ -378,9 +408,11 @@ export function habitLook(id: string, settings: Settings): { emoji: string; colo
   };
 }
 
+/** Done / total over the day's To Do (older days that kept habits apart count both). */
 export function dayProgress(day: DayRecord): { done: number; total: number; pct: number } {
-  const total = day.habits.length + day.todos.length;
-  const done = day.habits.filter((h) => h.done).length + day.todos.filter((t) => t.done).length;
+  const items: { done: boolean }[] = day.list ? day.todos : [...day.habits, ...day.todos];
+  const total = items.length;
+  const done = items.filter((t) => t.done).length;
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
@@ -438,4 +470,23 @@ export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+export function normalizeEditMeta(id: string, raw: unknown): EditMeta | null {
+  const v = (raw && typeof raw === "object" ? raw : null) as Record<string, unknown> | null;
+  if (!v) return null;
+  const chunks = Math.round(Number(v.chunks));
+  if (!Number.isFinite(chunks) || chunks < 1) return null;
+  const meta: EditMeta = {
+    id,
+    name: typeof v.name === "string" && v.name.trim() ? v.name.trim().slice(0, 80) : "Edit",
+    dur: Math.max(0, Math.round(Number(v.dur) || 0)),
+    bytes: Math.max(0, Math.round(Number(v.bytes) || 0)),
+    chunks,
+    mime: typeof v.mime === "string" && /^video\/[\w.+-]+/.test(v.mime) ? v.mime : "video/mp4",
+    at: typeof v.at === "number" ? v.at : 0,
+  };
+  if (typeof v.usedAt === "number") meta.usedAt = v.usedAt;
+  if (typeof v.thumb === "string" && v.thumb.startsWith("data:image/")) meta.thumb = v.thumb;
+  return meta;
 }

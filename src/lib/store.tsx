@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { get, goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
 import type { AppData, DayRecord, Settings, VlogMeta } from "./types";
-import { legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
+import { habitsFromList, legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
 import { addDays, todayKey } from "./dates";
 import { DATA_PATH, getDb } from "./firebase";
 import { cachedChunks, cacheChunks, downloadChunks, dropCached, dropPending, getPending, listPending, promoteToCache, queueVlog, uploadPending, vlogPath, vlogStorageAvailable } from "./vlog";
@@ -323,7 +323,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     (date: string, fn: (day: DayRecord) => DayRecord) => {
       const prev = dataRef.current;
       const current = materializeDay(date, prev.days[date], prev.settings, todayRef.current || date);
-      const nextDay: DayRecord = stripUndefined({ ...fn(current), date, updatedAt: Date.now() }); // Firebase rejects undefined values
+      const changed = fn(current);
+      // A written list is the source of truth; the day's habits are always worked out from it.
+      if (changed.list) changed.habits = habitsFromList(changed.todos, prev.settings);
+      const nextDay: DayRecord = stripUndefined({ ...changed, date, updatedAt: Date.now() }); // Firebase rejects undefined values
       commit({ ...prev, days: { ...prev.days, [date]: nextDay } });
       pushDay(date, nextDay);
     },
@@ -347,7 +350,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       const todo = day.todos.find((t) => t.id === todoId);
       if (!todo) return;
       updateDay(date, (d) => ({ ...d, todos: d.todos.filter((t) => t.id !== todoId) }));
-      updateDay(addDays(date, 1), (d) => ({ ...d, todos: [...d.todos, { ...todo, done: false }] }));
+      updateDay(addDays(date, 1), (d) => (d.todos.some((t) => t.id === todo.id) ? d : { ...d, todos: [...d.todos, { ...todo, done: false }] }));
     },
     [updateDay],
   );

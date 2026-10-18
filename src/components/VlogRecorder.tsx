@@ -7,6 +7,7 @@ import { formatBytes, formatClock } from "@/lib/model";
 import { formatLong } from "@/lib/dates";
 import { VLOG_AUDIO_BPS, VLOG_BUDGET_BYTES, VLOG_MAX_BYTES, VLOG_MAX_SECONDS, VLOG_VIDEO_BPS, recorderMimes, recorderSupported, storedSize, videoDuration } from "@/lib/vlog";
 import { cn } from "@/lib/cn";
+import { useEditBank } from "@/lib/edits";
 import { CloseIcon } from "./Icons";
 
 type Props = { date: string; onClose: () => void };
@@ -88,9 +89,13 @@ export default function VlogRecorder({ date, onClose }: Props) {
   const alive = useRef(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const used = useMemo(() => Object.values(data.days).reduce((n, d) => n + (d.vlog && d.date !== date ? storedSize(d.vlog.bytes) : 0), 0), [data.days, date]);
+  const bank = useEditBank();
+  const used = useMemo(
+    () => Object.values(data.days).reduce((n, d) => n + (d.vlog && d.date !== date ? storedSize(d.vlog.bytes) : 0), 0) + bank.list.reduce((n, e) => n + storedSize(e.bytes), 0),
+    [data.days, date, bank.list],
+  );
   const blockReason =
-    used >= VLOG_BUDGET_BYTES ? `Your vlog storage is full (${formatBytes(used)}). Save some older vlogs to your device and delete them (Calendar → that day), then record this one.` : null;
+    used >= VLOG_BUDGET_BYTES ? `Storage for vlogs and edits is full (${formatBytes(used)}). Delete some edits in Settings, or save older vlogs to your device and delete them (Calendar → that day), then record this one.` : null;
 
   const stopCamera = useCallback(() => {
     stream.current?.getTracks().forEach((t) => t.stop());

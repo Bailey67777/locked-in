@@ -6,6 +6,8 @@ import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/firebase";
 import { REWARD_PCT, formatBytes, uid } from "@/lib/model";
 import { VLOG_BUDGET_BYTES, VLOG_MAX_SECONDS, storedSize } from "@/lib/vlog";
+import { EDIT_MAX_BYTES, deleteEdit, renameEdit, uploadEdit, useEditBank } from "@/lib/edits";
+import { formatClock } from "@/lib/model";
 import { SEASONS, SEASON_EMOJI, SEASON_LABEL } from "@/lib/season";
 import type { Countdown } from "@/lib/types";
 import { addDays, formatDateTime } from "@/lib/dates";
@@ -15,9 +17,12 @@ import { cn } from "@/lib/cn";
 import type { HabitDef } from "@/lib/types";
 import { ChevronIcon, PlusIcon, TrashIcon } from "./Icons";
 import PhotosSettings from "./PhotosSettings";
+import DayPlanner from "./DayPlanner";
+import EditPlayer from "./EditPlayer";
 
 export default function SettingsView() {
   const { data, updateSettings, sync, today, season, seasonChoice, setSeasonChoice } = useStore();
+  const [planningDate, setPlanningDate] = useState<string | null>(null);
   const [cd, setCd] = useState({ title: "", date: "", time: "09:00", color: HABIT_COLORS[2].hex, emoji: "" });
   const [cdConfirm, setCdConfirm] = useState<string | null>(null);
   const [pushTest, setPushTest] = useState<"idle" | "sending" | "ok" | "fail">("idle");
@@ -69,12 +74,33 @@ export default function SettingsView() {
     <div className="rise flex flex-col gap-3">
       <h1 className="px-1 pb-1 font-serif text-[28px] leading-none text-ink">Settings</h1>
 
+      {(() => {
+        const tomorrow = addDays(today, 1);
+        const day = data.days[tomorrow];
+        const written = Boolean(day?.list);
+        const n = written ? day!.todos.length : 0;
+        const withEdits = written ? day!.todos.filter((t) => t.editId).length : 0;
+        return (
+          <section className="card p-4">
+            <h2 className="card-title">Tomorrow&apos;s To Do</h2>
+            <p className="card-desc mt-1">
+              {written
+                ? `Written: ${n} ${n === 1 ? "thing" : "things"}${withEdits ? `, ${withEdits} with an edit` : ""}. Open it to change anything.`
+                : "Not written yet. Import today's list, add your habits, change what you need, and pick an edit for anything you want to earn."}
+            </p>
+            <button type="button" className="btn-primary mt-3 w-full" onClick={() => setPlanningDate(tomorrow)}>
+              ✍️ Write the next day
+            </button>
+          </section>
+        );
+      })()}
+
       <PhotosSettings season={season} />
 
       <section className="card p-4">
         <h2 className="card-title">Core habits</h2>
         <p className="card-desc mb-3 mt-1">
-          Give each one an emoji, a colour, a time and a sound. Habits with a time sort themselves into day order. Changes apply from today onwards; past days keep what they had.
+          Your habits, each with an emoji, a colour, a time and a sound. Add them to a day&apos;s To Do when you write it; a day you don&apos;t write starts with all of them. Past days keep what they had.
         </p>
         <ul className="flex flex-col gap-3">
           {habits.map((h, i) => {
@@ -530,6 +556,8 @@ export default function SettingsView() {
         })()}
       </section>
 
+      <EditBankCard />
+
       <section className="card p-4">
         <h2 className="card-title">Reward video</h2>
         <p className="mt-1 text-sm font-semibold text-ink-soft">
@@ -565,7 +593,98 @@ export default function SettingsView() {
         )}
       </section>
 
+      {planningDate && <DayPlanner date={planningDate} onClose={() => setPlanningDate(null)} />}
     </div>
+  );
+}
+
+/** Every edit in the bank: preview, rename, delete, or upload a new one. */
+function EditBankCard() {
+  const { data } = useStore();
+  const bank = useEditBank();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const vlogBytes = Object.values(data.days).reduce((n, d) => n + (d.vlog ? storedSize(d.vlog.bytes) : 0), 0);
+  const editBytes = bank.list.reduce((n, e) => n + storedSize(e.bytes), 0);
+  const inUse = new Set(Object.values(data.days).flatMap((d) => d.todos.map((t) => t.editId).filter(Boolean)));
+
+  const upload = async (file: File | undefined) => {
+    if (input.current) input.current.value = "";
+    if (!file) return;
+    setError(null);
+    setUploading(0);
+    try {
+      await uploadEdit(file, (f) => setUploading(f));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't upload that.");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  return (
+    <section className="card p-4">
+      <input ref={input} type="file" accept="video/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} />
+      <h2 className="card-title">Edit bank</h2>
+      <p className="card-desc mt-1">
+        Short videos that play when you tick something. Attach them while writing a day (the 🎬 button). Up to {EDIT_MAX_BYTES / 1024 / 1024} MB each. Vlogs and edits share {formatBytes(VLOG_BUDGET_BYTES)}: {formatBytes(vlogBytes + editBytes)} used.
+      </p>
+      <button type="button" className="btn-ghost mt-3 bg-white/70" onClick={() => input.current?.click()} disabled={uploading !== null || vlogBytes + editBytes >= VLOG_BUDGET_BYTES}>
+        <PlusIcon width={15} height={15} /> {uploading !== null ? `Uploading… ${Math.round(uploading * 100)}%` : "Upload an edit"}
+      </button>
+      {error && <p className="mt-2 text-[12px] font-bold text-sunset-600">{error}</p>}
+      {bank.list.length > 0 && (
+        <ul className="mt-3 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-sand-50">
+          {bank.list.map((e) => (
+            <li key={e.id} className="flex items-center gap-2.5 px-2.5 py-2">
+              <button type="button" onClick={() => setPreview(e.id)} className="tap relative h-12 w-9 shrink-0 overflow-hidden rounded-md bg-black/80" aria-label={`Play ${e.name}`}>
+                {e.thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={e.thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-sm">🎬</span>
+                )}
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] text-white/90">▶</span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <input
+                  key={`${e.id}:${e.name}`}
+                  defaultValue={e.name}
+                  onBlur={(ev) => ev.target.value.trim() && ev.target.value.trim() !== e.name && renameEdit(e.id, ev.target.value)}
+                  onKeyDown={(ev) => ev.key === "Enter" && ev.currentTarget.blur()}
+                  className="w-full rounded-md bg-transparent px-1 text-[13.5px] font-bold text-ink focus:bg-white focus:outline-none"
+                  aria-label="Edit name"
+                />
+                <div className="px-1 font-mono text-[10.5px] text-ink-muted">
+                  {formatClock(e.dur)} · {formatBytes(e.bytes)}
+                  {inUse.has(e.id) ? " · in use" : ""}
+                </div>
+              </div>
+              {confirm === e.id ? (
+                <button
+                  type="button"
+                  className="btn-ghost bg-sunset-100 px-2.5 text-[12px] text-sunset-700"
+                  onClick={() => {
+                    setConfirm(null);
+                    void deleteEdit(e.id);
+                  }}
+                >
+                  Delete?
+                </button>
+              ) : (
+                <button type="button" className="btn-icon h-8 w-8 text-ink-muted" onClick={() => setConfirm(e.id)} aria-label={`Delete ${e.name}`}>
+                  <TrashIcon width={15} height={15} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {preview && <EditPlayer editId={preview} onClose={() => setPreview(null)} />}
+    </section>
   );
 }
 

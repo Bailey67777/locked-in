@@ -11,7 +11,28 @@ export type HabitDef = {
 
 export type DayHabit = { id: string; name: string; done: boolean };
 
-export type Todo = { id: string; text: string; done: boolean };
+export type Todo = {
+  id: string;
+  text: string;
+  done: boolean;
+  /** Set when this item is one of your habits: its look, sound, streak and must-do rule come from the habit. */
+  habitId?: string;
+  /** An edit from the bank that plays full screen when this item is ticked. */
+  editId?: string;
+};
+
+/** A video in the edit bank. The video is stored in pieces under /edits/<id>; this is its label. */
+export type EditMeta = {
+  id: string;
+  name: string;
+  dur: number; // seconds
+  bytes: number;
+  chunks: number;
+  mime: string;
+  at: number; // uploaded
+  usedAt?: number; // last attached to an item, for sorting the bank
+  thumb?: string; // small JPEG data URL
+};
 
 /** 1–10, or 0 when not set yet. */
 export type Ratings = { day: number; health: number; happy: number };
@@ -65,8 +86,10 @@ export type VlogMeta = {
 
 export type DayRecord = {
   date: string; // YYYY-MM-DD
-  habits: DayHabit[]; // snapshot of the habit list for this day
+  habits: DayHabit[]; // which habits were on the day and whether they got done (worked out from `todos` once `list` is set)
   todos: Todo[];
+  /** The day's To Do is one written list: `todos` holds everything, habits included. Older days kept habits apart. */
+  list?: boolean;
   ratings: Ratings;
   /** The personal journal (plain text). */
   journal?: string;

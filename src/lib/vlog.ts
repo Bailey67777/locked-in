@@ -14,18 +14,21 @@ import { DATA_PATH, cloudConfigured } from "./firebase";
 export const VLOG_MAX_SECONDS = 180;
 /** Biggest single clip accepted (matters most for the "use the phone's camera" fallback, which can't be throttled). */
 export const VLOG_MAX_BYTES = 48 * 1024 * 1024;
-/** How much of the free 1 GB database vlogs may use. Past this, recording asks you to clear some first. */
+/** How much of the free 1 GB database vlogs and edits may use together. Past this, new ones ask you to clear some first. */
 export const VLOG_BUDGET_BYTES = 700 * 1024 * 1024;
+export const MEDIA_BUDGET_BYTES = VLOG_BUDGET_BYTES;
 /** Recording quality: small on purpose, so months of vlogs fit in the free database. */
 export const VLOG_VIDEO_BPS = 260_000;
 export const VLOG_AUDIO_BPS = 32_000;
 
-const CHUNK_BYTES = 384 * 1024;
+export const CHUNK_BYTES = 384 * 1024;
 const CACHE_KEEP = 6;
 const DB_NAME = "locked-in-vlogs";
 const PENDING = "pending";
 const CACHE = "cache";
-const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "").replace(/\/+$/, "");
+/** On-device copies of edits from the bank (see edits.ts). */
+export const EDIT_CACHE = "edits";
+export const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "").replace(/\/+$/, "");
 
 /** Bytes a video of this size takes up in the database (base64 plus a little overhead). */
 export const storedSize = (bytes: number) => Math.ceil(bytes * 1.34);
@@ -50,14 +53,14 @@ export function vlogStorageAvailable(): boolean {
 export const vlogPath = (date: string, at: number) => `${DATA_PATH}/vlogs/${date}/${at}`;
 const chunkUrl = (date: string, at: number, i: number) => `${DB_URL}/${vlogPath(date, at)}/${i}.json`;
 
-function bytesToB64(bytes: Uint8Array): string {
+export function bytesToB64(bytes: Uint8Array): string {
   let s = "";
   const step = 0x8000;
   for (let i = 0; i < bytes.length; i += step) s += String.fromCharCode.apply(null, bytes.subarray(i, i + step) as unknown as number[]);
   return btoa(s);
 }
 
-function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
+export function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const s = atob(b64);
   const out = new Uint8Array(new ArrayBuffer(s.length));
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
@@ -69,17 +72,19 @@ function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") return reject(new Error("no indexedDB"));
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore(PENDING, { keyPath: "date" });
-      req.result.createObjectStore(CACHE, { keyPath: "date" });
+      const names = req.result.objectStoreNames;
+      if (!names.contains(PENDING)) req.result.createObjectStore(PENDING, { keyPath: "date" });
+      if (!names.contains(CACHE)) req.result.createObjectStore(CACHE, { keyPath: "date" });
+      if (!names.contains(EDIT_CACHE)) req.result.createObjectStore(EDIT_CACHE, { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function tx<T>(store: string, mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T | undefined> {
+export async function tx<T>(store: string, mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T | undefined> {
   const db = await openDb();
   try {
     return await new Promise<T | undefined>((resolve, reject) => {
@@ -137,7 +142,7 @@ export async function dropPending(date: string): Promise<void> {
   }
 }
 
-async function request(url: string, init: RequestInit, timeoutMs = 60_000): Promise<Response> {
+export async function request(url: string, init: RequestInit, timeoutMs = 60_000): Promise<Response> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
@@ -212,15 +217,29 @@ export async function dropCached(date: string): Promise<void> {
 /** Fetch the pieces of a vlog from the database, a few at a time. */
 export async function downloadChunks(date: string, at: number, count: number, onProgress?: (fraction: number) => void): Promise<ArrayBuffer[]> {
   if (!cloudConfigured || !DB_URL) throw new Error("This vlog isn't on this device.");
+  return getPieces(vlogPath(date, at), count, onProgress);
+}
+
+/** Upload pieces to <path>/<n> (database path without the URL), starting at `from`. */
+export async function putPieces(path: string, chunks: ArrayBuffer[], from = 0, onEach?: (uploaded: number) => void): Promise<void> {
+  for (let i = from; i < chunks.length; i++) {
+    const body = JSON.stringify(bytesToB64(new Uint8Array(chunks[i])));
+    await request(`${DB_URL}/${path}/${i}.json?print=silent`, { method: "PUT", body, headers: { "Content-Type": "application/json" } });
+    onEach?.(i + 1);
+  }
+}
+
+/** Download pieces <path>/0 … <path>/<count-1>, three at a time. */
+export async function getPieces(path: string, count: number, onProgress?: (fraction: number) => void): Promise<ArrayBuffer[]> {
   const out: ArrayBuffer[] = new Array(count);
   let next = 0;
   let done = 0;
   const worker = async () => {
     while (next < count) {
       const i = next++;
-      const res = await request(chunkUrl(date, at, i), { method: "GET" });
+      const res = await request(`${DB_URL}/${path}/${i}.json`, { method: "GET" });
       const b64 = (await res.json()) as unknown;
-      if (typeof b64 !== "string" || !b64) throw new Error("A piece of this vlog is missing.");
+      if (typeof b64 !== "string" || !b64) throw new Error("A piece of this video is missing.");
       out[i] = b64ToBytes(b64).buffer;
       done++;
       onProgress?.(done / count);

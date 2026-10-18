@@ -5,8 +5,8 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 
 **What's in it** (five tabs: Today · Study · Health · Calendar · Settings)
 
-- **Today** – greeting and day streak, seasonal banner photo, progress ring (habits + to-dos), core habits (emoji,
-  colour, time, sound, must-do), to-do list, the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
+- **Today** – greeting and day streak, seasonal banner photo, progress ring, one **To Do** list (your habits and
+  everything else together, each item can carry an **edit**: a short video that plays when you tick it), the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
   Settings), a **throwback** (a past journal entry, with a button to watch that day's vlog if there is one), and
   **Submit day** (locks the ticks and logs the percentage; no
   punishment. A day of 80%+ with every ⭐ must-do ticked plays the reward video).
@@ -17,7 +17,7 @@ One user, two devices, no login. Next.js + React + Tailwind, synced through a Fi
 - **Calendar** – month view; a camera on today's cell adds today's photo, and the **vlog recorder** opens straight
   after (up to 3 minutes, with prompts). Past days show their photo or stay plain blue; 🎬 marks a day with a vlog.
   Tap any day to open its full record and watch, redo or delete its vlog.
-- **Settings** – habits, sounds (with lucky dip), first exam date, countdowns, season, Claude sync status, reminders, vlog storage, video, photos, sync.
+- **Settings** – **Write the next day** (the planner for tomorrow's To Do), habits, sounds (with lucky dip), first exam date, countdowns, season, Claude sync status, reminders, vlog storage, video, photos, sync.
 - **Seasons** – the palette (a different morning-sun light each season) and the banner photo switch with the seasons
   in Bristol (spring Mar–May, summer Jun–Aug, autumn Sep–Nov, winter Dec–Feb). Settings → Season previews one.
 
@@ -179,6 +179,19 @@ opens on a device that remembers the old key, it converts them to plain text and
 write. On a device that doesn't, the Journal card asks for the old passphrase once. Encryption code lives in
 `src/lib/crypto.ts` only for that conversion.
 
+## The To Do and edits
+
+Each day has one To Do list (`todos`), written the night before from Settings → **Write the next day**
+(`src/components/DayPlanner.tsx`): import the previous day's list, add habits or anything else, reorder, and pick an
+edit for any item. A written day is stored with `list: true`; habit items carry `habitId`, and the day's `habits` are
+always worked out from the list, so streaks, Health stats, reminders and the ⭐ must-do rule keep working. A day that is
+never written starts with all your habits plus its to-dos. Older days (habits and to-dos kept apart) are shown as one
+list and converted the first time they're changed.
+
+Edits live in a bank (`src/lib/edits.ts`): pieces at `edits/<id>/<n>`, a label with a thumbnail at `editBank/<id>`.
+Upload from the planner's 🎬 picker or Settings → Edit bank (30 MB max each). Edits on today's list are downloaded in
+the background and kept on the device, so ticking plays them straight away. Vlogs and edits share the 700 MB budget.
+
 ## Vlogs
 
 A vlog is recorded in the app (`src/components/VlogRecorder.tsx`), cut into 384 KB pieces and uploaded to
@@ -214,7 +227,10 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
   "journalCrypto": { … },   // only until old passphrase entries are converted, then deleted
   "days": {
     "2026-09-25": {
-      "habits": [ … ], "todos": [ … ], "ratings": { "day": 7, "health": 8, "happy": 6 },
+      "list": true,                                               // the day's To Do is one written list
+      "todos": [ { "id": "h_gym", "text": "Gym", "done": true, "habitId": "gym", "editId": "137czy06x7ks" }, { "id": "…", "text": "Oxford reading", "done": false } ],
+      "habits": [ { "id": "gym", "name": "Gym", "done": true } ],  // worked out from the list
+      "ratings": { "day": 7, "health": 8, "happy": 6 },
       "journal": "…",                                             // personal journal (plain text)
       "academic": { "econ": "…", "maths": "…", "physics": "…" },  // active recall, plaintext
       "answers": { "maths": "…", "physics": "…", "econ": "…" },   // answers to that day's questions
@@ -233,7 +249,9 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also
     "sync":      { "lastRead": …, "lastWrite": … }
   },
   "photos": { "2026-09-25": { "data": "data:image/jpeg;base64,…" } },  // 720px versions, loaded on demand
-  "vlogs": { "2026-09-25": { "1791745317939": [ "<base64 piece>", … ] } } // video pieces, fetched only to play
+  "vlogs": { "2026-09-25": { "1791745317939": [ "<base64 piece>", … ] } }, // video pieces, fetched only to play
+  "editBank": { "137czy06x7ks": { "name": "gym edit", "dur": 14, "bytes": 5123456, "chunks": 14, "mime": "video/mp4", "at": …, "usedAt": …, "thumb": "data:image/jpeg;base64,…" } },
+  "edits": { "137czy06x7ks": [ "<base64 piece>", … ] }
 }
 ```
 
