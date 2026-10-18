@@ -8,7 +8,6 @@ import { haptic, playRandomSound, playSound, precacheSounds, prewarmRandom, prew
 import { cn } from "@/lib/cn";
 import { prewarmEdits, useEditBank } from "@/lib/edits";
 import DayList from "./DayList";
-import DayPlanner from "./DayPlanner";
 import EditPlayer from "./EditPlayer";
 import ProgressRing from "./ProgressRing";
 import RatingBar from "./RatingBar";
@@ -38,7 +37,6 @@ export default function DayEditor({ date }: Props) {
   const itemsDone = items.filter((t) => t.done).length;
   const bank = useEditBank();
   const [playing, setPlaying] = useState<{ editId: string; title: string } | null>(null);
-  const [planning, setPlanning] = useState(false);
   const [text, setText] = useState("");
   const [showHabits, setShowHabits] = useState(false);
   const missingHabits = settings.habits.filter((h) => !items.some((t) => t.habitId === h.id));
@@ -141,11 +139,6 @@ export default function DayEditor({ date }: Props) {
                 {itemsDone}/{items.length}
               </span>
             )}
-            {!locked && (
-              <button type="button" className="chip border border-white/70" onClick={() => setPlanning(true)} title="Reorder, add habits, attach edits">
-                Edit list
-              </button>
-            )}
           </div>
         </div>
         {items.length > 0 && (
@@ -160,7 +153,6 @@ export default function DayEditor({ date }: Props) {
             streaks={streaks}
             edits={bank.byId}
             onToggle={toggleItem}
-            onDelete={locked ? undefined : (id) => updateDay(date, (d) => ({ ...d, todos: d.todos.filter((t) => t.id !== id) }))}
             onCarryOver={locked ? undefined : (id) => carryTodoOver(date, id)}
           />
         </div>
@@ -216,7 +208,6 @@ export default function DayEditor({ date }: Props) {
 
       <SubmitDay date={date} />
 
-      {planning && <DayPlanner date={date} onClose={() => setPlanning(false)} />}
       {playing && <EditPlayer editId={playing.editId} title={playing.title} onClose={() => setPlaying(null)} />}
     </div>
   );
