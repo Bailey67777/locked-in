@@ -46,7 +46,7 @@ export default function VlogPlayer({ date, onClose }: { date: string; onClose: (
   const current = loaded && loaded.date === date ? loaded : null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black/90 text-white backdrop-blur-xl" role="dialog" aria-modal="true" aria-label={`Vlog from ${formatLong(date)}`}>
+    <div className="fixed inset-0 z-[80] flex flex-col bg-black/90 text-white backdrop-blur-xl" role="dialog" aria-modal="true" aria-label={`Vlog from ${formatLong(date)}`} onClick={(e) => e.stopPropagation()}>
       <div className="pt-safe" />
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pb-2 pt-4">
         <div className="min-w-0">

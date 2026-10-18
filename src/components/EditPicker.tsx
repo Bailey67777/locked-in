@@ -52,8 +52,15 @@ export default function EditPicker({ current, itemName, onPick, onClose }: Props
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center md:p-6" onClick={() => uploading === null && onClose()}>
-      <input ref={input} type="file" accept="video/*" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} />
+    <div
+      className="fixed inset-0 z-[75] flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center md:p-6"
+      onClick={(e) => {
+        // Only a tap on the dim background closes the picker, and it never reaches the planner underneath.
+        e.stopPropagation();
+        if (e.target === e.currentTarget && uploading === null) onClose();
+      }}
+    >
+      <input ref={input} type="file" accept="video/*" className="hidden" onClick={(e) => e.stopPropagation()} onChange={(e) => void upload(e.target.files?.[0])} />
       <div className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-sand-50 shadow-lift md:rounded-3xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Pick an edit">
         <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-4 py-3 backdrop-blur">
           <div className="min-w-0">

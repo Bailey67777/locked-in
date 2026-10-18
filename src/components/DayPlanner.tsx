@@ -75,7 +75,13 @@ export default function DayPlanner({ date, onClose }: { date: string; onClose: (
   const pickingItem = picking ? items.find((t) => t.id === picking) : undefined;
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm md:items-center md:p-6" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm md:items-center md:p-6"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget && !picking) onClose();
+      }}
+    >
       <div className="flex max-h-[94dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-sand-50 shadow-lift md:max-h-[90vh] md:rounded-3xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Write the To Do for ${formatLong(date)}`}>
         <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-4 py-3 backdrop-blur">
           <div className="min-w-0">

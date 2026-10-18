@@ -271,7 +271,7 @@ export default function VlogRecorder({ date, onClose }: Props) {
   const pill = "tap rounded-full px-4 py-2 text-[13px] font-bold";
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0d10] text-white" role="dialog" aria-modal="true" aria-label="Record your vlog">
+    <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0d10] text-white" role="dialog" aria-modal="true" aria-label="Record your vlog" onClick={(e) => e.stopPropagation()}>
       <input ref={fileInput} type="file" accept="video/*" capture="user" className="hidden" onChange={(e) => void pickFile(e.target.files?.[0])} />
       <div className="pt-safe" />
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pb-2 pt-4">

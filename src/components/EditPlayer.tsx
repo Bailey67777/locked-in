@@ -46,7 +46,7 @@ export default function EditPlayer({ editId, title, onClose }: { editId: string;
   const missing = bank.ready && !meta;
 
   return createPortal(
-    <div className="fixed inset-0 z-[85] flex flex-col bg-black text-white" role="dialog" aria-modal="true" aria-label="Edit">
+    <div className="fixed inset-0 z-[85] flex flex-col bg-black text-white" role="dialog" aria-modal="true" aria-label="Edit" onClick={(e) => e.stopPropagation()}>
       <div className="pt-safe" />
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-3 px-4 pb-2 pt-4">
         <div className="min-w-0">
