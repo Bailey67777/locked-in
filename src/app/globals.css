@@ -1,315 +1,99 @@
 @import "tailwindcss";
 
 /*
- * Design tokens. The colour scales are semantic, not literal:
- *   ocean  = the season's primary accent      teal = positive / done
- *   sunset = the sun: warm highlight          sand = neutral surfaces
- *   --sky / --sun / --ground paint the morning-sun backdrop behind everything.
- * Each season (html[data-season=…], set from the date in src/lib/season.ts) swaps the values,
- * so every screen re-themes without touching component code. The @theme values are summer.
+ * Locked In, minimalist edition: black, white and greys only.
+ * Every colour is a variable, so light and dark are the same design. html[data-theme] (set in Settings, per device)
+ * overrides the phone's own setting.
  */
-@theme {
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: var(--font-display), ui-serif, Georgia, serif;
-  --font-mono: var(--font-detail), ui-monospace, "SF Mono", Menlo, monospace;
-
-  --font-weight-semibold: 500;
-  --font-weight-bold: 600;
-  --font-weight-extrabold: 650;
-
-  --radius-xl: 0.7rem;
-  --radius-2xl: 0.9rem;
-  --radius-3xl: 1.35rem;
-
-  --color-ocean-50: #eef5fd;
-  --color-ocean-100: #dbe9fa;
-  --color-ocean-200: #b5d2f4;
-  --color-ocean-300: #86b4eb;
-  --color-ocean-400: #5791dd;
-  --color-ocean-500: #1f78e0;
-  --color-ocean-600: #1862bd;
-  --color-ocean-700: #214989;
-  --color-ocean-800: #1b3866;
-  --color-ocean-900: #142a4a;
-
-  --color-teal-100: #d8f1ec;
-  --color-teal-200: #ade2d6;
-  --color-teal-300: #77cab9;
-  --color-teal-400: #43ae9a;
-  --color-teal-500: #26917f;
-  --color-teal-600: #1f7466;
-  --color-teal-700: #195c51;
-
-  --color-sunset-100: #fef1d9;
-  --color-sunset-200: #fcdfa8;
-  --color-sunset-300: #f8c56a;
-  --color-sunset-400: #f1a73a;
-  --color-sunset-500: #db871c;
-  --color-sunset-600: #b26a15;
-  --color-sunset-700: #885112;
-
-  --color-sand-50: #f9f6f0;
-  --color-sand-100: #f2ece2;
-  --color-sand-200: #e6ddcf;
-  --color-sand-300: #d3c6b1;
-  --color-sand-400: #b9a88c;
-  --color-sand-700: #776a52;
-
-  --color-ink: #1a1f26;
-  --color-ink-soft: #4a525c;
-  --color-ink-muted: #858c94;
-
-  --color-sky: #a9d3fb;
-  --color-sun: #ffd25c;
-  --color-glow: #9fe6d6;
-  --color-ground: #f8f6ef;
-
-  --shadow-soft: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 10px 30px -20px rgb(40 30 20 / 0.3);
-  --shadow-lift: 0 16px 48px -20px rgb(30 22 14 / 0.35), 0 2px 8px -4px rgb(30 22 14 / 0.08);
+:root {
+  --bg: #f3f3f2;
+  --surface: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #3a3a3a;
+  --muted: #8b8b8b;
+  --faint: #c9c9c9;
+  --line: #e2e2e1;
+  --track: #e4e4e3;
+  color-scheme: light;
 }
 
-/* ---------- seasons: each one its own morning light ---------- */
-
-/* Autumn: low golden sun, copper leaves, warm cream. */
-html[data-season="autumn"] {
-  --color-ocean-50: #fdf4ea;
-  --color-ocean-100: #fae6d0;
-  --color-ocean-200: #f4c99e;
-  --color-ocean-300: #eaa666;
-  --color-ocean-400: #dc8339;
-  --color-ocean-500: #cf5a17;
-  --color-ocean-600: #a94713;
-  --color-ocean-700: #7f4216;
-  --color-ocean-800: #5f3214;
-  --color-ocean-900: #41230f;
-
-  --color-teal-100: #ecefd6;
-  --color-teal-200: #d8dfad;
-  --color-teal-300: #bcc779;
-  --color-teal-400: #9dab4d;
-  --color-teal-500: #7f8f33;
-  --color-teal-600: #64712a;
-  --color-teal-700: #4c5622;
-
-  --color-sunset-100: #fef2d2;
-  --color-sunset-200: #fce2a0;
-  --color-sunset-300: #f7c85f;
-  --color-sunset-400: #efab2b;
-  --color-sunset-500: #d78d13;
-  --color-sunset-600: #ad6f10;
-  --color-sunset-700: #84540e;
-
-  --color-sand-50: #fbf6ee;
-  --color-sand-100: #f5ecdf;
-  --color-sand-200: #eadcc8;
-  --color-sand-300: #d8c4a5;
-  --color-sand-400: #bea482;
-  --color-sand-700: #735c43;
-
-  --color-ink: #2a1e16;
-  --color-ink-soft: #5d4b3e;
-  --color-ink-muted: #94816f;
-
-  --color-sky: #f5b483;
-  --color-sun: #ffbd45;
-  --color-glow: #e59aa3;
-  --color-ground: #fbf2e7;
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --ink: #f2f2f2;
+    --ink-2: #c4c4c4;
+    --muted: #7c7c7c;
+    --faint: #3b3b3b;
+    --line: #1f1f1f;
+    --track: #232323;
+    color-scheme: dark;
+  }
 }
 
-/* Winter: crisp blue sky, pale low sun, frost. */
-html[data-season="winter"] {
-  --color-ocean-50: #eff4fa;
-  --color-ocean-100: #dde7f4;
-  --color-ocean-200: #bccfe8;
-  --color-ocean-300: #90afd6;
-  --color-ocean-400: #6389bf;
-  --color-ocean-500: #4c62c4;
-  --color-ocean-600: #3c4fa5;
-  --color-ocean-700: #2d456d;
-  --color-ocean-800: #233652;
-  --color-ocean-900: #19263a;
-
-  --color-teal-100: #dcefee;
-  --color-teal-200: #b7dfdc;
-  --color-teal-300: #87c6c2;
-  --color-teal-400: #59a9a5;
-  --color-teal-500: #3c8b88;
-  --color-teal-600: #2f6f6d;
-  --color-teal-700: #255756;
-
-  --color-sunset-100: #fdf0dc;
-  --color-sunset-200: #f9ddb4;
-  --color-sunset-300: #f1c27f;
-  --color-sunset-400: #e5a352;
-  --color-sunset-500: #cc8534;
-  --color-sunset-600: #a66a29;
-  --color-sunset-700: #7f5221;
-
-  --color-sand-50: #f5f7fa;
-  --color-sand-100: #ebeff4;
-  --color-sand-200: #dbe1e9;
-  --color-sand-300: #c0c8d4;
-  --color-sand-400: #9ca6b6;
-  --color-sand-700: #5b6476;
-
-  --color-ink: #161d2b;
-  --color-ink-soft: #465066;
-  --color-ink-muted: #7e8799;
-
-  --color-sky: #b4cff2;
-  --color-sun: #ffd4bf;
-  --color-glow: #c6bdf3;
-  --color-ground: #f2f4fa;
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --ink: #f2f2f2;
+  --ink-2: #c4c4c4;
+  --muted: #7c7c7c;
+  --faint: #3b3b3b;
+  --line: #1f1f1f;
+  --track: #232323;
+  color-scheme: dark;
 }
 
-/* Spring: fresh leaf green, blossom, bright soft sun. */
-html[data-season="spring"] {
-  --color-ocean-50: #f1f8ef;
-  --color-ocean-100: #dfefd9;
-  --color-ocean-200: #bfdeb3;
-  --color-ocean-300: #97c785;
-  --color-ocean-400: #6fac5c;
-  --color-ocean-500: #3f9a4f;
-  --color-ocean-600: #327d40;
-  --color-ocean-700: #355b2d;
-  --color-ocean-800: #2a4724;
-  --color-ocean-900: #1f351b;
-
-  --color-teal-100: #ddeef4;
-  --color-teal-200: #b8dce9;
-  --color-teal-300: #88c2d7;
-  --color-teal-400: #59a4c0;
-  --color-teal-500: #3d87a4;
-  --color-teal-600: #306d85;
-  --color-teal-700: #27576b;
-
-  --color-sunset-100: #fbe8ee;
-  --color-sunset-200: #f6cbd7;
-  --color-sunset-300: #eca4b8;
-  --color-sunset-400: #de7c97;
-  --color-sunset-500: #c55a7b;
-  --color-sunset-600: #a34763;
-  --color-sunset-700: #80384d;
-
-  --color-sand-50: #f8faf3;
-  --color-sand-100: #eff2e8;
-  --color-sand-200: #dfe4d5;
-  --color-sand-300: #c6cdb9;
-  --color-sand-400: #a6ae96;
-  --color-sand-700: #626b56;
-
-  --color-ink: #1b2619;
-  --color-ink-soft: #485646;
-  --color-ink-muted: #7e8a7b;
-
-  --color-sky: #c6e5f8;
-  --color-sun: #fff06e;
-  --color-glow: #f5bfd4;
-  --color-ground: #f5f9ef;
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-track: var(--track);
 }
-
-/* ---------- base ---------- */
 
 html {
-  color-scheme: light;
   -webkit-text-size-adjust: 100%;
+  background: var(--bg);
 }
 
 body {
-  background: var(--color-ground);
-  color: var(--color-ink);
+  background: var(--bg);
+  color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   min-height: 100dvh;
-  letter-spacing: -0.005em;
+  font-feature-settings: "ss01", "cv11";
 }
 
-/* Fraunces: light, soft and a little wonky — the app's voice. */
-.font-serif,
-.card-title {
-  font-weight: 340;
-  font-variation-settings: "SOFT" 100, "WONK" 1;
-  letter-spacing: -0.02em;
-}
-.font-mono {
-  letter-spacing: 0;
-}
-
-/* Morning sun: a bright low sun top right, the season's second colour glowing from the bottom corner,
-   sky fading to ground, and a fine film grain over it all. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 86% 0%, #ffffff 0, color-mix(in oklab, var(--color-sun) 85%, white) 3.5%, color-mix(in oklab, var(--color-sun) 70%, transparent) 12%, color-mix(in oklab, var(--color-sun) 24%, transparent) 30%, transparent 55%),
-    radial-gradient(75% 45% at 0% 100%, color-mix(in oklab, var(--color-glow) 60%, transparent), transparent 72%),
-    radial-gradient(55% 35% at 100% 62%, color-mix(in oklab, var(--color-glow) 28%, transparent), transparent 72%),
-    linear-gradient(180deg, var(--color-sky) 0%, color-mix(in oklab, var(--color-sky) 50%, var(--color-ground)) 30%, var(--color-ground) 62%);
-}
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.09;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
-
-/* The fancy face for things you read: habit names, to-dos, countdowns. */
-.fancy {
-  font-family: var(--font-display), ui-serif, Georgia, serif;
-  font-weight: 430;
-  font-variation-settings: "SOFT" 100, "WONK" 0;
-  letter-spacing: -0.008em;
-}
-
-/* Progress fills run from the season's accent into its sun colour. */
-.grad-fill {
-  background: linear-gradient(90deg, var(--color-ocean-500), var(--color-sunset-400));
+::selection {
+  background: var(--ink);
+  color: var(--bg);
 }
 
 @layer components {
-  .card {
-    @apply rounded-3xl border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl;
-  }
-  .card-title {
-    @apply font-serif text-[19px] leading-none text-ink;
-  }
-  .card-desc {
-    @apply text-[12.5px] leading-relaxed text-ink-muted;
-  }
-  .card-sub {
-    @apply font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-muted;
+  /* Small uppercase label, the only "decoration" the app uses. */
+  .label {
+    @apply font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted;
   }
   .tap {
-    @apply select-none transition active:scale-[0.98];
+    @apply select-none transition-transform duration-150 active:scale-[0.985];
+  }
+  .btn {
+    @apply inline-flex h-12 select-none items-center justify-center gap-2 rounded-full bg-ink px-6 text-[15px] font-medium tracking-[-0.01em] text-bg transition active:scale-[0.985] disabled:opacity-30;
+  }
+  .btn-quiet {
+    @apply inline-flex h-10 select-none items-center justify-center gap-1.5 rounded-full px-4 text-[14px] font-medium text-ink-2 transition hover:bg-surface active:scale-[0.985] disabled:opacity-30;
   }
   .field {
-    @apply w-full rounded-xl border border-black/[0.06] bg-white/70 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted/80 focus:border-ocean-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-ocean-100/70;
-  }
-  .btn-primary {
-    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[13.5px] font-bold tracking-[0.01em] text-white hover:bg-ink/90 disabled:opacity-40;
-  }
-  .btn-ghost {
-    @apply inline-flex select-none transition active:scale-[0.98] items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold text-ink-soft hover:bg-white/70;
-  }
-  .btn-icon {
-    @apply inline-flex select-none transition active:scale-[0.98] h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-white/70 disabled:opacity-30 disabled:hover:bg-transparent;
-  }
-  .label {
-    @apply font-mono text-[10.5px] font-normal uppercase tracking-[0.14em] text-ink-muted;
-  }
-  .chip {
-    @apply inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-ink-soft;
+    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[15px] text-ink placeholder:text-faint focus:border-muted focus:outline-none;
   }
 }
 
-/* Safe-area helpers for the installed app */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -317,14 +101,26 @@ body::after {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Hide number-input spinners */
+/* Time fields: just the digits, no picker icon or grey pill. */
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 0;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: right;
+}
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-@keyframes rise {
+@keyframes fade-up {
   from {
     opacity: 0;
     transform: translateY(6px);
@@ -334,43 +130,27 @@ input::-webkit-inner-spin-button {
     transform: translateY(0);
   }
 }
-.rise {
-  animation: rise 0.3s ease-out backwards;
+.fade-up {
+  animation: fade-up 0.28s ease-out backwards;
 }
 
-/* Day-complete confetti */
-@keyframes confetti-fall {
-  0% {
-    transform: translateY(-10vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(110vh) rotate(720deg);
-    opacity: 0.6;
-  }
-}
-.confetti-piece {
-  position: absolute;
-  top: 0;
-  border-radius: 2px;
-  animation-name: confetti-fall;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
-  animation-fill-mode: both;
-}
-
-@keyframes pop-in {
-  0% {
-    transform: scale(0.6);
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
     opacity: 0;
   }
-  60% {
-    transform: scale(1.08);
+  to {
+    transform: translateY(0);
     opacity: 1;
   }
-  100% {
-    transform: scale(1);
-  }
 }
-.pop-in {
-  animation: pop-in 0.45s ease-out backwards;
+.sheet-up {
+  animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .sheet-up {
+    animation: none;
+  }
 }

@@ -142,6 +142,10 @@ export type Settings = {
   reminders: Reminders;
   /** First A-level exam, "YYYY-MM-DD". Drives the Today countdown and the Study graph. */
   examDate?: string;
+  /** Set once the minimalist version has swapped in the ten habits. */
+  v3?: boolean;
+  /** The habit list from before that swap, kept so nothing is lost. */
+  habitsArchive?: HabitDef[];
 };
 
 /* ---------- Study: written by the nightly Claude task ---------- */

@@ -1,34 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, DM_Mono, Fraunces } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/lib/store";
-import { SEASON_BOOT_SCRIPT } from "@/lib/season";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const sans = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
-});
-
-const serif = Fraunces({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["SOFT", "WONK", "opsz"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const mono = DM_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-detail",
-  display: "swap",
-});
+const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Locked In",
-  description: "Daily habits, to-dos, ratings and a journal.",
+  description: "Ten habits a day. Nothing else.",
   applicationName: "Locked In",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -41,7 +23,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f4ef",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f3f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -51,9 +36,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: SEASON_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-full font-sans">
         <AppProviders>{children}</AppProviders>

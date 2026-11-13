@@ -1,17 +1,25 @@
 import type { HabitDef } from "./types";
 
 /**
- * The six daily non-negotiables, in the order they happen across a day.
- * Fully editable in Settings; this is only the starting point.
+ * The ten, built from what Santa Cruz Medicinals repeats most for daily health: morning light and water, a
+ * 10-minute mobility routine, protein, 10,000 steps, lifting, real food, no gooning, screens off and an early night.
+ * Fixed ids, so two devices switching over at once write the same list. Fully editable in Settings.
  */
 export const DEFAULT_HABITS: HabitDef[] = [
-  { id: "wake-outside", name: "Up on time, outside with water before the phone", emoji: "🌅", color: "#ef8a3c", time: "06:50", sound: "chime" },
-  { id: "mobility", name: "10 min mobility + slow breathing", emoji: "🧘", color: "#1f9a8a", time: "07:00", sound: "bubble" },
-  { id: "move", name: "Train or move: basketball, gym or a real walk", emoji: "🏀", color: "#d95f18", time: "16:00", sound: "coin" },
-  { id: "real-food", name: "Real meals, no rules, no guilt", emoji: "🍳", color: "#5b8c00", time: "18:00", sound: "pop" },
-  { id: "study-block", name: "One focused study block, phone in another room", emoji: "📐", color: "#1a6fd1", time: "19:00", sound: "levelup" },
-  { id: "wind-down", name: "Dim evening, phone out of the bedroom, lights out on time", emoji: "🌙", color: "#6b4fbb", time: "21:30", sound: "ding" },
+  { id: "sc-sun", name: "Sunlight + water", time: "07:00" },
+  { id: "sc-mobility", name: "10-min mobility", time: "07:15" },
+  { id: "sc-nophone", name: "No phone first hour" },
+  { id: "sc-protein", name: "Body weight in protein" },
+  { id: "sc-steps", name: "10,000 steps" },
+  { id: "sc-train", name: "Lift or hard cardio" },
+  { id: "sc-food", name: "Real food only" },
+  { id: "sc-nogoon", name: "No gooning" },
+  { id: "sc-screens", name: "Screens off by 9", time: "21:00" },
+  { id: "sc-sleep", name: "In bed by 9:45", time: "21:45" },
 ];
+
+/** The app is built around ten. */
+export const MAX_HABITS = 10;
 
 export const DEFAULT_NAME = "Hugo";
 

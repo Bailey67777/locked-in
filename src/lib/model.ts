@@ -1,6 +1,5 @@
 import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta, EditMeta } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
-import { DEFAULT_DAY_COMPLETE_SOUND, DEFAULT_TODO_SOUND, SOUND_IDS } from "./sounds";
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -76,7 +75,7 @@ export function normalizeHabitDef(raw: unknown): HabitDef | null {
   if (typeof h.emoji === "string" && h.emoji.trim()) def.emoji = h.emoji.trim().slice(0, 8);
   if (typeof h.color === "string" && HEX_RE.test(h.color)) def.color = h.color.toLowerCase();
   if (typeof h.time === "string" && TIME_RE.test(h.time)) def.time = h.time;
-  if (typeof h.sound === "string" && SOUND_IDS.includes(h.sound)) def.sound = h.sound;
+  if (typeof h.sound === "string" && h.sound) def.sound = h.sound;
   if (typeof h.keystone === "boolean") def.keystone = h.keystone;
   return def;
 }
@@ -170,14 +169,13 @@ export function normalizeSettings(raw: unknown): Settings {
       keystone: h.keystone ?? /goon/i.test(h.name),
       emoji: h.emoji ?? AUTO_EMOJIS[i % AUTO_EMOJIS.length],
       color: h.color ?? HABIT_COLORS[i % HABIT_COLORS.length].hex,
-      sound: h.sound ?? SOUND_IDS[i % SOUND_IDS.length],
     }));
   return {
     name: typeof r.name === "string" && r.name.trim() ? r.name : DEFAULT_NAME,
-    habits: sortHabits(habits.length ? habits : DEFAULT_HABITS.map((h) => ({ ...h }))),
+    habits: habits.length ? habits : DEFAULT_HABITS.map((h) => ({ ...h })), // your order, as you set it
     soundsOn: typeof r.soundsOn === "boolean" ? r.soundsOn : true,
-    dayCompleteSound: typeof r.dayCompleteSound === "string" && SOUND_IDS.includes(r.dayCompleteSound) ? r.dayCompleteSound : DEFAULT_DAY_COMPLETE_SOUND,
-    todoSound: typeof r.todoSound === "string" && SOUND_IDS.includes(r.todoSound) ? r.todoSound : DEFAULT_TODO_SOUND,
+    dayCompleteSound: typeof r.dayCompleteSound === "string" ? r.dayCompleteSound : "tada",
+    todoSound: typeof r.todoSound === "string" ? r.todoSound : "pop",
     randomSounds: typeof r.randomSounds === "boolean" ? r.randomSounds : true,
     countdowns: asArray<Partial<Countdown>>(r.countdowns)
       .filter((c) => typeof c.id === "string" && typeof c.at === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(c.at))
@@ -188,6 +186,8 @@ export function normalizeSettings(raw: unknown): Settings {
       }),
     reminders: normalizeReminders(r.reminders),
     examDate: typeof r.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.examDate) ? r.examDate : undefined,
+    v3: r.v3 === true ? true : undefined,
+    habitsArchive: Array.isArray(r.habitsArchive) || (r.habitsArchive && typeof r.habitsArchive === "object") ? asArray<unknown>(r.habitsArchive).map(normalizeHabitDef).filter((h): h is HabitDef => h !== null) : undefined,
   };
 }
 
@@ -367,35 +367,27 @@ export function habitsFromList(todos: Todo[], settings: Settings): DayHabit[] {
   return out;
 }
 
-/** A habit as an item on a day's To Do. */
+/** A habit as an item on a day's To Do (older versions of the app). */
 export function habitItem(h: { id: string; name: string }, done = false): Todo {
   return { id: habitItemId(h.id), text: h.name, done, habitId: h.id };
 }
 
 /**
- * The day as it should be displayed: always one To Do list.
- * A day that was written as a list shows exactly that list. Any other day gets one built for it: today and later
- * from the current habits (ticks kept), past days from the habits they were saved with; then that day's to-dos.
- * Today and future days follow the current habit list (names/order/additions apply going forward),
- * keeping any ticks already made. Past days keep their own snapshot so history is never rewritten.
+ * The day as it should be displayed: its habits and whether each is ticked.
+ * Today and later follow the current habit list (ticks kept by id). Past days keep the habits they were saved
+ * with, so changing the list never rewrites history. Ticks saved by older versions (as list items) still count.
  */
-export function materializeDay(
-  date: string,
-  stored: DayRecord | undefined,
-  settings: Settings,
-  today: string,
-): DayRecord {
+export function materializeDay(date: string, stored: DayRecord | undefined, settings: Settings, today: string): DayRecord {
   const base = stored ?? emptyDay(date);
-  if (base.list) return { ...base, habits: habitsFromList(base.todos, settings) };
-  let habits: DayHabit[];
-  if (date >= today || base.habits.length === 0) {
-    const done = new Map(base.habits.map((h) => [h.id, h.done] as const));
-    habits = settings.habits.map((h) => ({ id: h.id, name: h.name, done: done.get(h.id) ?? false }));
-  } else {
-    habits = base.habits;
-  }
-  const todos = [...habits.map((h) => habitItem(h, h.done)), ...base.todos.filter((t) => !t.habitId)];
-  return { ...base, habits, todos, list: true };
+  const ticked = new Map<string, boolean>(base.habits.map((h) => [h.id, h.done] as const));
+  for (const t of base.todos) if (t.habitId && !ticked.has(t.habitId)) ticked.set(t.habitId, t.done);
+  const past = date < today && (base.habits.length > 0 || ticked.size > 0);
+  const habits: DayHabit[] = past
+    ? base.habits.length
+      ? base.habits
+      : habitsFromList(base.todos, settings)
+    : settings.habits.map((h) => ({ id: h.id, name: h.name, done: ticked.get(h.id) ?? false }));
+  return { ...base, habits };
 }
 
 /** Look up a habit's look (emoji/colour) by id, with sensible defaults for habits no longer in the list. */
@@ -410,11 +402,10 @@ export function habitLook(id: string, settings: Settings): { emoji: string; colo
   };
 }
 
-/** Done / total over the day's To Do (older days that kept habits apart count both). */
+/** Habits done / total for a day. */
 export function dayProgress(day: DayRecord): { done: number; total: number; pct: number } {
-  const items: { done: boolean }[] = day.list ? day.todos : [...day.habits, ...day.todos];
-  const total = items.length;
-  const done = items.filter((t) => t.done).length;
+  const total = day.habits.length;
+  const done = day.habits.filter((h) => h.done).length;
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 

@@ -1,56 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { formatLong, monthGrid, monthLabel, parseKey } from "@/lib/dates";
-import { dayHasEntry, dayProgress, hasJournal, hasRatings, tierById } from "@/lib/model";
-import { processPhoto } from "@/lib/images";
+import { dayProgress } from "@/lib/model";
+import { pctOn } from "@/lib/stats";
+import { haptic, playTick, playUntick } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
-import { CameraIcon, ChevronIcon, CloseIcon, VideoIcon } from "./Icons";
-import DayEditor from "./DayEditor";
-import VlogCard from "./VlogCard";
-import VlogRecorder from "./VlogRecorder";
+import { ChevronIcon, CloseIcon } from "./Icons";
+import HabitList from "./HabitList";
 
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+
+/** How dark a day's square is: nothing recorded stays clear, a recorded 0% is a hint of grey, 100% is solid. */
+const shade = (pct: number | null) => (pct === null ? 0 : pct === 0 ? 0.06 : 0.14 + (pct / 100) * 0.86);
 
 export default function CalendarView() {
-  const { today, data, getDay, setDayPhoto, getDayPhoto, vlogPending } = useStore();
+  const { today, data, getDay, updateDay } = useStore();
   const t = parseKey(today);
   const [year, setYear] = useState(t.getFullYear());
   const [month, setMonth] = useState(t.getMonth());
-  const [selected, setSelected] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const [banner, setBanner] = useState<{ date: string; data: string } | null>(null);
-  /** The day a vlog is being recorded for (the recorder covers the whole screen). */
-  const [recording, setRecording] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !recording && setSelected(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [selected, recording]);
-
-  // The bigger version of a day's photo, shown as a banner at the top of that day's record.
-  const selectedThumb = selected ? data.days[selected]?.thumb : undefined;
-  useEffect(() => {
-    if (!selected || !selectedThumb) return;
-    let cancelled = false;
-    getDayPhoto(selected).then((d) => {
-      if (!cancelled && d) setBanner({ date: selected, data: d });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, selectedThumb, getDayPhoto]);
+  }, [open]);
 
   const shift = (n: number) => {
     const d = new Date(year, month + n, 1);
@@ -58,190 +41,117 @@ export default function CalendarView() {
     setMonth(d.getMonth());
   };
 
-  const pick = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
-    setPhotoError(null);
-    try {
-      await setDayPhoto(today, await processPhoto(file));
-      // Photo done: straight on to the day's vlog (unless today already has one).
-      if (!data.days[today]?.vlog && !vlogPending[today]) setRecording(today);
-    } catch {
-      setPhotoError("Couldn't read that image. Try a JPG or PNG.");
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = "";
-    }
+  const isCurrentMonth = year === t.getFullYear() && month === t.getMonth();
+  const day = open ? getDay(open) : null;
+  const progress = day ? dayProgress(day) : null;
+
+  const toggle = (id: string) => {
+    if (!open || !day || day.submitted) return;
+    const turningOn = !day.habits.find((h) => h.id === id)?.done;
+    updateDay(open, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }));
+    haptic(turningOn ? 10 : 6);
+    if (data.settings.soundsOn) (turningOn ? playTick : playUntick)();
   };
 
-  const weeks = monthGrid(year, month);
-  const isCurrentMonth = year === t.getFullYear() && month === t.getMonth();
-
   return (
-    <div className="rise flex flex-col gap-3">
-      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
-      <section className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <button type="button" className="btn-icon" onClick={() => shift(-1)} aria-label="Previous month">
+    <div className="fade-up">
+      <header className="mb-7 flex items-end justify-between">
+        <div>
+          <div className="label">Calendar</div>
+          <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">{monthLabel(year, month)}</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          {!isCurrentMonth && (
+            <button
+              type="button"
+              className="btn-quiet h-9 px-3 text-[13px]"
+              onClick={() => {
+                setYear(t.getFullYear());
+                setMonth(t.getMonth());
+              }}
+            >
+              Today
+            </button>
+          )}
+          <button type="button" className="tap flex h-9 w-9 items-center justify-center rounded-full text-ink-2 hover:bg-surface" onClick={() => shift(-1)} aria-label="Previous month">
             <ChevronIcon dir="left" />
           </button>
-          <div className="text-center">
-            <h1 className="font-serif text-[23px] leading-none text-ink">{monthLabel(year, month)}</h1>
-            {!isCurrentMonth && (
-              <button
-                type="button"
-                className="text-xs font-bold text-ocean-600"
-                onClick={() => {
-                  setYear(t.getFullYear());
-                  setMonth(t.getMonth());
-                }}
-              >
-                back to today
-              </button>
-            )}
-          </div>
-          <button type="button" className="btn-icon" onClick={() => shift(1)} aria-label="Next month">
+          <button type="button" className="tap flex h-9 w-9 items-center justify-center rounded-full text-ink-2 hover:bg-surface" onClick={() => shift(1)} aria-label="Next month">
             <ChevronIcon dir="right" />
           </button>
         </div>
+      </header>
 
-        <div className="grid grid-cols-7 gap-1 text-center">
-          {WEEKDAYS.map((w) => (
-            <div key={w} className="py-1 text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">
-              {w}
-            </div>
-          ))}
-          {weeks.flat().map((key, i) => {
+      <div className="grid grid-cols-7 gap-1.5">
+        {WEEKDAYS.map((w, i) => (
+          <div key={i} className="pb-1 text-center font-mono text-[10.5px] text-muted">
+            {w}
+          </div>
+        ))}
+        {monthGrid(year, month)
+          .flat()
+          .map((key, i) => {
             if (!key) return <div key={`e${i}`} />;
-            const stored = data.days[key];
-            const isFuture = key > today;
-            const isToday = key === today;
-            const entry = dayHasEntry(stored);
-            const pct = entry ? dayProgress(getDay(key)).pct : 0;
-            const thumb = stored?.thumb;
-            const hasVlog = Boolean(stored?.vlog) || Boolean(vlogPending[key]);
-            // Past days: plain blue when empty, deeper blue / teal as more got done.
-            const shade = isFuture
-              ? "text-ink-muted/70 hover:bg-sand-100"
-              : !entry
-                ? "bg-ocean-100/70 text-ocean-900"
-                : pct >= 100
-                  ? "bg-teal-500 text-white"
-                  : pct >= 60
-                    ? "bg-ocean-400 text-white"
-                    : pct >= 25
-                      ? "bg-ocean-200 text-ocean-900"
-                      : "bg-ocean-100 text-ocean-900";
+            const future = key > today;
+            const pct = future ? null : pctOn(data.days, data.settings, key, today);
+            const a = shade(pct);
             return (
-              <div key={key} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setSelected(key)}
-                  className={cn(
-                    "tap relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-xl text-[13px] font-semibold transition-colors",
-                    thumb ? "bg-sand-200" : shade,
-                    isToday && "ring-2 ring-ink ring-offset-2 ring-offset-white",
-                  )}
-                  aria-label={formatLong(key)}
-                >
-                  {thumb ? (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                      <span className="absolute left-1 top-1 rounded-md bg-white/85 px-1 text-[11px] font-extrabold tabular-nums text-ink shadow-soft">{parseKey(key).getDate()}</span>
-                      {hasVlog && <span className="absolute right-1 top-1 rounded-md bg-white/85 px-0.5 text-[10px] leading-tight shadow-soft">🎬</span>}
-                      {entry && <span className={cn("absolute inset-x-0 bottom-0 h-1.5", pct >= 100 ? "bg-teal-500" : pct >= 60 ? "bg-ocean-400" : "bg-ocean-200")} />}
-                    </>
-                  ) : (
-                    <>
-                      <span className="tabular-nums">{parseKey(key).getDate()}</span>
-                      {stored?.submitted && <span className="absolute right-0.5 top-0.5 text-[10px] leading-none">{tierById(stored.submitted.tier).emoji}</span>}
-                      {hasVlog && <span className="absolute left-0.5 top-0.5 text-[10px] leading-none">🎬</span>}
-                      {(hasRatings(stored) || hasJournal(stored)) && <span className={cn("absolute bottom-1.5 h-1.5 w-1.5 rounded-full", pct >= 60 ? "bg-white/90" : "bg-sunset-500")} />}
-                    </>
-                  )}
-                </button>
-                {isToday && !thumb && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      input.current?.click();
-                    }}
-                    disabled={busy}
-                    className="tap absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-ocean-700 shadow-soft ring-1 ring-sand-200 disabled:opacity-60"
-                    aria-label="Add today's photo"
-                    title="Add today's photo"
-                  >
-                    <CameraIcon width={15} height={15} />
-                  </button>
-                )}
-                {isToday && thumb && !hasVlog && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRecording(today);
-                    }}
-                    className="tap absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white shadow-soft ring-2 ring-white"
-                    aria-label="Record today's vlog"
-                    title="Record today's vlog"
-                  >
-                    <VideoIcon width={15} height={15} />
-                  </button>
-                )}
-              </div>
+              <button
+                key={key}
+                type="button"
+                disabled={future}
+                onClick={() => setOpen(key)}
+                className={cn("tap relative flex aspect-square items-center justify-center overflow-hidden rounded-[10px] text-[13px] tabular-nums", key === today && "ring-[1.5px] ring-ink ring-offset-2 ring-offset-bg")}
+                aria-label={`${formatLong(key)}${pct !== null ? `, ${pct}%` : ""}`}
+              >
+                <span className="absolute inset-0 bg-ink" style={{ opacity: a }} aria-hidden="true" />
+                <span className={cn("relative", a > 0.55 ? "text-bg" : future ? "text-faint" : "text-ink-2")}>{parseKey(key).getDate()}</span>
+              </button>
             );
           })}
-        </div>
-        {photoError && <p className="mt-2 text-xs font-bold text-sunset-600">{photoError}</p>}
+      </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-semibold text-ink-muted">
-          <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-100" /> blank day</span>
-          <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-ocean-400" /> most done</span>
-          <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-teal-500" /> all done</span>
-          <span className="flex items-center gap-1.5"><CameraIcon width={13} height={13} /> today&apos;s photo</span>
-          <span className="flex items-center gap-1.5">🎬 vlog</span>
-          <span className="flex items-center gap-1.5">✨ 👍 🌱 🌙 submitted</span>
-        </div>
-      </section>
+      <div className="mt-6 flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-muted">
+        <span className="mr-1">0%</span>
+        {[0.06, 0.35, 0.6, 0.82, 1].map((o) => (
+          <span key={o} className="relative h-3 w-3 overflow-hidden rounded-[3px]">
+            <span className="absolute inset-0 bg-ink" style={{ opacity: o }} />
+          </span>
+        ))}
+        <span className="ml-1">100%</span>
+      </div>
 
-      <p className="px-2 text-center text-[12px] font-semibold text-ink-muted">Tap the camera on today to add a photo, then film your vlog straight after. A day you miss stays blank. Tap any day to open it and watch its vlog.</p>
-
-      {selected &&
+      {open &&
+        day &&
+        progress &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 backdrop-blur-sm md:items-center md:p-6" onClick={() => setSelected(null)}>
-            <div
-              className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-sand-50 shadow-lift md:max-h-[88vh] md:rounded-3xl"
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label={formatLong(selected)}
-            >
-              <div className="flex items-center justify-between border-b border-sand-200 bg-white/80 px-4 py-3 backdrop-blur">
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={(e) => e.target === e.currentTarget && setOpen(null)}>
+            <div className="sheet-up w-full max-w-[520px] rounded-t-[22px] bg-bg px-5 pb-safe pt-5" role="dialog" aria-modal="true" aria-label={formatLong(open)}>
+              <div className="flex items-start justify-between">
                 <div>
-                  <div className="label">{selected === today ? "Today" : selected > today ? "Upcoming" : "Looking back"}</div>
-                  <div className="font-serif text-[20px] leading-tight text-ink">{formatLong(selected)}</div>
+                  <div className="label">{open === today ? "Today" : day.submitted ? "Submitted" : "Looking back"}</div>
+                  <div className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">{formatLong(open)}</div>
                 </div>
-                <button type="button" className="btn-icon" onClick={() => setSelected(null)} aria-label="Close">
+                <button type="button" className="tap -mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-2" onClick={() => setOpen(null)} aria-label="Close">
                   <CloseIcon />
                 </button>
               </div>
-              <div className="overflow-y-auto p-4 pb-safe">
-                {selectedThumb && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={banner?.date === selected ? banner.data : selectedThumb} alt={`Photo from ${selected}`} className="mb-4 block max-h-72 w-full rounded-3xl object-cover shadow-soft" />
-                )}
-                <VlogCard date={selected} onRecord={() => setRecording(selected)} />
-                <DayEditor date={selected} compact />
-                <div className="h-4" />
+              <div className="mt-3 flex items-baseline justify-between font-mono text-[12px] tabular-nums">
+                <span className="text-muted">
+                  {progress.done}/{progress.total}
+                </span>
+                <span>{progress.pct}%</span>
+              </div>
+              <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
+                <div className="h-full rounded-full bg-ink transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
+              </div>
+              <div className={cn("mt-4 max-h-[58dvh] overflow-y-auto pb-6", day.submitted && "opacity-60")}>
+                <HabitList habits={day.habits} settings={data.settings} locked={Boolean(day.submitted)} onToggle={toggle} />
               </div>
             </div>
           </div>,
           document.body,
         )}
-
-      {recording && <VlogRecorder date={recording} onClose={() => setRecording(null)} />}
     </div>
   );
 }

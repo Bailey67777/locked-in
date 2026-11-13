@@ -1,29 +1,23 @@
 # Locked In
 
-A personal daily habit tracker and journal, built as an installable web app (PWA).
-One user, two devices, no login. Next.js + React + Tailwind, synced through a Firebase Realtime Database.
+A minimalist daily habit tracker, installable as a web app (PWA). One person, iPhone and iPad, no login.
+Black, white and grey; ten habits; nothing else. Next.js + React + Tailwind, synced through a Firebase Realtime Database.
 
-**What's in it** (five tabs: Today · Study · Health · Calendar · Settings)
+**Four icons at the bottom**
 
-- **Today** – greeting and day streak, seasonal banner photo, progress ring, one **To Do** list (your habits and
-  everything else together, each item can carry an **edit**: a short video that plays when you tick it), the **journal**, the three 1–10 ratings, live **countdowns** (first exam + anything added in
-  Settings), a **throwback** (a past journal entry, with a button to watch that day's vlog if there is one), and
-  **Submit day** (locks the ticks and logs the percentage; no
-  punishment. A day of 80%+ with every ⭐ must-do ticked plays the reward video).
-- **Study** – Claude's grade trajectory (U–A*, one line per A-level, dashed trend to the exam, tap a point for the reason),
-  estimated weekly study hours, and the Economics concept of the day plus reading (Claude's version when it has written
-  one, otherwise the built-in cards and live BBC / Guardian headlines).
-- **Health** – streaks, submitted-day tiers, insights, ratings chart, per-habit stats, habit heatmap. Health only.
-- **Calendar** – month view; a camera on today's cell adds today's photo, and the **vlog recorder** opens straight
-  after (up to 3 minutes, with prompts). Past days show their photo or stay plain blue; 🎬 marks a day with a vlog.
-  Tap any day to open its full record and watch, redo or delete its vlog.
-- **Settings** – **Write the next day** (the planner for tomorrow's To Do), habits, sounds (with lucky dip), first exam date, countdowns, season, Claude sync status, reminders, vlog storage, video, photos, sync.
-- **Seasons** – the palette (a different morning-sun light each season) and the banner photo switch with the seasons
-  in Bristol (spring Mar–May, summer Jun–Aug, autumn Sep–Nov, winter Dec–Feb). Settings → Season previews one.
+- **Habits** – today's ten habits, a percentage bar, and **Submit day** (locks the ticks; *Reopen* undoes it).
+- **Calendar** – each day shaded from clear (nothing recorded) to solid black (100%). Tap a day to see or fix its ticks.
+- **Stats** – streak (days in a row at 80%+), best streak, 7- and 30-day averages, the last 30 days, and each habit's rate.
+- **Settings** – rename, time, reorder, add or remove habits (ten at most), tick sounds, light/dark, how to add it
+  to the home screen, sync status.
 
-Old Plan and Countdowns data is kept in the database but no longer shown.
+The ten habits start from what Santa Cruz Medicinals repeats most for daily health (morning light and water, a
+10-minute mobility routine, protein, 10,000 steps, lifting, real food, no gooning, screens off, an early night).
+They're only a starting point: change them in Settings.
 
-Works offline for viewing; edits made offline are pushed when you reconnect (as long as the app stays open).
+Earlier versions had a journal, to-do planner, edits, vlogs, study coach, photos and fifty sound effects. That data
+is all still in the database (nothing was deleted); the app just doesn't show it. The habit list from before the
+switch is kept in `settings.habitsArchive`.
 
 ---
 
@@ -117,91 +111,17 @@ npm run build && npm start
 
 ---
 
-## 4. Add it to your phone's home screen
+## 4. Add it to your home screen
 
-**iPhone (Safari)**
+**iPhone or iPad (Chrome or Safari)**
 
-1. Open the Vercel URL in **Safari** (it has to be Safari, not Chrome).
-2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → **Add**.
-3. Launch it from the home screen: it opens full-screen with no browser bars.
+1. Open the Vercel URL.
+2. Tap the **Share** button (square with an arrow: in the address bar on iPhone, top right on iPad) → **Add to Home Screen** → **Add**.
+3. Launch it from the home screen: it opens full screen with no browser bars.
 
-**Android (Chrome)**
-
-1. Open the URL in Chrome.
-2. Tap the **⋮** menu → **Add to Home screen** (or **Install app**) → **Install**.
-
-**Laptop**
-
-Bookmark the URL, or in Chrome/Edge click the install icon in the address bar to get a standalone window.
+If an older Locked In icon is already there, press and hold it → **Remove App**, then add it again so the new icon shows.
 
 ---
-
-## 5. Your own photos
-
-Drop files here (then commit + push so Vercel picks them up):
-
-| File                          | Shows as                                         |
-| ----------------------------- | ------------------------------------------------ |
-| `public/photos/autumn/` (also `winter/`, `spring/`, `summer/`) | Today's banner in that season: any number of photos, any names; a different one each day |
-| `public/photos/hero.jpg`      | the banner when that season's folder is empty     |
-| `public/photos/profile.jpg`   | round avatar next to the greeting (square)       |
-
-Until a file exists a wave placeholder is shown. Keep them under ~1 MB for a quick load on mobile.
-
-**Per-day photos** are added inside the app (open any day → *Photo of the day*). They're resized in the browser
-(a 96px thumbnail for the calendar, a 720px version for the day view) and stored in Firebase, so they show on both devices.
-
----
-
-## Reward video
-
-Submitting a day never punishes you: it locks the ticks and logs the percentage. If the day is **80% or more with
-every ⭐ must-do ticked**, the reward video plays: `public/media/day-80-100.mp4` (`.mov`, `.m4v`, `.webm` also work;
-GitHub's website caps uploads at 25 MB). Close it whenever you like. If it can't load, it plays next time the app opens.
-
-## Reminders
-
-Web push can't reach an iPhone unless the site is installed from Safari, so there are three routes (Settings → Reminders):
-
-1. **ntfy** (real phone push): install the free ntfy app, subscribe to the random topic the app shows you, switch it on.
-   Each time Locked In is opened it schedules the rest of that day's reminders using ntfy's delayed delivery, so nothing
-   needs to be running later. Habit names pass through ntfy.sh, so the topic is random and acts like a password.
-2. **Browser notifications** while a Locked In tab is open (laptop / Android).
-3. **Calendar file**: download an `.ics` of daily repeating alarms and add it to the phone's Calendar.
-
-## Privacy: the journal
-
-The journal is plain text, like everything else in the database, so anyone with the site URL and data key can read
-it. It is never sent to Claude: the API routes copy an allow-list of fields and the journal isn't on it.
-
-Entries written back when the journal had a passphrase are stored encrypted (`journalEnc`). The first time the app
-opens on a device that remembers the old key, it converts them to plain text and deletes the passphrase data in one
-write. On a device that doesn't, the Journal card asks for the old passphrase once. Encryption code lives in
-`src/lib/crypto.ts` only for that conversion.
-
-## The To Do and edits
-
-Each day has one To Do list (`todos`), written the night before from Settings → **Write the next day**
-(`src/components/DayPlanner.tsx`): import the previous day's list, add habits or anything else, reorder, and pick an
-edit for any item. A written day is stored with `list: true`; habit items carry `habitId`, and the day's `habits` are
-always worked out from the list, so streaks, Health stats, reminders and the ⭐ must-do rule keep working. A day that is
-never written starts with all your habits plus its to-dos. Older days (habits and to-dos kept apart) are shown as one
-list and converted the first time they're changed.
-
-Edits live in a bank (`src/lib/edits.ts`): pieces at `edits/<id>/<n>`, a label with a thumbnail at `editBank/<id>`.
-Upload from the planner's 🎬 picker or Settings → Edit bank (30 MB max each). Edits on today's list are downloaded in
-the background and kept on the device, so ticking plays them straight away. Vlogs and edits share the 700 MB budget.
-
-## Vlogs
-
-A vlog is recorded in the app (`src/components/VlogRecorder.tsx`), cut into 384 KB pieces and uploaded to
-`vlogs/<date>/<recordedAt>/<n>` (`src/lib/vlog.ts`); the day record only carries a small `vlog` label. Uploads run
-from a queue in IndexedDB, so a vlog recorded offline (or interrupted) finishes later, and the last few stay cached
-on the device so they play instantly. Like the journal and photos, vlogs have no passphrase: anyone with the site
-URL and data key could fetch them. They are never sent to Claude (the API's allow-list doesn't include them).
-
-Recording is deliberately small (about 2 MB a minute) because the free database holds 1 GB in total. Settings shows
-how much vlogs use, and recording stops at 700 MB until some are saved to the device and deleted.
 
 ## The Claude API
 
@@ -219,66 +139,35 @@ The full nightly prompt and setup steps are in `docs/NIGHTLY_CLAUDE_TASK.md`.
 
 ## Data model
 
-Stored at `spaces/<DATA_KEY>` in the Realtime Database (days + settings are also mirrored to `localStorage`):
+Stored at `spaces/<DATA_KEY>` in the Realtime Database (also cached in `localStorage`, with an offline outbox):
 
 ```jsonc
 {
-  "settings": { "name": "Hugo", "examDate": "2028-05-15", "habits": [ { "id": "…", "name": "…", "emoji": "🌅", "color": "#…", "time": "06:50", "sound": "chime", "keystone": true } ], … },
-  "journalCrypto": { … },   // only until old passphrase entries are converted, then deleted
+  "settings": {
+    "habits": [ { "id": "sc-sun", "name": "Sunlight + water", "time": "07:00" }, … ],  // ten at most, in your order
+    "soundsOn": true,
+    "v3": true,                       // the switch to the ten habits has happened
+    "habitsArchive": [ … ]            // the habit list from before that switch
+  },
   "days": {
-    "2026-09-25": {
-      "list": true,                                               // the day's To Do is one written list
-      "todos": [ { "id": "h_gym", "text": "Gym", "done": true, "habitId": "gym", "editId": "137czy06x7ks" }, { "id": "…", "text": "Oxford reading", "done": false } ],
-      "habits": [ { "id": "gym", "name": "Gym", "done": true } ],  // worked out from the list
-      "ratings": { "day": 7, "health": 8, "happy": 6 },
-      "journal": "…",                                             // personal journal (plain text)
-      "academic": { "econ": "…", "maths": "…", "physics": "…" },  // active recall, plaintext
-      "answers": { "maths": "…", "physics": "…", "econ": "…" },   // answers to that day's questions
-      "song": "…", "screenMinutes": 185, "thumb": "data:image/jpeg;base64,…",
-      "vlog": { "v": 1, "at": 1791745317939, "dur": 92, "bytes": 3412345, "chunks": 9, "mime": "video/mp4" },
-      "submitted": { "at": 1789286956869, "pct": 86, "tier": "t80", "keystoneMissed": false }
+    "2026-11-13": {
+      "habits": [ { "id": "sc-sun", "name": "Sunlight + water", "done": true }, … ],
+      "submitted": { "at": 1794555089434, "pct": 40, "tier": "t25", "keystoneMissed": false }
+      // older fields (todos, journal, ratings, vlog, …) are kept as they were
     }
-  },
-  "study": {
-    "questions": { "2026-09-26": { "maths": { "topic": "…", "question": "…", "why": "…" }, … } },
-    "feedback":  { "2026-09-25": { "maths": { "mark": "2/3", "comment": "…", "correctAnswer": "…" } } },
-    "grades":    { "maths": { "2026-09-25": { "grade": 4.4, "reason": "…" } }, "further": {}, "physics": {}, "econ": {} },
-    "hours":     { "2026-09-21": { "maths": 4.5, "physics": 3 } },
-    "econ":      { "2026-09-26": { "concept": { "title": "…", "explanation": "…" }, "reading": [ … ] } },
-    "memory":    { "text": "…" },
-    "sync":      { "lastRead": …, "lastWrite": … }
-  },
-  "photos": { "2026-09-25": { "data": "data:image/jpeg;base64,…" } },  // 720px versions, loaded on demand
-  "vlogs": { "2026-09-25": { "1791745317939": [ "<base64 piece>", … ] } }, // video pieces, fetched only to play
-  "editBank": { "137czy06x7ks": { "name": "gym edit", "dur": 14, "bytes": 5123456, "chunks": 14, "mime": "video/mp4", "at": …, "usedAt": …, "thumb": "data:image/jpeg;base64,…" } },
-  "edits": { "137czy06x7ks": [ "<base64 piece>", … ] }
+  }
 }
 ```
 
-Today and future days always follow the current habit list (with ticks preserved by id); past days keep
-the snapshot they were saved with, so editing the habit list never rewrites history. Habits with a time are
-kept in time order automatically.
-
-**Sounds.** Fifty small MP3s in `public/sounds`, built by `node scripts/make-sounds.mjs` (needs a Mac for `say`, plus
-`ffmpeg`). Nothing is downloaded or sampled from anyone's recording: the teachers and other voices are the Mac's
-built-in speech voices, every tune is a public-domain melody written out as notes in the script, and the goats,
-whistles, kazoos and horns are synthesised there. Every clip is levelled to the same loudness when built and checked
-again after decoding (`src/lib/sounds.ts`). With **lucky dip** on (the default) each tick plays a random one from a
-shuffled bag of all fifty; turn it off in Settings to give each habit its own. To change a sound, edit its entry in
-the script and run it again; it rewrites the files and `src/lib/sound-list.ts`. The 50 ids never change, because
-saved habits point at them. Bump `VERSION` in the script when files change so phones drop their cached copies.
+Today and future days follow the current habit list (ticks kept by id). Past days keep the habits they were saved
+with, so changing the list never rewrites history. Light/dark is stored per device in `localStorage`.
 
 ## Project layout
 
 ```
-src/app/            layout, page, manifest, global styles, icons
-src/components/     AppShell (tabs), TodayView, DayEditor, CalendarView, TrendsView, SettingsView, …
-src/lib/            types, dates, model (normalise days/study, tiers, reward rule), season (palettes + banners), crypto (old journal conversion), vlog (video storage and upload queue), stats, sounds (+ generated sound-list), images, daily (econ cards), reminders, store (state, outbox), firebase
-src/lib/server/     claude.ts: auth, allow-listed reads, zod-validated writes for the nightly task
-src/app/api/        econ-news (headlines proxy), claude/day, claude/range, claude/update
-public/media/       your submit-day videos
-public/sounds/      the fifty habit sounds (regenerate with `node scripts/make-sounds.mjs`)
-public/sw.js        service worker (offline app shell)
-public/icons/       PWA icons (regenerate with `node scripts/gen-icons.mjs`)
-public/photos/      your photos
+src/app/            layout (Geist fonts, theme boot), page, manifest, globals.css (the grey palette, light + dark), icons
+src/components/     AppShell (bottom icons), HabitsView, HabitList, CalendarView, StatsView, SettingsView, Icons
+src/lib/            store (state, sync, outbox, one-time habit switch), model, stats, dates, defaults (the ten), sounds (three synthesised), theme, firebase
+src/lib/server/     claude.ts: the nightly-task API (still there; the Study tab that showed its output is gone)
+public/             sw.js (offline shell), icons (regenerate with `node scripts/gen-icons.mjs`), photos, media
 ```

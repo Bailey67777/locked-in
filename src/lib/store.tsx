@@ -1,25 +1,17 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { get, goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
-import type { AppData, DayRecord, Settings, VlogMeta } from "./types";
-import { habitsFromList, legacyJournalText, materializeDay, normalizeData, normalizeDays, normalizeJournalCrypto, normalizeSettings, normalizeStudy, sortHabits, stripUndefined } from "./model";
-import { addDays, todayKey } from "./dates";
+import { goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
+import type { AppData, DayRecord, Settings } from "./types";
+import { materializeDay, normalizeData, normalizeDays, normalizeSettings, stripUndefined } from "./model";
+import { todayKey } from "./dates";
+import { DEFAULT_HABITS } from "./defaults";
 import { DATA_PATH, getDb } from "./firebase";
-import { cachedChunks, cacheChunks, downloadChunks, dropCached, dropPending, getPending, listPending, promoteToCache, queueVlog, uploadPending, vlogPath, vlogStorageAvailable } from "./vlog";
-import { decryptText, deriveKey, forgetKey, recallKey, verifyKey } from "./crypto";
-import { type Season, type SeasonChoice, readSeasonChoice, resolveSeason, writeSeasonChoice } from "./season";
 
 export type SyncState = "local" | "connecting" | "online" | "offline";
-/** ready: plain journal. locked: older entries still need the old passphrase once. unavailable: they do, but this browser can't decrypt. */
-export type JournalState = "ready" | "locked" | "unavailable";
-
-/** A vlog recorded on this device that hasn't finished uploading yet. */
-export type VlogProgress = { uploaded: number; total: number; state: "uploading" | "waiting" };
 
 const LS_KEY = "locked-in:data:v1";
 const OUTBOX_KEY = "locked-in:outbox:v1";
-const PHOTO_KEY = (date: string) => `locked-in:photo:${date}`;
 
 type Store = {
   data: AppData;
@@ -30,27 +22,6 @@ type Store = {
   getDay: (date: string) => DayRecord;
   updateDay: (date: string, fn: (day: DayRecord) => DayRecord) => void;
   updateSettings: (fn: (s: Settings) => Settings) => void;
-  carryTodoOver: (date: string, todoId: string) => void;
-  getDayPhoto: (date: string) => Promise<string | null>;
-  setDayPhoto: (date: string, photo: { medium: string; thumb: string }) => Promise<void>;
-  removeDayPhoto: (date: string) => Promise<void>;
-  /** Personal journal (plain text). */
-  journalState: JournalState;
-  journalBusy: boolean;
-  /** Days whose entries are still locked behind the old passphrase. */
-  lockedEntries: number;
-  journalText: (date: string) => string;
-  saveJournal: (date: string, text: string) => void;
-  /** Enter the old passphrase once: every old entry becomes plain text and the passphrase is gone for good. */
-  unlockJournal: (passphrase: string) => Promise<boolean>;
-  season: Season;
-  seasonChoice: SeasonChoice;
-  setSeasonChoice: (choice: SeasonChoice) => void;
-  /** The day's vlog: saved on this device straight away, uploaded in the background. */
-  vlogPending: Record<string, VlogProgress>;
-  saveVlog: (date: string, video: Blob, seconds: number) => Promise<void>;
-  loadVlog: (date: string, onProgress?: (fraction: number) => void) => Promise<Blob>; // ready to play
-  removeVlog: (date: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -66,7 +37,7 @@ function readCache(): AppData | null {
 
 function writeCache(data: AppData) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data)); // holds only ciphertext for the journal, never plaintext
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
   } catch {
     /* storage full or unavailable: ignore */
   }
@@ -100,17 +71,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [today, setToday] = useState("");
   const [sync, setSync] = useState<SyncState>("local");
   const [pending, setPending] = useState(0);
+  // True once the cloud copy of the settings has arrived (or there is no cloud), so the one-time habit swap never acts on a stale cache.
+  const [settingsReady, setSettingsReady] = useState(false);
   const dataRef = useRef(data);
   const todayRef = useRef(today);
   const dbRef = useRef<ReturnType<typeof getDb>>(null);
-
-  // True once the cloud copy of the days has arrived (or there is no cloud), so the journal migration never acts on a stale cache.
-  const [remoteReady, setRemoteReady] = useState(false);
-  const [journalBusy, setJournalBusy] = useState(false);
-  const [autoTried, setAutoTried] = useState(false);
-  const migrating = useRef(false);
-
-  const [seasonChoice, setSeasonChoiceState] = useState<SeasonChoice>("auto");
 
   const commit = useCallback((next: AppData) => {
     dataRef.current = next;
@@ -181,21 +146,16 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       }
       setLoaded(true);
       setPending(readOutbox().length);
-      setSeasonChoiceState(readSeasonChoice());
 
       const db = getDb();
       if (!db) {
-        setRemoteReady(true);
+        setSettingsReady(true);
         return;
       }
       dbRef.current = db;
       setSync("connecting");
 
-      let gotDays = false;
-      let gotCrypto = false;
-      const markReady = () => gotDays && gotCrypto && setRemoteReady(true);
-
-      // Days, settings, study and crypto params are listened to separately so photos (under /photos) never ride along.
+      // Days and settings are listened to separately, so nothing large (photos, videos) ever rides along.
       let firstDays = true;
       unsubs.push(
         onValue(
@@ -208,29 +168,19 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             }
             firstDays = false;
             commit({ ...dataRef.current, days: normalizeDays(snap.val()) });
-            gotDays = true;
-            markReady();
           },
           () => setSync("offline"),
         ),
       );
       unsubs.push(
-        onValue(ref(db, `${DATA_PATH}/settings`), (snap) => {
-          if (!snap.exists()) return;
-          commit({ ...dataRef.current, settings: normalizeSettings(snap.val()) });
-        }),
-      );
-      unsubs.push(
-        onValue(ref(db, `${DATA_PATH}/study`), (snap) => {
-          commit({ ...dataRef.current, study: normalizeStudy(snap.val()) });
-        }),
-      );
-      unsubs.push(
-        onValue(ref(db, `${DATA_PATH}/journalCrypto`), (snap) => {
-          commit({ ...dataRef.current, journalCrypto: normalizeJournalCrypto(snap.val()) });
-          gotCrypto = true;
-          markReady();
-        }),
+        onValue(
+          ref(db, `${DATA_PATH}/settings`),
+          (snap) => {
+            if (snap.exists()) commit({ ...dataRef.current, settings: normalizeSettings(snap.val()) });
+            setSettingsReady(true);
+          },
+          () => setSettingsReady(true),
+        ),
       );
       unsubs.push(
         onValue(ref(db, ".info/connected"), (snap) => {
@@ -247,326 +197,38 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     };
   }, [commit, flushOutbox]);
 
-  /* ---- journal: the passphrase is gone; old encrypted entries are converted to plain text once ---- */
-
-  const lockedEntries = useMemo(() => Object.values(data.days).filter((d) => d.journalEnc).length, [data.days]);
-  const hasCryptoParams = data.journalCrypto !== null;
-  const canDecrypt = typeof crypto !== "undefined" && Boolean(crypto.subtle);
-  const journalState: JournalState = lockedEntries === 0 ? "ready" : !hasCryptoParams ? "ready" : canDecrypt ? "locked" : "unavailable";
-
-  /** Decrypt every old entry with `key`, store it as plain text, and drop the passphrase data (one atomic write). */
-  const migrateJournal = useCallback(
-    async (key: CryptoKey | null) => {
-      if (migrating.current) return;
-      migrating.current = true;
-      try {
-        const prev = dataRef.current;
-        const changed: Record<string, DayRecord> = {};
-        let failed = 0;
-        for (const day of Object.values(prev.days)) {
-          if (!day.journalEnc) continue;
-          let text: string;
-          try {
-            if (!key) throw new Error("no key");
-            text = await decryptText(key, day.journalEnc);
-          } catch {
-            failed++;
-            continue;
-          }
-          const existing = legacyJournalText(day);
-          const merged = text.trim() && existing ? `${text}\n\n${existing}` : text.trim() || existing;
-          changed[day.date] = stripUndefined({ ...day, journal: merged || undefined, recall: undefined, journalEnc: undefined, updatedAt: Date.now() });
-        }
-        const paths: Record<string, unknown> = {};
-        for (const [date, day] of Object.entries(changed)) paths[`days/${date}`] = day;
-        const done = failed === 0;
-        if (done) paths.journalCrypto = null;
-        if (!Object.keys(paths).length) return;
-        commit({ ...prev, days: { ...prev.days, ...changed }, journalCrypto: done ? null : prev.journalCrypto });
-        remote("update", DATA_PATH, paths);
-        if (done) await forgetKey();
-      } finally {
-        migrating.current = false;
-      }
-    },
-    [commit, remote],
-  );
-
-  // On each device: once the cloud copy is in, convert with the key this device remembers (if any),
-  // or just drop leftover passphrase data when no encrypted entries remain.
-  useEffect(() => {
-    if (!remoteReady || autoTried || !hasCryptoParams) return;
-    let cancelled = false;
-    (async () => {
-      if (lockedEntries === 0) {
-        await migrateJournal(null);
-      } else if (canDecrypt) {
-        const params = dataRef.current.journalCrypto;
-        const remembered = await recallKey().catch(() => null);
-        if (!cancelled && params && remembered && remembered.salt === params.salt && (await verifyKey(remembered.key, params))) await migrateJournal(remembered.key);
-      }
-      if (!cancelled) setAutoTried(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [remoteReady, autoTried, hasCryptoParams, lockedEntries, canDecrypt, migrateJournal]);
-
-  const pushDay = useCallback((date: string, day: DayRecord) => remote("set", `${DATA_PATH}/days/${date}`, day), [remote]);
-
-  const getDay = useCallback(
-    (date: string) => materializeDay(date, data.days[date], data.settings, today || date),
-    [data, today],
-  );
+  const getDay = useCallback((date: string) => materializeDay(date, data.days[date], data.settings, today || date), [data, today]);
 
   const updateDay = useCallback(
     (date: string, fn: (day: DayRecord) => DayRecord) => {
       const prev = dataRef.current;
       const current = materializeDay(date, prev.days[date], prev.settings, todayRef.current || date);
-      const changed = fn(current);
-      // A written list is the source of truth; the day's habits are always worked out from it.
-      if (changed.list) changed.habits = habitsFromList(changed.todos, prev.settings);
-      const nextDay: DayRecord = stripUndefined({ ...changed, date, updatedAt: Date.now() }); // Firebase rejects undefined values
+      const nextDay: DayRecord = stripUndefined({ ...fn(current), date, updatedAt: Date.now() }); // Firebase rejects undefined values
       commit({ ...prev, days: { ...prev.days, [date]: nextDay } });
-      pushDay(date, nextDay);
+      remote("set", `${DATA_PATH}/days/${date}`, nextDay);
     },
-    [commit, pushDay],
+    [commit, remote],
   );
 
   const updateSettings = useCallback(
     (fn: (s: Settings) => Settings) => {
       const prev = dataRef.current;
       const next = fn(prev.settings);
-      const settings: Settings = stripUndefined({ ...next, habits: sortHabits(next.habits) });
+      const settings: Settings = stripUndefined(next);
       commit({ ...prev, settings });
       remote("set", `${DATA_PATH}/settings`, settings);
     },
     [commit, remote],
   );
 
-  const carryTodoOver = useCallback(
-    (date: string, todoId: string) => {
-      const day = materializeDay(date, dataRef.current.days[date], dataRef.current.settings, todayRef.current || date);
-      const todo = day.todos.find((t) => t.id === todoId);
-      if (!todo) return;
-      updateDay(date, (d) => ({ ...d, todos: d.todos.filter((t) => t.id !== todoId) }));
-      updateDay(addDays(date, 1), (d) => (d.todos.some((t) => t.id === todo.id) ? d : { ...d, todos: [...d.todos, { ...todo, done: false }] }));
-    },
-    [updateDay],
-  );
-
-  /* ---- photos ---- */
-
-  const getDayPhoto = useCallback(async (date: string): Promise<string | null> => {
-    const db = dbRef.current;
-    if (db) {
-      try {
-        const snap = await get(ref(db, `${DATA_PATH}/photos/${date}`));
-        const v = snap.val() as { data?: string } | null;
-        if (v?.data) return v.data;
-      } catch {
-        /* fall through to local */
-      }
-    }
-    try {
-      return localStorage.getItem(PHOTO_KEY(date));
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const setDayPhoto = useCallback(
-    async (date: string, photo: { medium: string; thumb: string }) => {
-      try {
-        localStorage.setItem(PHOTO_KEY(date), photo.medium);
-      } catch {
-        /* quota: the thumbnail still lives in the day record */
-      }
-      updateDay(date, (d) => ({ ...d, thumb: photo.thumb }));
-      remote("set", `${DATA_PATH}/photos/${date}`, { data: photo.medium, updatedAt: Date.now() });
-    },
-    [updateDay, remote],
-  );
-
-  const removeDayPhoto = useCallback(
-    async (date: string) => {
-      try {
-        localStorage.removeItem(PHOTO_KEY(date));
-      } catch {
-        /* ignore */
-      }
-      updateDay(date, (d) => {
-        const next = { ...d };
-        delete next.thumb;
-        return next;
-      });
-      remote("remove", `${DATA_PATH}/photos/${date}`);
-    },
-    [updateDay, remote],
-  );
-
-  /* ---- journal ---- */
-
-  const journalText = useCallback((date: string): string => {
-    const d = data.days[date];
-    return d ? legacyJournalText(d) : "";
-  }, [data.days]);
-
-  const saveJournal = useCallback(
-    (date: string, text: string) => updateDay(date, (d) => ({ ...d, journal: text.trim() ? text : undefined, recall: undefined })),
-    [updateDay],
-  );
-
-  const unlockJournal = useCallback(
-    async (passphrase: string): Promise<boolean> => {
-      const params = dataRef.current.journalCrypto;
-      if (!params) return false;
-      setJournalBusy(true);
-      try {
-        const key = await deriveKey(passphrase, params.salt, params.iterations);
-        if (!(await verifyKey(key, params))) return false;
-        await migrateJournal(key);
-        return true;
-      } finally {
-        setJournalBusy(false);
-      }
-    },
-    [migrateJournal],
-  );
-
-  /* ---- the day's vlog ---- */
-
-  const [vlogPending, setVlogPending] = useState<Record<string, VlogProgress>>({});
-  const vlogRunning = useRef(false);
-  const vlogAgain = useRef(false);
-
-  /**
-   * Work through vlogs recorded on this device that haven't finished saving: upload the remaining pieces,
-   * then put the label on the day so every device can see it. Safe to call at any time.
-   */
-  const runVlogQueue = useCallback(async () => {
-    if (!vlogStorageAvailable()) return;
-    if (vlogRunning.current) {
-      vlogAgain.current = true;
-      return;
-    }
-    vlogRunning.current = true;
-    try {
-      do {
-        vlogAgain.current = false;
-        const queue = await listPending();
-        const seen = new Set(queue.map((p) => p.date));
-        setVlogPending((m) => (Object.keys(m).every((d) => seen.has(d)) ? m : Object.fromEntries(Object.entries(m).filter(([d]) => seen.has(d)))));
-        for (const p of queue) {
-          const total = p.chunks.length;
-          const show = (uploaded: number, state: VlogProgress["state"]) => setVlogPending((m) => ({ ...m, [p.date]: { uploaded, total, state } }));
-          try {
-            if (p.uploaded < total) {
-              show(p.uploaded, "uploading");
-              await uploadPending(p, (n) => show(n, "uploading"));
-            }
-          } catch (e) {
-            if (!(e instanceof Error && e.message === "replaced")) show(p.uploaded, "waiting"); // offline: tried again on the next connection
-            continue;
-          }
-          const still = await getPending(p.date);
-          if (!still || still.at !== p.at) continue; // deleted or re-recorded while it was uploading
-          const meta: VlogMeta = { v: 1, at: p.at, dur: p.dur, bytes: p.bytes, chunks: total, mime: p.mime };
-          updateDay(p.date, (d) => ({ ...d, vlog: meta }));
-          await promoteToCache(p);
-          setVlogPending((m) => {
-            const next = { ...m };
-            delete next[p.date];
-            return next;
-          });
-        }
-      } while (vlogAgain.current);
-    } finally {
-      vlogRunning.current = false;
-    }
-  }, [updateDay]);
-
-  // Pick the queue back up when the app opens and whenever the connection returns.
+  // One time only: switch to the ten habits. The old list is kept in settings.habitsArchive.
   useEffect(() => {
-    if (!loaded) return;
-    const id = window.setTimeout(() => void runVlogQueue(), 0);
+    if (!settingsReady || dataRef.current.settings.v3) return;
+    const id = window.setTimeout(() => {
+      updateSettings((s) => (s.v3 ? s : { ...s, v3: true, habitsArchive: s.habitsArchive ?? s.habits, habits: DEFAULT_HABITS.map((h) => ({ ...h })) }));
+    }, 0);
     return () => window.clearTimeout(id);
-  }, [loaded, sync, runVlogQueue]);
-
-  // An upload that failed while the app stayed open is retried every half minute.
-  const vlogWaiting = Object.values(vlogPending).some((v) => v.state === "waiting");
-  useEffect(() => {
-    if (!vlogWaiting) return;
-    const id = window.setInterval(() => void runVlogQueue(), 30_000);
-    return () => window.clearInterval(id);
-  }, [vlogWaiting, runVlogQueue]);
-
-  const saveVlog = useCallback(
-    async (date: string, video: Blob, seconds: number) => {
-      const previous = dataRef.current.days[date]?.vlog;
-      const replaced = await getPending(date);
-      const p = await queueVlog(date, video, seconds);
-      setVlogPending((m) => ({ ...m, [date]: { uploaded: 0, total: p.chunks.length, state: "uploading" } }));
-      // A re-record replaces the old one: take its label off the day and delete its pieces.
-      if (previous) {
-        updateDay(date, (d) => ({ ...d, vlog: undefined }));
-        remote("remove", vlogPath(date, previous.at));
-        await dropCached(date);
-      }
-      if (replaced && replaced.uploaded > 0) remote("remove", vlogPath(date, replaced.at));
-      void runVlogQueue();
-    },
-    [updateDay, remote, runVlogQueue],
-  );
-
-  const loadVlog = useCallback(async (date: string, onProgress?: (fraction: number) => void): Promise<Blob> => {
-    const pending = await getPending(date);
-    if (pending) return new Blob(pending.chunks, { type: pending.mime });
-    const meta = dataRef.current.days[date]?.vlog;
-    if (!meta) throw new Error("There's no vlog for this day.");
-    let chunks = await cachedChunks(date, meta.at);
-    if (!chunks) {
-      try {
-        chunks = await downloadChunks(date, meta.at, meta.chunks, onProgress);
-      } catch {
-        throw new Error("Couldn't download this vlog. Check your connection and try again.");
-      }
-      void cacheChunks(date, meta.at, chunks);
-    }
-    return new Blob(chunks, { type: meta.mime });
-  }, []);
-
-  const removeVlog = useCallback(
-    async (date: string) => {
-      const pending = await getPending(date);
-      const meta = dataRef.current.days[date]?.vlog;
-      await dropPending(date);
-      await dropCached(date);
-      setVlogPending((m) => {
-        if (!(date in m)) return m;
-        const next = { ...m };
-        delete next[date];
-        return next;
-      });
-      if (pending && pending.uploaded > 0) remote("remove", vlogPath(date, pending.at));
-      if (meta) {
-        updateDay(date, (d) => ({ ...d, vlog: undefined }));
-        remote("remove", vlogPath(date, meta.at));
-      }
-    },
-    [updateDay, remote],
-  );
-
-  /* ---- season ---- */
-
-  const season = useMemo(() => resolveSeason(seasonChoice, today ? new Date(`${today}T12:00`) : new Date()), [seasonChoice, today]);
-  useEffect(() => {
-    document.documentElement.setAttribute("data-season", season);
-  }, [season]);
-  const setSeasonChoice = useCallback((choice: SeasonChoice) => {
-    writeSeasonChoice(choice);
-    setSeasonChoiceState(choice);
-  }, []);
+  }, [settingsReady, updateSettings]);
 
   // Dev-only hooks so offline sync can be exercised from the console.
   useEffect(() => {
@@ -579,12 +241,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Store>(
-    () => ({
-      data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto,
-      journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice,
-      vlogPending, saveVlog, loadVlog, removeVlog,
-    }),
-    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, carryTodoOver, getDayPhoto, setDayPhoto, removeDayPhoto, journalState, journalBusy, lockedEntries, journalText, saveJournal, unlockJournal, season, seasonChoice, setSeasonChoice, vlogPending, saveVlog, loadVlog, removeVlog],
+    () => ({ data, loaded, today, sync, pending, getDay, updateDay, updateSettings }),
+    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

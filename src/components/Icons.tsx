@@ -1,13 +1,15 @@
 import type { SVGProps } from "react";
 
 type P = SVGProps<SVGSVGElement>;
-const base = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const base = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
-export function SunIcon(p: P) {
+export function HabitsIcon(p: P) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+      <circle cx="5.5" cy="6.5" r="1.6" />
+      <circle cx="5.5" cy="12" r="1.6" />
+      <circle cx="5.5" cy="17.5" r="1.6" />
+      <path d="M10 6.5h10M10 12h10M10 17.5h10" />
     </svg>
   );
 }
@@ -15,17 +17,16 @@ export function SunIcon(p: P) {
 export function CalendarIcon(p: P) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <rect x="3" y="5" width="18" height="16" rx="3" />
-      <path d="M3 10h18M8 3v4M16 3v4" />
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
     </svg>
   );
 }
 
-export function TrendIcon(p: P) {
+export function StatsIcon(p: P) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M3 17l5-6 4 4 5-7 4 3" />
-      <path d="M3 21h18" />
+      <path d="M5 20V12M10 20V5M15 20v-9M20 20v-5" />
     </svg>
   );
 }
@@ -33,202 +34,41 @@ export function TrendIcon(p: P) {
 export function SettingsIcon(p: P) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
-      <circle cx="16" cy="7" r="2.5" />
-      <circle cx="10" cy="17" r="2.5" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   );
 }
 
 export function CheckIcon(p: P) {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" {...base} strokeWidth={3} {...p}>
+    <svg viewBox="0 0 24 24" width="14" height="14" {...base} strokeWidth={2.4} {...p}>
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   );
 }
 
-export function PlusIcon(p: P) {
+export function ChevronIcon({ dir = "right", ...p }: P & { dir?: "left" | "right" | "up" | "down" }) {
+  const r = { right: 0, down: 90, left: 180, up: 270 }[dir];
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
-      <path d="M12 5v14M5 12h14" />
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p} style={{ transform: `rotate(${r}deg)`, ...p.style }}>
+      <path d="M9 5l7 7-7 7" />
     </svg>
   );
 }
 
 export function CloseIcon(p: P) {
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }
 
-export function ChevronIcon({ dir = "right", ...p }: P & { dir?: "left" | "right" | "up" | "down" }) {
-  const rot = { right: 0, down: 90, left: 180, up: 270 }[dir];
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" {...base} style={{ transform: `rotate(${rot}deg)` }} {...p}>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-export function ArrowRightIcon(p: P) {
+export function PlusIcon(p: P) {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-export function TrashIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
-      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-    </svg>
-  );
-}
-
-export function WaveMark(p: P) {
-  // Same picture as public/icons/icon.svg: sun, grass, someone standing by the lake.
-  return (
-    <svg viewBox="0 0 512 512" width="28" height="28" {...p}>
-      <defs>
-        <linearGradient id="lg-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#bfe3f7" />
-          <stop offset="0.7" stopColor="#e9f3fa" />
-          <stop offset="1" stopColor="#f6ead2" />
-        </linearGradient>
-        <linearGradient id="lg-lake" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#4aa7dc" />
-          <stop offset="1" stopColor="#1a6fd1" />
-        </linearGradient>
-        <linearGradient id="lg-grass" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#7cc242" />
-          <stop offset="1" stopColor="#4e9a2a" />
-        </linearGradient>
-        <clipPath id="lg-clip">
-          <rect width="512" height="512" rx="112" />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#lg-clip)">
-        <rect width="512" height="512" fill="url(#lg-sky)" />
-        <g stroke="#f6a623" strokeWidth="14" strokeLinecap="round">
-          <line x1="128" y1="40" x2="128" y2="10" /><line x1="128" y1="246" x2="128" y2="216" />
-          <line x1="25" y1="128" x2="-5" y2="128" /><line x1="231" y1="128" x2="261" y2="128" />
-          <line x1="55" y1="55" x2="34" y2="34" /><line x1="201" y1="201" x2="222" y2="222" />
-          <line x1="55" y1="201" x2="34" y2="222" /><line x1="201" y1="55" x2="222" y2="34" />
-        </g>
-        <circle cx="128" cy="128" r="70" fill="#ffd54a" stroke="#f6a623" strokeWidth="10" />
-        <ellipse cx="420" cy="330" rx="260" ry="90" fill="#9ad06a" />
-        <path d="M0 340 C 90 318, 180 318, 270 340 S 440 362, 512 340 L512 512 L0 512 Z" fill="url(#lg-grass)" />
-        <ellipse cx="380" cy="415" rx="150" ry="62" fill="url(#lg-lake)" />
-        <path d="M262 405 C 300 396, 340 396, 380 405 S 460 414, 500 405" fill="none" stroke="#dff1fb" strokeWidth="7" strokeLinecap="round" opacity="0.9" />
-        <g stroke="#1b2a36" strokeWidth="12" strokeLinecap="round" fill="none">
-          <circle cx="160" cy="310" r="28" fill="#fbf7f0" />
-          <line x1="160" y1="338" x2="160" y2="420" />
-          <line x1="160" y1="360" x2="118" y2="392" />
-          <line x1="160" y1="360" x2="206" y2="330" />
-          <line x1="160" y1="420" x2="130" y2="476" />
-          <line x1="160" y1="420" x2="192" y2="476" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-export function PlanIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M6 3v18" />
-      <circle cx="6" cy="7" r="2" fill="currentColor" stroke="none" />
-      <circle cx="6" cy="17" r="2" fill="currentColor" stroke="none" />
-      <rect x="11" y="4" width="10" height="6" rx="2" />
-      <rect x="11" y="14" width="7" height="6" rx="2" />
-    </svg>
-  );
-}
-
-export function JournalIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4z" />
-      <path d="M5 18a2 2 0 0 1 2-2h12M9 8h6M9 12h4" />
-    </svg>
-  );
-}
-
-export function DailyIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3z" />
-      <path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9L18 15zM5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6L5 15z" />
-    </svg>
-  );
-}
-
-export function HourglassIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />
-    </svg>
-  );
-}
-
-export function MoreIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <circle cx="5" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-      <circle cx="19" cy="12" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-
-export function LockIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
-      <rect x="5" y="11" width="14" height="10" rx="2.5" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}
-
-export function StudyIcon(p: P) {
-  // graduation cap
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M2 9l10-4 10 4-10 4-10-4z" />
-      <path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4" />
-      <path d="M22 9v6" />
-    </svg>
-  );
-}
-
-export function HealthIcon(p: P) {
-  // health cross
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
-      <path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3z" />
-    </svg>
-  );
-}
-
-export function CameraIcon(p: P) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
-      <path d="M4 8h3l2-3h6l2 3h3v11H4V8z" />
-      <circle cx="12" cy="13" r="3.2" />
-    </svg>
-  );
-}
-
-export function VideoIcon(p: P) {
-  // camcorder
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
-      <rect x="3" y="6.5" width="12.5" height="11" rx="2.5" />
-      <path d="M15.5 10.5l5-3v9l-5-3z" />
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
