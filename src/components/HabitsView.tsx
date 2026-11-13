@@ -56,11 +56,16 @@ export default function HabitsView() {
   const slices = day.habits.length + 2;
   return (
     <div className="fade-up flex flex-1 flex-col" style={{ minHeight: slices * 50 }}>
-      <header className="flex min-h-[50px] items-center justify-between gap-4" style={{ flex: "1 1 0" }}>
-        <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
-        <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
-          <MicIcon />
-        </button>
+      {/* The title row sits a little below the middle of its slice (3 parts space above, 1 below), closer to the habits. */}
+      <header className="flex min-h-[50px] flex-col" style={{ flex: "1 1 0" }}>
+        <div style={{ flex: "3 1 0" }} />
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
+          <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
+            <MicIcon />
+          </button>
+        </div>
+        <div style={{ flex: "1 1 0" }} />
       </header>
 
       <div className="flex flex-col" style={{ flex: `${day.habits.length} 1 0` }}>
