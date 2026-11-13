@@ -50,7 +50,7 @@ export default function AppShell() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
       <div className="pt-safe" />
-      <main className={cn("flex-1 px-5 pt-7", "pb-[calc(110px+env(safe-area-inset-bottom,0px))]")}>
+      <main className={cn("flex flex-1 flex-col px-5 pt-7", tab === "habits" ? "pb-[calc(65px+env(safe-area-inset-bottom,0px))]" : "pb-[calc(110px+env(safe-area-inset-bottom,0px))]")}>
         {ready && (
           <>
             {tab === "habits" && <HabitsView />}
