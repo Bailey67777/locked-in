@@ -51,31 +51,31 @@ export default function HabitsView() {
     if (done + 1 === total) playAllDone();
   };
 
+  // Twelve identical slices fill the screen above the bottom icons: the title, the ten habits, the bar. Every
+  // gap is the same, top to bottom. On a very short screen the slices stop at 50px and the page scrolls instead.
+  const slices = day.habits.length + 2;
   return (
-    <div className="fade-up flex flex-1 flex-col">
-      <header className="mb-6 flex items-center justify-between gap-4">
+    <div className="fade-up flex flex-1 flex-col" style={{ minHeight: slices * 50 }}>
+      <header className="flex min-h-[50px] items-center justify-between gap-4" style={{ flex: "1 1 0" }}>
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
         <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
           <MicIcon />
         </button>
       </header>
 
-      {/* The ten habits and the bar share the rest of the screen in equal slices, so every gap is the same,
-          down to the bottom bar. On a short screen the slices stop shrinking and the page scrolls instead. */}
-      <div className="flex flex-1 flex-col" style={{ maxHeight: `${(day.habits.length + 1) * 96}px` }}>
-        <div className="flex flex-col" style={{ flex: `${day.habits.length} 1 0` }}>
-          <HabitList habits={day.habits} onToggle={toggle} fill />
+      <div className="flex flex-col" style={{ flex: `${day.habits.length} 1 0` }}>
+        <HabitList habits={day.habits} onToggle={toggle} fill />
+      </div>
+
+      <div className="flex min-h-[50px] flex-col justify-center" style={{ flex: "1 1 0" }}>
+        <div className="flex items-baseline justify-between font-mono text-[13px] tabular-nums">
+          <span className="text-muted">
+            {done}/{total}
+          </span>
+          <span className="text-ink">{pct}%</span>
         </div>
-        <div className="flex min-h-[54px] flex-col justify-center" style={{ flex: "1 1 0" }}>
-          <div className="flex items-baseline justify-between font-mono text-[13px] tabular-nums">
-            <span className="text-muted">
-              {done}/{total}
-            </span>
-            <span className="text-ink">{pct}%</span>
-          </div>
-          <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
-            <div className="h-full rounded-full bg-ink transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
-          </div>
+        <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
+          <div className="h-full rounded-full bg-ink transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
       </div>
 

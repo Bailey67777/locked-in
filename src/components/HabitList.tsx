@@ -16,9 +16,10 @@ type Props = {
 export default function HabitList({ habits, locked = false, fill = false, onToggle }: Props) {
   if (!habits.length) return <p className="py-10 text-center text-[14px] text-muted">No habits.</p>;
   return (
-    <ul className={cn("divide-y divide-line border-y border-line", fill && "flex flex-1 flex-col")}>
-      {habits.map((h) => (
-        <li key={h.id} className={cn(fill && "flex min-h-[54px] flex-1")}>
+    // When filling, the lines are drawn as shadows so they take up no space and every row is exactly the same height.
+    <ul className={cn(fill ? "flex flex-1 flex-col" : "divide-y divide-line border-y border-line")}>
+      {habits.map((h, i) => (
+        <li key={h.id} className={cn(fill && "flex min-h-[50px] flex-1")} style={fill ? { boxShadow: `inset 0 1px 0 var(--line)${i === habits.length - 1 ? ", inset 0 -1px 0 var(--line)" : ""}` } : undefined}>
           <button
             type="button"
             onClick={() => onToggle(h.id)}
