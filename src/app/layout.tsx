@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/lib/store";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
-const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
+const sans = Manrope({ subsets: ["latin"], variable: "--font-sans-face", display: "swap" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f3f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
   width: "device-width",
   initialScale: 1,

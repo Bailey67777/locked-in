@@ -1,15 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { average, chartDays, habitRates, startOf } from "@/lib/stats";
-import { formatLong, formatShort } from "@/lib/dates";
+import { average, chartDays, habitRates } from "@/lib/stats";
+import { formatShort } from "@/lib/dates";
+import RandomRecording from "./RandomRecording";
 
 function Big({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-2xl bg-surface px-4 py-4">
       <div className="text-[13px] text-muted">{label}</div>
       <div className="mt-2 flex items-baseline gap-0.5">
-        <span className="text-[34px] font-semibold leading-none tracking-[-0.04em] tabular-nums">{value === null ? "–" : value}</span>
+        <span className="text-[36px] font-bold leading-none tracking-[-0.04em] tabular-nums">{value === null ? "–" : value}</span>
         {value !== null && <span className="text-[15px] text-muted">%</span>}
       </div>
     </div>
@@ -19,15 +21,15 @@ function Big({ label, value }: { label: string; value: number | null }) {
 export default function StatsView() {
   const { today, data } = useStore();
   const { days, settings } = data;
-  const start = startOf(settings);
+  const [random, setRandom] = useState(false);
+  const recordings = Object.values(days).reduce((n, d) => n + Object.keys(d.voice ?? {}).length, 0);
   const bars = chartDays(days, settings, today);
   const rates = habitRates(days, settings, today, 30);
 
   return (
     <div className="fade-up">
       <header className="mb-7">
-        <div className="label">Since {formatLong(start)}</div>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">Statistics</h1>
+        <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Statistics</h1>
       </header>
 
       <div className="grid grid-cols-2 gap-2">
@@ -62,7 +64,7 @@ export default function StatsView() {
             return (
               <li key={r.id} className="py-3.5">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate text-[15px]">{r.name}</span>
+                  <span className="min-w-0 truncate text-[16px]">{r.name}</span>
                   <span className="shrink-0 text-[14px] tabular-nums text-ink-2">{pct === null ? "–" : `${pct}%`}</span>
                 </div>
                 <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
@@ -73,6 +75,13 @@ export default function StatsView() {
           })}
         </ul>
       </section>
+
+      <button type="button" onClick={() => setRandom(true)} className="tap mt-6 flex h-14 w-full items-center justify-between rounded-2xl bg-surface px-5 text-left">
+        <span className="text-[16px] font-medium">Random recordings</span>
+        <span className="font-mono text-[12px] text-muted">{recordings}</span>
+      </button>
+
+      {random && <RandomRecording onClose={() => setRandom(false)} />}
     </div>
   );
 }

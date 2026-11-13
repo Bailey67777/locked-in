@@ -8,7 +8,7 @@ import { dayProgress } from "@/lib/model";
 import { pctOn, startOf, topMissed } from "@/lib/stats";
 import { haptic, playSound, playUntick } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
-import { ChevronIcon, CloseIcon, MicIcon } from "./Icons";
+import { CloseIcon, MicIcon } from "./Icons";
 import HabitList from "./HabitList";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
 
@@ -46,7 +46,6 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   }, [onClose]);
 
   const toggle = (id: string) => {
-    if (day.submitted) return;
     const turningOn = !day.habits.find((h) => h.id === id)?.done;
     updateDay(date, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }));
     haptic(turningOn ? 10 : 6);
@@ -66,7 +65,7 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
       <div className="sheet-up flex max-h-[88dvh] w-full max-w-[520px] flex-col rounded-t-[22px] bg-bg px-5 pt-5" role="dialog" aria-modal="true" aria-label={formatLong(date)}>
         <div className="flex items-start justify-between">
           <div>
-            <div className="label">{date === today ? "Today" : day.submitted ? "Submitted" : counts ? "Looking back" : "Before the start"}</div>
+            <div className="label">{date === today ? "Today" : counts ? "Looking back" : "Before the start"}</div>
             <div className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">{formatLong(date)}</div>
           </div>
           <button type="button" className="tap -mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-2" onClick={onClose} aria-label="Close">
@@ -85,8 +84,8 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
               <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
                 <div className="h-full rounded-full bg-ink transition-[width] duration-500" style={{ width: `${progress.pct}%` }} />
               </div>
-              <div className={cn("mt-4", day.submitted && "opacity-60")}>
-                <HabitList habits={day.habits} locked={Boolean(day.submitted)} onToggle={toggle} />
+              <div className="mt-4">
+                <HabitList habits={day.habits} onToggle={toggle} />
               </div>
             </>
           )}
@@ -106,108 +105,64 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   );
 }
 
+/** Months from the start month on: at least three, more as time goes by. */
+function monthsFrom(start: string, today: string): { year: number; month: number }[] {
+  const s = parseKey(start);
+  const t = parseKey(today);
+  const span = Math.max(3, (t.getFullYear() - s.getFullYear()) * 12 + (t.getMonth() - s.getMonth()) + 2);
+  return Array.from({ length: span }, (_, i) => {
+    const d = new Date(s.getFullYear(), s.getMonth() + i, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+}
+
 export default function CalendarView() {
   const { today, data } = useStore();
   const settings = data.settings;
   const start = startOf(settings);
-  const t = parseKey(today);
-  const [year, setYear] = useState(t.getFullYear());
-  const [month, setMonth] = useState(t.getMonth());
   const [open, setOpen] = useState<string | null>(null);
-
-  const shift = (n: number) => {
-    const d = new Date(year, month + n, 1);
-    setYear(d.getFullYear());
-    setMonth(d.getMonth());
-  };
-
-  const isCurrentMonth = year === t.getFullYear() && month === t.getMonth();
   const top = settings.habits[0];
 
   return (
-    <div className="fade-up">
-      <header className="mb-7 flex items-end justify-between">
-        <div>
-          <div className="label">Calendar</div>
-          <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">{monthLabel(year, month)}</h1>
-        </div>
-        <div className="flex items-center gap-1">
-          {!isCurrentMonth && (
-            <button
-              type="button"
-              className="btn-quiet h-9 px-3 text-[13px]"
-              onClick={() => {
-                setYear(t.getFullYear());
-                setMonth(t.getMonth());
-              }}
-            >
-              Today
-            </button>
-          )}
-          <button type="button" className="tap flex h-9 w-9 items-center justify-center rounded-full text-ink-2 hover:bg-surface" onClick={() => shift(-1)} aria-label="Previous month">
-            <ChevronIcon dir="left" />
-          </button>
-          <button type="button" className="tap flex h-9 w-9 items-center justify-center rounded-full text-ink-2 hover:bg-surface" onClick={() => shift(1)} aria-label="Next month">
-            <ChevronIcon dir="right" />
-          </button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-7 gap-1.5">
-        {WEEKDAYS.map((w, i) => (
-          <div key={i} className="pb-1 text-center font-mono text-[10.5px] text-muted">
-            {w}
+    <div className="fade-up flex flex-col gap-10">
+      {monthsFrom(start, today).map(({ year, month }) => (
+        <section key={`${year}-${month}`}>
+          <h2 className="mb-4 text-[28px] font-bold leading-none tracking-[-0.035em]">{monthLabel(year, month)}</h2>
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEKDAYS.map((w, i) => (
+              <div key={i} className="pb-1 text-center font-mono text-[11px] text-muted">
+                {w}
+              </div>
+            ))}
+            {monthGrid(year, month)
+              .flat()
+              .map((key, i) => {
+                // Nothing before the start: those squares are simply empty.
+                if (!key || key < start) return <div key={key ?? `e${i}`} />;
+                const future = key > today;
+                const hasVoice = Boolean(data.days[key]?.voice && Object.keys(data.days[key].voice!).length);
+                const pct = pctOn(data.days, settings, key, today);
+                const a = shade(pct);
+                const missed = topMissed(data.days, settings, key, today);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={future}
+                    onClick={() => setOpen(key)}
+                    className={cn("tap relative flex aspect-square items-center justify-center overflow-hidden rounded-[10px] text-[14px] tabular-nums disabled:active:scale-100", key === today && "ring-[1.5px] ring-ink ring-offset-2 ring-offset-bg")}
+                    aria-label={`${formatLong(key)}${pct !== null ? `, ${pct}%` : ""}${missed && top ? `, ${top.name} missed` : ""}`}
+                  >
+                    <span className="absolute inset-0 bg-ink" style={{ opacity: a }} aria-hidden="true" />
+                    {missed && <Slash light={a > 0.55} />}
+                    <span className={cn("relative", a > 0.55 ? "text-bg" : future ? "text-faint" : "text-ink")}>{parseKey(key).getDate()}</span>
+                    {hasVoice && <span className={cn("absolute bottom-[5px] h-[3px] w-[3px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} aria-hidden="true" />}
+                  </button>
+                );
+              })}
           </div>
-        ))}
-        {monthGrid(year, month)
-          .flat()
-          .map((key, i) => {
-            if (!key) return <div key={`e${i}`} />;
-            const future = key > today;
-            const before = key < start;
-            const hasVoice = Boolean(data.days[key]?.voice && Object.keys(data.days[key].voice!).length);
-            const pct = pctOn(data.days, settings, key, today);
-            const a = shade(pct);
-            const missed = topMissed(data.days, settings, key, today);
-            const canOpen = !future && (!before || hasVoice);
-            return (
-              <button
-                key={key}
-                type="button"
-                disabled={!canOpen}
-                onClick={() => setOpen(key)}
-                className={cn("tap relative flex aspect-square items-center justify-center overflow-hidden rounded-[10px] text-[13px] tabular-nums disabled:active:scale-100", key === today && "ring-[1.5px] ring-ink ring-offset-2 ring-offset-bg")}
-                aria-label={`${formatLong(key)}${pct !== null ? `, ${pct}%` : ""}${missed && top ? `, ${top.name} missed` : ""}`}
-              >
-                <span className="absolute inset-0 bg-ink" style={{ opacity: a }} aria-hidden="true" />
-                {missed && <Slash light={a > 0.55} />}
-                <span className={cn("relative", a > 0.55 ? "text-bg" : future || before ? "text-faint" : "text-ink-2")}>{parseKey(key).getDate()}</span>
-                {hasVoice && <span className={cn("absolute bottom-[5px] h-[3px] w-[3px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} aria-hidden="true" />}
-              </button>
-            );
-          })}
-      </div>
-
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 font-mono text-[10.5px] text-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="relative h-3 w-3 overflow-hidden rounded-[3px] border border-faint">
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 12 12" aria-hidden="true">
-              <line x1="2" y1="10" x2="10" y2="2" stroke="var(--ink)" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-          </span>
-          {top ? `${top.name} missed` : "top habit missed"}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="mr-0.5">0%</span>
-          {[0.07, 0.35, 0.6, 0.82, 1].map((o) => (
-            <span key={o} className="relative h-3 w-3 overflow-hidden rounded-[3px]">
-              <span className="absolute inset-0 bg-ink" style={{ opacity: o }} />
-            </span>
-          ))}
-          <span className="ml-0.5">100%</span>
-        </span>
-      </div>
-      <p className="mt-3 font-mono text-[10.5px] text-muted">Counting from {formatLong(start)}. A dot means there&apos;s a journal entry.</p>
+        </section>
+      ))}
 
       {open && <DaySheet date={open} onClose={() => setOpen(null)} />}
     </div>

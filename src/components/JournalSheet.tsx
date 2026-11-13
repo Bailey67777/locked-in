@@ -210,9 +210,7 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
             <div className="mt-3">
               <VoiceEntries date={date} entries={entries} canDelete />
             </div>
-          ) : (
-            <p className="mt-3 text-[14px] text-muted">Talk through your day. It records, you can listen back.</p>
-          )}
+          ) : null}
         </div>
 
         <div className="flex flex-col items-center px-5 pb-safe pt-5">

@@ -6,45 +6,45 @@
  * overrides the phone's own setting.
  */
 :root {
-  --bg: #f3f3f2;
+  --bg: #f4f4f3;
   --surface: #ffffff;
-  --ink: #0b0b0b;
-  --ink-2: #3a3a3a;
-  --muted: #8b8b8b;
-  --faint: #c9c9c9;
-  --line: #e2e2e1;
-  --track: #e4e4e3;
+  --ink: #000000;
+  --ink-2: #1f1f1f;
+  --muted: #7a7a7a;
+  --faint: #c4c4c4;
+  --line: #dededd;
+  --track: #e2e2e1;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --ink: #f2f2f2;
-    --ink-2: #c4c4c4;
-    --muted: #7c7c7c;
-    --faint: #3b3b3b;
-    --line: #1f1f1f;
-    --track: #232323;
+    --bg: #000000;
+    --surface: #111111;
+    --ink: #ffffff;
+    --ink-2: #dddddd;
+    --muted: #808080;
+    --faint: #3a3a3a;
+    --line: #1c1c1c;
+    --track: #222222;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --ink: #f2f2f2;
-  --ink-2: #c4c4c4;
-  --muted: #7c7c7c;
-  --faint: #3b3b3b;
-  --line: #1f1f1f;
-  --track: #232323;
+  --bg: #000000;
+  --surface: #111111;
+  --ink: #ffffff;
+  --ink-2: #dddddd;
+  --muted: #808080;
+  --faint: #3a3a3a;
+  --line: #1c1c1c;
+  --track: #222222;
   color-scheme: dark;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -78,7 +78,7 @@ body {
 @layer components {
   /* Small uppercase label, the only "decoration" the app uses. */
   .label {
-    @apply font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted;
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] text-muted;
   }
   .tap {
     @apply select-none transition-transform duration-150 active:scale-[0.985];

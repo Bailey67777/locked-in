@@ -61,8 +61,7 @@ export default function SettingsView() {
   return (
     <div className="fade-up">
       <header className="mb-7">
-        <div className="label">Settings</div>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">Settings</h1>
+        <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Settings</h1>
       </header>
 
       <Section title="Habits" aside="10">
@@ -72,7 +71,7 @@ export default function SettingsView() {
             return (
               <li key={h.id} className="flex items-center gap-1">
                 <button type="button" onClick={() => setEditing(h.id)} className="tap flex min-w-0 flex-1 items-center gap-3 py-3.5 text-left">
-                  <span className="min-w-0 flex-1 truncate text-[16px] tracking-[-0.01em]">{h.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-[17px] font-medium tracking-[-0.01em]">{h.name}</span>
                   <span className="shrink-0 text-[12.5px] text-muted">
                     {soundName(h.sound)}
                     {edit ? " · edit" : ""}

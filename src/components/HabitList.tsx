@@ -22,17 +22,17 @@ export default function HabitList({ habits, locked = false, onToggle }: Props) {
             onClick={() => onToggle(h.id)}
             disabled={locked}
             aria-pressed={h.done}
-            className="tap flex w-full items-center gap-4 py-[13px] text-left disabled:active:scale-100"
+            className="tap flex w-full items-center gap-4 py-[15px] text-left disabled:active:scale-100"
           >
             <span
               className={cn(
-                "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors duration-200",
-                h.done ? "border-ink bg-ink text-bg" : "border-faint",
+                "flex h-[25px] w-[25px] shrink-0 items-center justify-center rounded-full border-[1.75px] transition-colors duration-200",
+                h.done ? "border-ink bg-ink text-bg" : "border-muted",
               )}
             >
-              {h.done && <CheckIcon width={12} height={12} />}
+              {h.done && <CheckIcon width={13} height={13} />}
             </span>
-            <span className={cn("min-w-0 flex-1 truncate text-[17px] tracking-[-0.012em] transition-colors duration-200", h.done ? "text-muted" : "text-ink")}>{h.name}</span>
+            <span className={cn("min-w-0 flex-1 truncate text-[19px] font-medium tracking-[-0.015em] transition-colors duration-200", h.done ? "text-muted" : "text-ink")}>{h.name}</span>
           </button>
         </li>
       ))}
