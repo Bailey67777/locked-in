@@ -64,7 +64,7 @@ export default function SettingsView() {
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Settings</h1>
       </header>
 
-      <Section title="Habits" aside="10">
+      <Section title="Habits">
         <ul className="divide-y divide-line border-y border-line">
           {habits.map((h, i) => {
             const edit = h.editId ? bank.byId[h.editId] : undefined;
@@ -89,7 +89,6 @@ export default function SettingsView() {
             );
           })}
         </ul>
-        <p className="mt-3 text-[12px] leading-relaxed text-muted">Ten, always. Tap one to rename it, pick its sound or give it an edit. The top one is your must-do: days you miss it get a slash on the calendar.</p>
       </Section>
 
       <Section title="Sound">
@@ -120,18 +119,6 @@ export default function SettingsView() {
           ))}
         </div>
         <p className="mt-2 px-1 text-[12px] text-muted">Auto follows your phone. Set separately on each device.</p>
-      </Section>
-
-      <Section title="Add to Home Screen">
-        <div className="rounded-2xl bg-surface px-4 py-4 text-[14px] leading-relaxed text-ink-2">
-          <p>
-            <span className="text-ink">iPhone or iPad.</span> Open this page in Chrome or Safari, tap the Share button (the square with an arrow, in the address bar on iPhone or top right on iPad), then
-            Add to Home Screen, then Add.
-          </p>
-          <p className="mt-3">
-            <span className="text-ink">Already have the old icon?</span> Press and hold it, Remove App, then add it again so the new icon shows.
-          </p>
-        </div>
       </Section>
 
       <Section title="Sync">
