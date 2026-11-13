@@ -57,7 +57,6 @@ export default function HabitsView() {
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
         <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
           <MicIcon />
-          {recordings > 0 && <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ink px-1 font-mono text-[10px] text-bg">{recordings}</span>}
         </button>
       </header>
 

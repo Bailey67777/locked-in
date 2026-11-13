@@ -8,10 +8,10 @@ import RandomRecording from "./RandomRecording";
 
 function Big({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-2xl bg-surface px-4 py-4">
+    <div className="rounded-2xl bg-surface px-3.5 py-4">
       <div className="text-[13px] text-muted">{label}</div>
       <div className="mt-2 flex items-baseline gap-0.5">
-        <span className="text-[36px] font-bold leading-none tracking-[-0.04em] tabular-nums">{value === null ? "–" : value}</span>
+        <span className="text-[30px] font-bold leading-none tracking-[-0.04em] tabular-nums">{value === null ? "–" : value}</span>
         {value !== null && <span className="text-[15px] text-muted">%</span>}
       </div>
     </div>
@@ -32,9 +32,10 @@ export default function StatsView() {
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Statistics</h1>
       </header>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Big label="Last 7 days" value={average(days, settings, today, 7)} />
-        <Big label="Last 30 days" value={average(days, settings, today, 30)} />
+      <div className="grid grid-cols-3 gap-2">
+        <Big label="7 days" value={average(days, settings, today, 7)} />
+        <Big label="30 days" value={average(days, settings, today, 30)} />
+        <Big label="365 days" value={average(days, settings, today, 365)} />
       </div>
 
       <section className="mt-9">

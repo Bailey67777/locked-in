@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { formatShort } from "@/lib/dates";
+import { hourOf } from "@/lib/media";
 import { CloseIcon } from "./Icons";
 import VoiceEntries from "./VoiceEntries";
 
@@ -12,8 +13,7 @@ type Rec = { date: string; id: string; at: number; dur: number };
 const ROW = 56;
 const SPIN = 32;
 const SPIN_MS = 2800;
-const timeOf = (at: number) => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-const labelOf = (r: Rec) => `${formatShort(r.date)} · ${timeOf(r.at)}`;
+const labelOf = (r: Rec) => `${formatShort(r.date)} · ${hourOf(r.at)}`;
 
 /** Every journal recording ever made, on any day. */
 function useAllRecordings(): Rec[] {

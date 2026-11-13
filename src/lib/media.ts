@@ -186,3 +186,9 @@ export function formatClock(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** A recording's time, rounded to the nearest hour: 20:03 → "20:00", 20:41 → "21:00". */
+export function hourOf(at: number): string {
+  const d = new Date(at + 30 * 60 * 1000);
+  return `${String(d.getHours()).padStart(2, "0")}:00`;
+}

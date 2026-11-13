@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { formatClock } from "@/lib/media";
+import { formatClock, hourOf } from "@/lib/media";
 import { cn } from "@/lib/cn";
 import { PauseIcon, PlayIcon } from "./Icons";
 
@@ -11,7 +11,6 @@ type Entry = { id: string; at: number; dur: number; status?: string };
 /** Only one recording plays at a time. */
 let playing: HTMLAudioElement | null = null;
 
-const timeOf = (at: number) => new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 /** A day's voice-journal recordings, oldest first, newest at the bottom. */
 export function useVoiceEntries(date: string): Entry[] {
@@ -72,7 +71,7 @@ function Row({ date, entry, canDelete }: { date: string; entry: Entry; canDelete
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[15px] tabular-nums">{timeOf(entry.at)}</span>
+            <span className="text-[15px] tabular-nums">{hourOf(entry.at)}</span>
             <span className="font-mono text-[12px] tabular-nums text-muted">{isPlaying || progress > 0 ? `${formatClock(progress * entry.dur)} / ${formatClock(entry.dur)}` : formatClock(entry.dur)}</span>
           </div>
           <div className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-track">
@@ -93,7 +92,7 @@ function Row({ date, entry, canDelete }: { date: string; entry: Entry; canDelete
               Delete
             </button>
           ) : (
-            <button type="button" className="h-8 shrink-0 px-1 text-[12px] text-muted" onClick={() => setConfirm(true)} aria-label={`Delete the recording from ${timeOf(entry.at)}`}>
+            <button type="button" className="h-8 shrink-0 px-1 text-[12px] text-muted" onClick={() => setConfirm(true)} aria-label={`Delete the recording from ${hourOf(entry.at)}`}>
               Delete
             </button>
           ))}
