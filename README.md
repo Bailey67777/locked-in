@@ -5,19 +5,21 @@ Black, white and grey; ten habits; nothing else. Next.js + React + Tailwind, syn
 
 **Four icons at the bottom**
 
-- **Habits** – today's ten habits, a percentage bar, and **Submit day** (locks the ticks; *Reopen* undoes it).
-- **Calendar** – each day shaded from clear (nothing recorded) to solid black (100%). Tap a day to see or fix its ticks.
-- **Stats** – streak (days in a row at 80%+), best streak, 7- and 30-day averages, the last 30 days, and each habit's rate.
-- **Settings** – rename, time, reorder, add or remove habits (ten at most), tick sounds, light/dark, how to add it
-  to the home screen, sync status.
+- **Habits** – today's ten habits, a percentage bar, and **Submit day** (*Reopen* undoes it). Ticking a habit plays
+  its own sound, or its **edit** (a short video, full screen) if it has one. The microphone at the top opens the
+  **journal**: tap, talk, tap again; it saves itself and you can listen back. Nothing is transcribed.
+- **Calendar** – each day shaded from clear to solid black by percentage. A slash through a day means the top habit
+  (the must-do) was missed; a dot means there's a journal entry. Tap a day to see or fix its ticks and play its journal.
+- **Statistics** – 7- and 30-day averages, every day as a bar, and each habit's rate over the last 30 days.
+- **Settings** – the ten habits (always ten: rename, reorder, pick each one's sound, give it an edit), sound on/off,
+  light/dark, how to add it to the home screen, sync status.
 
-The ten habits start from what Santa Cruz Medicinals repeats most for daily health (morning light and water, a
-10-minute mobility routine, protein, 10,000 steps, lifting, real food, no gooning, screens off, an early night).
-They're only a starting point: change them in Settings.
+Everything counts from **14 November 2026** (`settings.startDate`). Earlier days are hidden, not deleted. From the
+start date, a past day the app wasn't opened on counts as 0%.
 
-Earlier versions had a journal, to-do planner, edits, vlogs, study coach, photos and fifty sound effects. That data
-is all still in the database (nothing was deleted); the app just doesn't show it. The habit list from before the
-switch is kept in `settings.habitsArchive`.
+The ten habits start from what Santa Cruz Medicinals repeats most for daily health; change them in Settings. Earlier
+versions had a written journal, to-do planner, vlogs, study coach, photos and fifty sound effects. That data is all
+still in the database; the app just doesn't show it. The habit list from before the switch is in `settings.habitsArchive`.
 
 ---
 
@@ -144,30 +146,39 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (also cached in `localSto
 ```jsonc
 {
   "settings": {
-    "habits": [ { "id": "sc-sun", "name": "Sunlight + water", "time": "07:00" }, … ],  // ten at most, in your order
+    "habits": [ { "id": "sc-nogoon", "name": "No gooning", "sound": "bell", "editId": "48f6kx3ymcg9" }, … ],  // always ten, in your order
     "soundsOn": true,
-    "v3": true,                       // the switch to the ten habits has happened
-    "habitsArchive": [ … ]            // the habit list from before that switch
+    "startDate": "2026-11-14",
+    "v3": true, "v4": true,           // one-time upgrades done
+    "habitsArchive": [ … ]            // the habit list from before the minimalist switch
   },
   "days": {
-    "2026-11-13": {
-      "habits": [ { "id": "sc-sun", "name": "Sunlight + water", "done": true }, … ],
-      "submitted": { "at": 1794555089434, "pct": 40, "tier": "t25", "keystoneMissed": false }
-      // older fields (todos, journal, ratings, vlog, …) are kept as they were
+    "2026-11-14": {
+      "habits": [ { "id": "sc-nogoon", "name": "No gooning", "done": true }, … ],
+      "submitted": { "at": 1794555089434, "pct": 90, "tier": "t80", "keystoneMissed": false },
+      "voice": { "bbkowifin3vi": { "at": 1794600230238, "dur": 94, "bytes": 571234, "chunks": 2, "mime": "audio/mp4" } }
     }
-  }
+  },
+  "voice": { "2026-11-14": { "bbkowifin3vi": [ "<base64 piece>", … ] } },   // journal audio, fetched only to play
+  "editBank": { "48f6kx3ymcg9": { "name": "No goon", "dur": 13, "bytes": 1899448, "chunks": 5, "mime": "video/mp4", "thumb": "data:image/jpeg;base64,…" } },
+  "edits": { "48f6kx3ymcg9": [ "<base64 piece>", … ] }
 }
 ```
 
-Today and future days follow the current habit list (ticks kept by id). Past days keep the habits they were saved
-with, so changing the list never rewrites history. Light/dark is stored per device in `localStorage`.
+Audio and video are cut into 384 KB pieces and stored as base64 through the REST API (`src/lib/media.ts`). Each device
+keeps copies in IndexedDB; a journal recording is saved there first and uploads in the background, so one made
+offline is never lost. Today and future days follow the current habit list; past days keep the habits they were saved
+with. Light/dark is stored per device in `localStorage`.
 
 ## Project layout
 
 ```
 src/app/            layout (Geist fonts, theme boot), page, manifest, globals.css (the grey palette, light + dark), icons
-src/components/     AppShell (bottom icons), HabitsView, HabitList, CalendarView, StatsView, SettingsView, Icons
-src/lib/            store (state, sync, outbox, one-time habit switch), model, stats, dates, defaults (the ten), sounds (three synthesised), theme, firebase
-src/lib/server/     claude.ts: the nightly-task API (still there; the Study tab that showed its output is gone)
+src/components/     AppShell (bottom icons), HabitsView, HabitList, JournalSheet, VoiceEntries, EditPlayer,
+                    CalendarView, StatsView, SettingsView, HabitSheet, Icons
+src/lib/            store (state, sync, outbox, one-time upgrades, journal upload queue), model, stats, dates,
+                    defaults (the ten, start date), sounds (twelve synthesised habit sounds), media (pieces, IndexedDB),
+                    voice, edits, theme, firebase
+src/lib/server/     claude.ts: the nightly-task API (still there; nothing in the app shows its output now)
 public/             sw.js (offline shell), icons (regenerate with `node scripts/gen-icons.mjs`), photos, media
 ```

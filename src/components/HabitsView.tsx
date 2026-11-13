@@ -1,18 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { TIERS, dayProgress } from "@/lib/model";
 import { formatLong } from "@/lib/dates";
-import { haptic, playAllDone, playSubmit, playTick, playUntick } from "@/lib/sounds";
+import { haptic, playAllDone, playSound, playSubmit, playUntick } from "@/lib/sounds";
+import { prewarmEdits, useEditBank } from "@/lib/edits";
+import { MicIcon } from "./Icons";
 import HabitList from "./HabitList";
+import EditPlayer from "./EditPlayer";
+import JournalSheet from "./JournalSheet";
+import { useVoiceEntries } from "./VoiceEntries";
 
-/** Today: ten habits, a bar, a submit button. */
+/** Today: ten habits, a bar, a submit button, and the journal. */
 export default function HabitsView() {
   const { today, data, getDay, updateDay } = useStore();
   const settings = data.settings;
+  const bank = useEditBank();
   const day = getDay(today);
   const { done, total, pct } = dayProgress(day);
   const sub = day.submitted;
+  const [playing, setPlaying] = useState<{ editId: string; title: string } | null>(null);
+  const [journal, setJournal] = useState(false);
+  const recordings = useVoiceEntries(today).length;
+
+  // Edits on habits still to tick load in the background, so ticking plays them straight away.
+  const editSig = sub
+    ? ""
+    : day.habits
+        .filter((h) => !h.done)
+        .map((h) => settings.habits.find((x) => x.id === h.id)?.editId)
+        .filter((id): id is string => Boolean(id && bank.byId[id]))
+        .join(",");
+  useEffect(() => {
+    if (editSig) prewarmEdits(editSig.split(",").map((id) => bank.byId[id]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the set of edits changes
+  }, [editSig]);
 
   const toggle = (id: string) => {
     if (sub) return;
@@ -21,15 +44,21 @@ export default function HabitsView() {
     const turningOn = !target.done;
     updateDay(today, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === id ? { ...h, done: !h.done } : h)) }));
     haptic(turningOn ? 10 : 6);
+    if (!turningOn) {
+      if (settings.soundsOn) playUntick();
+      return;
+    }
+    const def = settings.habits.find((h) => h.id === id);
+    const edit = def?.editId ? bank.byId[def.editId] : undefined;
+    if (edit) return setPlaying({ editId: edit.id, title: def?.name ?? target.name });
     if (!settings.soundsOn) return;
-    if (!turningOn) return playUntick();
-    playTick();
+    playSound(def?.sound);
     if (done + 1 === total) playAllDone();
   };
 
   const submit = () => {
     const tier = (TIERS.find((t) => pct >= t.min) ?? TIERS[TIERS.length - 1]).id;
-    updateDay(today, (d) => ({ ...d, submitted: { at: Date.now(), pct, tier, keystoneMissed: false } }));
+    updateDay(today, (d) => ({ ...d, submitted: { at: Date.now(), pct, tier, keystoneMissed: !d.habits[0]?.done } }));
     haptic([12, 50, 12]);
     if (settings.soundsOn) playSubmit();
   };
@@ -44,14 +73,20 @@ export default function HabitsView() {
   return (
     <>
       <div className="fade-up">
-      <header className="mb-7">
-        <div className="label">{formatLong(today)}</div>
-        <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">Habits</h1>
-      </header>
+        <header className="mb-7 flex items-end justify-between gap-4">
+          <div>
+            <div className="label">{formatLong(today)}</div>
+            <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">Habits</h1>
+          </div>
+          <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
+            <MicIcon />
+            {recordings > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-ink px-1 font-mono text-[10px] text-bg">{recordings}</span>}
+          </button>
+        </header>
 
-      <div className={sub ? "opacity-60" : undefined}>
-        <HabitList habits={day.habits} settings={settings} locked={Boolean(sub)} onToggle={toggle} />
-      </div>
+        <div className={sub ? "opacity-60" : undefined}>
+          <HabitList habits={day.habits} locked={Boolean(sub)} onToggle={toggle} />
+        </div>
       </div>
 
       {/* Outside the animated block: a transformed parent would carry this fixed bar along with it. */}
@@ -81,6 +116,9 @@ export default function HabitsView() {
           )}
         </div>
       </div>
+
+      {playing && <EditPlayer editId={playing.editId} title={playing.title} onClose={() => setPlaying(null)} />}
+      {journal && <JournalSheet date={today} onClose={() => setJournal(false)} />}
     </>
   );
 }

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { uid } from "@/lib/model";
-import { MAX_HABITS } from "@/lib/defaults";
+import { soundName } from "@/lib/sounds";
+import { useEditBank } from "@/lib/edits";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 import { cloudConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/cn";
-import { ChevronIcon, CloseIcon, PlusIcon } from "./Icons";
+import { ChevronIcon } from "./Icons";
+import HabitSheet from "./HabitSheet";
 
 function Section({ title, aside, children }: { title: string; aside?: string; children: React.ReactNode }) {
   return (
@@ -31,14 +32,12 @@ function Switch({ on, onClick, label }: { on: boolean; onClick: () => void; labe
 
 export default function SettingsView() {
   const { data, updateSettings, sync, pending } = useStore();
+  const bank = useEditBank();
   const settings = data.settings;
   const habits = settings.habits;
-  const [draft, setDraft] = useState("");
-  const [confirm, setConfirm] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeChoice>(() => (typeof window === "undefined" ? "system" : readTheme()));
 
-  const patch = (id: string, changes: { name?: string; time?: string }) =>
-    updateSettings((s) => ({ ...s, habits: s.habits.map((h) => (h.id === id ? { ...h, ...changes } : h)) }));
   const move = (i: number, dir: -1 | 1) =>
     updateSettings((s) => {
       const j = i + dir;
@@ -47,12 +46,6 @@ export default function SettingsView() {
       [next[i], next[j]] = [next[j], next[i]];
       return { ...s, habits: next };
     });
-  const add = () => {
-    const name = draft.trim();
-    if (!name || habits.length >= MAX_HABITS) return;
-    updateSettings((s) => ({ ...s, habits: [...s.habits, { id: uid(), name }] }));
-    setDraft("");
-  };
 
   const syncLine =
     !cloudConfigured || sync === "local"
@@ -72,80 +65,39 @@ export default function SettingsView() {
         <h1 className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.035em]">Settings</h1>
       </header>
 
-      <Section title="Habits" aside={`${habits.length}/${MAX_HABITS}`}>
+      <Section title="Habits" aside="10">
         <ul className="divide-y divide-line border-y border-line">
-          {habits.map((h, i) => (
-            <li key={h.id} className="flex items-center gap-1.5 py-1.5">
-              <input
-                key={`${h.id}:${h.name}`}
-                defaultValue={h.name}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== h.name) patch(h.id, { name: v });
-                  else e.target.value = h.name;
-                }}
-                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                className="min-w-0 flex-1 rounded-lg bg-transparent px-1 py-2 text-[16px] tracking-[-0.01em] focus:bg-surface focus:outline-none"
-                aria-label={`Habit ${i + 1}`}
-              />
-              <input
-                type="time"
-                value={h.time ?? ""}
-                onChange={(e) => patch(h.id, { time: e.target.value || undefined })}
-                className={cn("w-[76px] shrink-0 rounded-lg bg-transparent px-1 py-2 text-right font-mono text-[12px] tabular-nums focus:bg-surface focus:outline-none", h.time ? "text-ink-2" : "text-faint")}
-                aria-label={`Time for ${h.name}`}
-              />
-              <span className="flex shrink-0 flex-col">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="flex h-5 w-7 items-center justify-center text-muted disabled:opacity-20" aria-label={`Move ${h.name} up`}>
-                  <ChevronIcon dir="up" width={14} height={14} />
+          {habits.map((h, i) => {
+            const edit = h.editId ? bank.byId[h.editId] : undefined;
+            return (
+              <li key={h.id} className="flex items-center gap-1">
+                <button type="button" onClick={() => setEditing(h.id)} className="tap flex min-w-0 flex-1 items-center gap-3 py-3.5 text-left">
+                  <span className="min-w-0 flex-1 truncate text-[16px] tracking-[-0.01em]">{h.name}</span>
+                  <span className="shrink-0 text-[12.5px] text-muted">
+                    {soundName(h.sound)}
+                    {edit ? " · edit" : ""}
+                  </span>
                 </button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === habits.length - 1} className="flex h-5 w-7 items-center justify-center text-muted disabled:opacity-20" aria-label={`Move ${h.name} down`}>
-                  <ChevronIcon dir="down" width={14} height={14} />
-                </button>
-              </span>
-              {confirm === h.id ? (
-                <button
-                  type="button"
-                  className="h-8 shrink-0 rounded-full bg-ink px-3 text-[12px] font-medium text-bg"
-                  onClick={() => {
-                    setConfirm(null);
-                    updateSettings((s) => ({ ...s, habits: s.habits.filter((x) => x.id !== h.id) }));
-                  }}
-                >
-                  Remove
-                </button>
-              ) : (
-                <button type="button" onClick={() => setConfirm(h.id)} className="flex h-8 w-8 shrink-0 items-center justify-center text-muted" aria-label={`Remove ${h.name}`}>
-                  <CloseIcon width={15} height={15} />
-                </button>
-              )}
-            </li>
-          ))}
+                <span className="flex shrink-0 flex-col">
+                  <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="flex h-5 w-7 items-center justify-center text-muted disabled:opacity-20" aria-label={`Move ${h.name} up`}>
+                    <ChevronIcon dir="up" width={14} height={14} />
+                  </button>
+                  <button type="button" onClick={() => move(i, 1)} disabled={i === habits.length - 1} className="flex h-5 w-7 items-center justify-center text-muted disabled:opacity-20" aria-label={`Move ${h.name} down`}>
+                    <ChevronIcon dir="down" width={14} height={14} />
+                  </button>
+                </span>
+              </li>
+            );
+          })}
         </ul>
-        {habits.length < MAX_HABITS ? (
-          <form
-            className="mt-3 flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              add();
-            }}
-          >
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Add a habit" className="field" enterKeyHint="done" autoComplete="off" />
-            <button type="submit" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-bg disabled:opacity-30" disabled={!draft.trim()} aria-label="Add habit">
-              <PlusIcon />
-            </button>
-          </form>
-        ) : (
-          <p className="mt-3 text-[12px] text-muted">Ten is the limit. Remove one to add another.</p>
-        )}
-        <p className="mt-3 text-[12px] leading-relaxed text-muted">Tap a name to rename it. Times are optional. Changes apply from today; past days keep their own list.</p>
+        <p className="mt-3 text-[12px] leading-relaxed text-muted">Ten, always. Tap one to rename it, pick its sound or give it an edit. The top one is your must-do: days you miss it get a slash on the calendar.</p>
       </Section>
 
       <Section title="Sound">
         <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3.5">
           <div>
             <div className="text-[15px]">Tick sounds</div>
-            <div className="text-[12px] text-muted">A soft click, a chime when all ten are done.</div>
+            <div className="text-[12px] text-muted">Each habit&apos;s own sound, a chime when all ten are done.</div>
           </div>
           <Switch on={settings.soundsOn} onClick={() => updateSettings((s) => ({ ...s, soundsOn: !s.soundsOn }))} label="Tick sounds" />
         </div>
@@ -191,6 +143,8 @@ export default function SettingsView() {
       </Section>
 
       <p className="mt-12 text-center font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">Locked In</p>
+
+      {editing && <HabitSheet habitId={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /* Locked In service worker: app shell offline + cache-first static assets. */
-const VERSION = "locked-in-v3";
+const VERSION = "locked-in-v4";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

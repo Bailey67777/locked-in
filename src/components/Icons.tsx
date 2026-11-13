@@ -72,3 +72,29 @@ export function PlusIcon(p: P) {
     </svg>
   );
 }
+
+export function MicIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+    </svg>
+  );
+}
+
+export function PlayIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" {...p}>
+      <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+    </svg>
+  );
+}
+
+export function PauseIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" {...p}>
+      <rect x="6.5" y="5" width="4" height="14" rx="1" />
+      <rect x="13.5" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}

@@ -1,66 +1,71 @@
 import type { DayRecord, Settings } from "./types";
-import { addDays, lastNDays } from "./dates";
+import { addDays } from "./dates";
 import { dayProgress, materializeDay } from "./model";
+import { START_DATE } from "./defaults";
 
 type Days = Record<string, DayRecord>;
 
-/** A day counts towards a streak at this percentage or more. */
-export const STREAK_PCT = 80;
+export const startOf = (settings: Settings) => settings.startDate ?? START_DATE;
 
-/** The day's percentage, or null if nothing was ever recorded for it. */
+/** Days that count: from the start date up to yesterday, plus today once it's submitted. */
+function counted(days: Days, start: string, today: string, from: string): string[] {
+  const out: string[] = [];
+  for (let d = from < start ? start : from; d < today; d = addDays(d, 1)) out.push(d);
+  if (today >= start && days[today]?.submitted) out.push(today);
+  return out;
+}
+
+/**
+ * A day's percentage. Before the start date there is nothing (null). From the start, a past day nobody opened the
+ * app on counts as 0%: if it wasn't ticked, it didn't happen.
+ */
 export function pctOn(days: Days, settings: Settings, date: string, today: string): number | null {
+  if (date < startOf(settings) || date > today) return null;
   const stored = days[date];
-  if (!stored) return null;
+  if (!stored) return date < today ? 0 : null;
   return dayProgress(materializeDay(date, stored, settings, today)).pct;
 }
 
-/** Days in a row at 80%+, ending today (or yesterday while today is still in progress). */
-export function streak(days: Days, settings: Settings, today: string): { current: number; best: number } {
-  const hit = (d: string) => (pctOn(days, settings, d, today) ?? 0) >= STREAK_PCT;
-  let current = 0;
-  let cursor = hit(today) ? today : addDays(today, -1);
-  while (hit(cursor) && current < 3650) {
-    current++;
-    cursor = addDays(cursor, -1);
-  }
-  let best = 0;
-  let run = 0;
-  let prev: string | null = null;
-  for (const d of Object.keys(days).sort()) {
-    if (d > today) break;
-    if (hit(d)) run = prev && addDays(prev, 1) === d ? run + 1 : 1;
-    else run = 0;
-    prev = hit(d) ? d : null;
-    best = Math.max(best, run);
-  }
-  return { current, best: Math.max(best, current) };
+/** The must-do (the top habit) wasn't ticked on this day. Today only counts once it's submitted. */
+export function topMissed(days: Days, settings: Settings, date: string, today: string): boolean {
+  const top = settings.habits[0];
+  if (!top || date < startOf(settings) || date > today) return false;
+  if (date === today && !days[today]?.submitted) return false;
+  const stored = days[date];
+  if (!stored) return true;
+  const hit = materializeDay(date, stored, settings, today).habits.find((h) => h.id === top.id);
+  return hit ? !hit.done : false;
 }
 
-/** Average percentage over the last n days that have anything recorded, and how many that was. */
-export function average(days: Days, settings: Settings, today: string, n: number): { pct: number | null; tracked: number } {
-  const pcts = lastNDays(today, n)
-    .map((d) => pctOn(days, settings, d, today))
-    .filter((p): p is number => p !== null);
-  return { pct: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null, tracked: pcts.length };
+/** Average percentage over the counted days in the last n, or null if none count yet. */
+export function average(days: Days, settings: Settings, today: string, n: number): number | null {
+  const dates = counted(days, startOf(settings), today, addDays(today, -(n - 1)));
+  if (!dates.length) return null;
+  return Math.round(dates.reduce((sum, d) => sum + (pctOn(days, settings, d, today) ?? 0), 0) / dates.length);
 }
 
-/** Each day of the last n: its percentage, or null. Oldest first. */
-export function lastDays(days: Days, settings: Settings, today: string, n: number): { date: string; pct: number | null }[] {
-  return lastNDays(today, n).map((date) => ({ date, pct: pctOn(days, settings, date, today) }));
+/**
+ * Thirty bars. For the first month they run from the start date forwards (days still to come stay empty);
+ * after that, the last thirty days.
+ */
+export function chartDays(days: Days, settings: Settings, today: string): { date: string; pct: number | null; future: boolean }[] {
+  const start = startOf(settings);
+  const first = addDays(today, -29) > start ? addDays(today, -29) : start;
+  return Array.from({ length: 30 }, (_, i) => {
+    const date = addDays(first, i);
+    return { date, pct: pctOn(days, settings, date, today), future: date > today };
+  });
 }
 
-/** For each current habit: how often it got done over the last n days it was on the list. */
+/** For each habit: done / counted days over the last n. */
 export function habitRates(days: Days, settings: Settings, today: string, n: number): { id: string; name: string; done: number; of: number }[] {
-  const dates = lastNDays(today, n).filter((d) => days[d]);
+  const dates = counted(days, startOf(settings), today, addDays(today, -(n - 1)));
   return settings.habits.map((h) => {
     let done = 0;
-    let of = 0;
     for (const d of dates) {
-      const hit = materializeDay(d, days[d], settings, today).habits.find((x) => x.id === h.id);
-      if (!hit) continue;
-      of++;
-      if (hit.done) done++;
+      const stored = days[d];
+      if (stored && materializeDay(d, stored, settings, today).habits.find((x) => x.id === h.id)?.done) done++;
     }
-    return { id: h.id, name: h.name, done, of };
+    return { id: h.id, name: h.name, done, of: dates.length };
   });
 }

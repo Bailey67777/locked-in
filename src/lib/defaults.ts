@@ -1,24 +1,26 @@
 import type { HabitDef } from "./types";
 
 /**
- * The ten, built from what Santa Cruz Medicinals repeats most for daily health: morning light and water, a
- * 10-minute mobility routine, protein, 10,000 steps, lifting, real food, no gooning, screens off and an early night.
- * Fixed ids, so two devices switching over at once write the same list. Fully editable in Settings.
+ * The ten, built from what Santa Cruz Medicinals repeats most for daily health. The top one is the must-do: days
+ * it's missed get a slash on the calendar. Each has its own sound. Fixed ids, so two devices write the same list.
  */
 export const DEFAULT_HABITS: HabitDef[] = [
-  { id: "sc-sun", name: "Sunlight + water", time: "07:00" },
-  { id: "sc-mobility", name: "10-min mobility", time: "07:15" },
-  { id: "sc-nophone", name: "No phone first hour" },
-  { id: "sc-protein", name: "Body weight in protein" },
-  { id: "sc-steps", name: "10,000 steps" },
-  { id: "sc-train", name: "Lift or hard cardio" },
-  { id: "sc-food", name: "Real food only" },
-  { id: "sc-nogoon", name: "No gooning" },
-  { id: "sc-screens", name: "Screens off by 9", time: "21:00" },
-  { id: "sc-sleep", name: "In bed by 9:45", time: "21:45" },
+  { id: "sc-nogoon", name: "No gooning", sound: "bell" },
+  { id: "sc-sun", name: "Sunlight + water", sound: "glass" },
+  { id: "sc-mobility", name: "10-min mobility", sound: "marimba" },
+  { id: "sc-nophone", name: "No phone first hour", sound: "drop" },
+  { id: "sc-protein", name: "Body weight in protein", sound: "pluck" },
+  { id: "sc-steps", name: "10,000 steps", sound: "rise" },
+  { id: "sc-train", name: "Lift or hard cardio", sound: "thud" },
+  { id: "sc-food", name: "Real food only", sound: "knock" },
+  { id: "sc-screens", name: "Screens off by 9", sound: "sonar" },
+  { id: "sc-sleep", name: "In bed by 9:45", sound: "swish" },
 ];
 
-/** The app is built around ten. */
+/** The day the current run started: stats and the calendar count from here. */
+export const START_DATE = "2026-11-14";
+
+/** Always exactly ten. */
 export const MAX_HABITS = 10;
 
 export const DEFAULT_NAME = "Hugo";

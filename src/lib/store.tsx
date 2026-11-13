@@ -2,13 +2,18 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { goOffline, goOnline, onValue, ref, remove, set, update } from "firebase/database";
-import type { AppData, DayRecord, Settings } from "./types";
-import { materializeDay, normalizeData, normalizeDays, normalizeSettings, stripUndefined } from "./model";
+import type { AppData, DayRecord, HabitDef, Settings, VoiceMeta } from "./types";
+import { materializeDay, normalizeData, normalizeDays, normalizeSettings, stripUndefined, uid } from "./model";
 import { todayKey } from "./dates";
-import { DEFAULT_HABITS } from "./defaults";
+import { DEFAULT_HABITS, MAX_HABITS, START_DATE } from "./defaults";
+import { SOUND_IDS, isSound } from "./sounds";
+import { cached, canUpload, forget, getPieces, keep, putPieces, removePath, storageAvailable, toChunks } from "./media";
+import { type PendingVoice, dropPending, getPending, listPending, putPending, voicePath } from "./voice";
 import { DATA_PATH, getDb } from "./firebase";
 
 export type SyncState = "local" | "connecting" | "online" | "offline";
+/** A voice recording on this device that hasn't finished uploading. */
+export type VoiceProgress = { date: string; at: number; dur: number; uploaded: number; total: number; state: "uploading" | "waiting" };
 
 const LS_KEY = "locked-in:data:v1";
 const OUTBOX_KEY = "locked-in:outbox:v1";
@@ -22,7 +27,40 @@ type Store = {
   getDay: (date: string) => DayRecord;
   updateDay: (date: string, fn: (day: DayRecord) => DayRecord) => void;
   updateSettings: (fn: (s: Settings) => Settings) => void;
+  /** The voice journal: saved on this device straight away, uploaded in the background. */
+  voicePending: Record<string, VoiceProgress>;
+  saveVoice: (date: string, audio: Blob, seconds: number) => Promise<void>;
+  loadVoice: (date: string, id: string) => Promise<Blob>;
+  removeVoice: (date: string, id: string) => Promise<void>;
 };
+
+/** Exactly ten habits, the must-do (No gooning) on top, no times, and a different sound on each. */
+function upgrade(s: Settings): Settings {
+  if (!s.v3) {
+    return { ...s, v3: true, v4: true, startDate: s.startDate ?? START_DATE, habitsArchive: s.habitsArchive ?? s.habits, habits: DEFAULT_HABITS.map((h) => ({ ...h })) };
+  }
+  if (s.v4) return s;
+  let habits: HabitDef[] = s.habits.slice(0, MAX_HABITS).map((h) => {
+    const next = { ...h };
+    delete next.time;
+    return next;
+  });
+  for (const d of DEFAULT_HABITS) if (habits.length < MAX_HABITS && !habits.some((h) => h.id === d.id)) habits.push({ ...d });
+  const goon = habits.findIndex((h) => h.id === "sc-nogoon");
+  if (goon > 0) habits = [habits[goon], ...habits.slice(0, goon), ...habits.slice(goon + 1)];
+  const used = new Set<string>();
+  habits = habits.map((h) => {
+    if (isSound(h.sound) && !used.has(h.sound)) {
+      used.add(h.sound);
+      return h;
+    }
+    const preferred = DEFAULT_HABITS.find((d) => d.id === h.id)?.sound;
+    const sound = preferred && !used.has(preferred) ? preferred : (SOUND_IDS.find((id) => !used.has(id)) ?? SOUND_IDS[0]);
+    used.add(sound);
+    return { ...h, sound };
+  });
+  return { ...s, v4: true, startDate: s.startDate ?? START_DATE, habits };
+}
 
 const StoreContext = createContext<Store | null>(null);
 
@@ -221,14 +259,136 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     [commit, remote],
   );
 
-  // One time only: switch to the ten habits. The old list is kept in settings.habitsArchive.
+  // One time only, once the cloud copy of the settings is in: bring the habits up to date (see upgrade()).
   useEffect(() => {
-    if (!settingsReady || dataRef.current.settings.v3) return;
-    const id = window.setTimeout(() => {
-      updateSettings((s) => (s.v3 ? s : { ...s, v3: true, habitsArchive: s.habitsArchive ?? s.habits, habits: DEFAULT_HABITS.map((h) => ({ ...h })) }));
-    }, 0);
+    if (!settingsReady) return;
+    const s = dataRef.current.settings;
+    if (s.v3 && s.v4) return;
+    const id = window.setTimeout(() => updateSettings(upgrade), 0);
     return () => window.clearTimeout(id);
   }, [settingsReady, updateSettings]);
+
+  /* ---- the voice journal ---- */
+
+  const [voicePending, setVoicePending] = useState<Record<string, VoiceProgress>>({});
+  const voiceRunning = useRef(false);
+  const voiceAgain = useRef(false);
+
+  /** Upload whatever recordings on this device haven't gone up yet, then put their labels on their days. */
+  const runVoiceQueue = useCallback(async () => {
+    if (!storageAvailable()) return;
+    if (voiceRunning.current) {
+      voiceAgain.current = true;
+      return;
+    }
+    voiceRunning.current = true;
+    try {
+      do {
+        voiceAgain.current = false;
+        const queue = await listPending();
+        const ids = new Set(queue.map((p) => p.id));
+        setVoicePending((m) => (Object.keys(m).every((k) => ids.has(k)) ? m : Object.fromEntries(Object.entries(m).filter(([k]) => ids.has(k)))));
+        for (const p of queue) {
+          const show = (uploaded: number, state: VoiceProgress["state"]) =>
+            setVoicePending((m) => ({ ...m, [p.id]: { date: p.date, at: p.at, dur: p.dur, uploaded, total: p.chunks.length, state } }));
+          try {
+            if (canUpload() && p.uploaded < p.chunks.length) {
+              show(p.uploaded, "uploading");
+              await putPieces(voicePath(p.date, p.id), p.chunks, p.uploaded, async (n) => {
+                const current = await getPending(p.id);
+                if (!current) throw new Error("removed");
+                await putPending({ ...current, uploaded: n });
+                show(n, "uploading");
+              });
+            }
+          } catch (e) {
+            if (!(e instanceof Error && e.message === "removed")) show(p.uploaded, "waiting"); // offline: tried again later
+            continue;
+          }
+          if (!(await getPending(p.id))) continue; // deleted while uploading
+          const meta: VoiceMeta = { at: p.at, dur: p.dur, bytes: p.bytes, chunks: p.chunks.length, mime: p.mime };
+          updateDay(p.date, (d) => ({ ...d, voice: { ...(d.voice ?? {}), [p.id]: meta } }));
+          await keep(`voice:${p.id}`, p.chunks);
+          await dropPending(p.id);
+          setVoicePending((m) => {
+            const next = { ...m };
+            delete next[p.id];
+            return next;
+          });
+        }
+      } while (voiceAgain.current);
+    } finally {
+      voiceRunning.current = false;
+    }
+  }, [updateDay]);
+
+  // Pick the queue up when the app opens and whenever the connection comes back; retry every half minute if stuck.
+  useEffect(() => {
+    if (!loaded) return;
+    const id = window.setTimeout(() => void runVoiceQueue(), 0);
+    return () => window.clearTimeout(id);
+  }, [loaded, sync, runVoiceQueue]);
+  const voiceWaiting = Object.values(voicePending).some((v) => v.state === "waiting");
+  useEffect(() => {
+    if (!voiceWaiting) return;
+    const id = window.setInterval(() => void runVoiceQueue(), 30_000);
+    return () => window.clearInterval(id);
+  }, [voiceWaiting, runVoiceQueue]);
+
+  const saveVoice = useCallback(
+    async (date: string, audio: Blob, seconds: number) => {
+      const chunks = await toChunks(audio);
+      if (!chunks.length) throw new Error("That recording was empty.");
+      const p: PendingVoice = { id: uid(), date, at: Date.now(), dur: Math.round(seconds), bytes: audio.size, mime: (audio.type || "audio/mp4").split(";")[0], chunks, uploaded: 0 };
+      try {
+        await putPending(p);
+      } catch {
+        throw new Error("This device couldn't store the recording (storage may be full, or this is a private window).");
+      }
+      setVoicePending((m) => ({ ...m, [p.id]: { date, at: p.at, dur: p.dur, uploaded: 0, total: chunks.length, state: "uploading" } }));
+      void runVoiceQueue();
+    },
+    [runVoiceQueue],
+  );
+
+  const loadVoice = useCallback(async (date: string, id: string): Promise<Blob> => {
+    const pending = await getPending(id);
+    if (pending) return new Blob(pending.chunks, { type: pending.mime });
+    const meta = dataRef.current.days[date]?.voice?.[id];
+    if (!meta) throw new Error("That recording isn't here any more.");
+    let chunks = await cached(`voice:${id}`, meta.chunks);
+    if (!chunks) {
+      try {
+        chunks = await getPieces(voicePath(date, id), meta.chunks);
+      } catch {
+        throw new Error("Couldn't download this recording. Check your connection.");
+      }
+      void keep(`voice:${id}`, chunks);
+    }
+    return new Blob(chunks, { type: meta.mime });
+  }, []);
+
+  const removeVoice = useCallback(
+    async (date: string, id: string) => {
+      await dropPending(id);
+      await forget(`voice:${id}`);
+      setVoicePending((m) => {
+        if (!(id in m)) return m;
+        const next = { ...m };
+        delete next[id];
+        return next;
+      });
+      if (dataRef.current.days[date]?.voice?.[id]) {
+        updateDay(date, (d) => {
+          const voice = { ...(d.voice ?? {}) };
+          delete voice[id];
+          return { ...d, voice: Object.keys(voice).length ? voice : undefined };
+        });
+      }
+      await removePath(voicePath(date, id));
+    },
+    [updateDay],
+  );
 
   // Dev-only hooks so offline sync can be exercised from the console.
   useEffect(() => {
@@ -241,8 +401,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ data, loaded, today, sync, pending, getDay, updateDay, updateSettings }),
-    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings],
+    () => ({ data, loaded, today, sync, pending, getDay, updateDay, updateSettings, voicePending, saveVoice, loadVoice, removeVoice }),
+    [data, loaded, today, sync, pending, getDay, updateDay, updateSettings, voicePending, saveVoice, loadVoice, removeVoice],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

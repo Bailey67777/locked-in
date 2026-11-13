@@ -1,4 +1,4 @@
-import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta, EditMeta } from "./types";
+import type { AcademicJournal, Answers, AppData, Countdown, DayFeedback, DayHabit, DayQuestions, DayRecord, EconDay, EncryptedText, GradePoint, HabitDef, JournalCrypto, PlanItem, QSubject, Reminders, Settings, StudyData, Subject, Submission, TierId, Todo, VlogMeta, EditMeta, VoiceMeta } from "./types";
 import { AUTO_EMOJIS, DEFAULT_COLOR, DEFAULT_HABITS, DEFAULT_NAME, HABIT_COLORS } from "./defaults";
 
 export function uid(): string {
@@ -76,6 +76,7 @@ export function normalizeHabitDef(raw: unknown): HabitDef | null {
   if (typeof h.color === "string" && HEX_RE.test(h.color)) def.color = h.color.toLowerCase();
   if (typeof h.time === "string" && TIME_RE.test(h.time)) def.time = h.time;
   if (typeof h.sound === "string" && h.sound) def.sound = h.sound;
+  if (typeof h.editId === "string" && h.editId) def.editId = h.editId;
   if (typeof h.keystone === "boolean") def.keystone = h.keystone;
   return def;
 }
@@ -123,6 +124,23 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
   if (typeof r.thumb === "string" && r.thumb.startsWith("data:image/")) day.thumb = r.thumb;
   const vlog = normalizeVlog(r.vlog);
   if (vlog) day.vlog = vlog;
+  const voice = (r.voice && typeof r.voice === "object" ? r.voice : null) as Record<string, unknown> | null;
+  if (voice) {
+    const out: Record<string, VoiceMeta> = {};
+    for (const [id, raw] of Object.entries(voice)) {
+      const v = (raw && typeof raw === "object" ? raw : null) as Record<string, unknown> | null;
+      const chunks = Math.round(Number(v?.chunks));
+      if (!v || typeof v.at !== "number" || !Number.isFinite(chunks) || chunks < 1) continue;
+      out[id] = {
+        at: v.at,
+        dur: Math.max(0, Math.round(Number(v.dur) || 0)),
+        bytes: Math.max(0, Math.round(Number(v.bytes) || 0)),
+        chunks,
+        mime: typeof v.mime === "string" && /^audio\/[\w.+-]+/.test(v.mime) ? v.mime : "audio/mp4",
+      };
+    }
+    if (Object.keys(out).length) day.voice = out;
+  }
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
   if (typeof r.song === "string" && r.song) day.song = r.song;
   if (typeof r.screenMinutes === "number" && r.screenMinutes >= 0 && r.screenMinutes <= 24 * 60) day.screenMinutes = Math.round(r.screenMinutes);
@@ -187,6 +205,8 @@ export function normalizeSettings(raw: unknown): Settings {
     reminders: normalizeReminders(r.reminders),
     examDate: typeof r.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.examDate) ? r.examDate : undefined,
     v3: r.v3 === true ? true : undefined,
+    v4: r.v4 === true ? true : undefined,
+    startDate: typeof r.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.startDate) ? r.startDate : undefined,
     habitsArchive: Array.isArray(r.habitsArchive) || (r.habitsArchive && typeof r.habitsArchive === "object") ? asArray<unknown>(r.habitsArchive).map(normalizeHabitDef).filter((h): h is HabitDef => h !== null) : undefined,
   };
 }

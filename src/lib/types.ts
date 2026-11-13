@@ -5,6 +5,8 @@ export type HabitDef = {
   color?: string; // hex, e.g. "#1a6fd1"
   time?: string; // "HH:MM" — when in the day it happens; used for ordering
   sound?: string; // id from sounds.ts
+  /** A video from the edit bank that plays full screen when this habit is ticked. */
+  editId?: string;
   /** Must-do habit: it has to be ticked for the day to unlock the reward video. */
   keystone?: boolean;
 };
@@ -87,6 +89,15 @@ export type VlogMeta = {
   mime: string; // e.g. "video/mp4"
 };
 
+/** One voice-journal recording. The audio is stored in pieces under /voice/<date>/<id>; this is its label. */
+export type VoiceMeta = {
+  at: number; // when it was recorded
+  dur: number; // seconds
+  bytes: number;
+  chunks: number;
+  mime: string; // e.g. "audio/mp4"
+};
+
 export type DayRecord = {
   date: string; // YYYY-MM-DD
   habits: DayHabit[]; // which habits were on the day and whether they got done (worked out from `todos` once `list` is set)
@@ -108,6 +119,7 @@ export type DayRecord = {
   submitted?: Submission;
   thumb?: string; // tiny JPEG data URL shown on the calendar
   vlog?: VlogMeta; // the day's video diary (stored separately, fetched only to play)
+  voice?: Record<string, VoiceMeta>; // voice journal recordings, by id
   updatedAt?: number;
 };
 
@@ -144,6 +156,10 @@ export type Settings = {
   examDate?: string;
   /** Set once the minimalist version has swapped in the ten habits. */
   v3?: boolean;
+  /** Set once the habits got sounds, no times and the must-do on top. */
+  v4?: boolean;
+  /** Stats and the calendar count from this day ("YYYY-MM-DD"). Earlier days are hidden, not deleted. */
+  startDate?: string;
   /** The habit list from before that swap, kept so nothing is lost. */
   habitsArchive?: HabitDef[];
 };
