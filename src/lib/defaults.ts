@@ -17,8 +17,8 @@ export const DEFAULT_HABITS: HabitDef[] = [
   { id: "sc-sleep", name: "In bed by 9:45", sound: "swish" },
 ];
 
-/** The day the current run started: stats and the calendar count from here. */
-export const START_DATE = "2026-11-14";
+/** The day the current run started: stats and the calendar count from here (moved from the 14th to the 15th). */
+export const START_DATE = "2026-11-15";
 
 /** Added on 14 November 2026, the day the run started: fourteen habits for the 14th. */
 export const EXTRA_HABITS: HabitDef[] = [
@@ -28,8 +28,11 @@ export const EXTRA_HABITS: HabitDef[] = [
   { id: "sc-posture", name: "Conscious Posture & Breathing", sound: "knock" },
 ];
 
-/** Always exactly fourteen. */
-export const MAX_HABITS = 14;
+/** Added on 15 November 2026 with a placeholder name, to be renamed in Settings: fifteen habits for the 15th. */
+export const FIFTEENTH_HABIT: HabitDef = { id: "sc-15", name: "Habit 15", sound: "bell" };
+
+/** Always exactly fifteen. */
+export const MAX_HABITS = 15;
 
 export const DEFAULT_NAME = "Hugo";
 

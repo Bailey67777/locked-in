@@ -1,20 +1,20 @@
 # Locked In
 
 A minimalist daily habit tracker, installable as a web app (PWA). One person, iPhone and iPad, no login.
-Black, white and grey; fourteen habits; nothing else. Next.js + React + Tailwind, synced through a Firebase Realtime Database.
+Black, white and grey; fifteen habits; nothing else. Next.js + React + Tailwind, synced through a Firebase Realtime Database.
 
 **Four icons at the bottom**
 
-- **Habits** – today's fourteen habits (squeezed into the space of ten, evenly), a percentage bar, and **Submit day** (*Reopen* undoes it). Ticking a habit plays
+- **Habits** – today's fifteen habits (squeezed into the space of ten, evenly), a percentage bar, and **Submit day** (*Reopen* undoes it). Ticking a habit plays
   its own sound, or its **edit** (a short video, full screen) if it has one. The microphone at the top opens the
   **journal**: tap, talk, tap again; it saves itself and you can listen back. Nothing is transcribed.
 - **Calendar** – each day shaded from clear to solid black by percentage. A slash through a day means the top habit
   (the must-do) was missed; a dot means there's a journal entry. Tap a day to see or fix its ticks and play its journal.
 - **Statistics** – 7- and 30-day averages, every day as a bar, and each habit's rate over the last 30 days.
-- **Settings** – the fourteen habits (always fourteen: rename, reorder, pick each one's sound from fourteen, give it an edit), sound on/off,
+- **Settings** – the fifteen habits (always fifteen: rename, reorder, pick each one's sound from fourteen, give it an edit), sound on/off,
   light/dark, how to add it to the home screen, sync status.
 
-Everything counts from **14 November 2026** (`settings.startDate`). Earlier days are hidden, not deleted. From the
+Everything counts from **15 November 2026** (`settings.startDate`; moved from the 14th). Earlier days are hidden, not deleted. From the
 start date, a past day the app wasn't opened on counts as 0%.
 
 The ten habits start from what Santa Cruz Medicinals repeats most for daily health; change them in Settings. Earlier
@@ -146,10 +146,10 @@ Stored at `spaces/<DATA_KEY>` in the Realtime Database (also cached in `localSto
 ```jsonc
 {
   "settings": {
-    "habits": [ { "id": "sc-nogoon", "name": "No gooning", "sound": "bell", "editId": "48f6kx3ymcg9" }, … ],  // always fourteen, in your order
+    "habits": [ { "id": "sc-nogoon", "name": "No gooning", "sound": "bell", "editId": "48f6kx3ymcg9" }, … ],  // always fifteen, in your order
     "soundsOn": true,
-    "startDate": "2026-11-14",
-    "v3": true, "v4": true, "v5": true,  // one-time upgrades done (v5 added the four extra habits on 14 Nov 2026)
+    "startDate": "2026-11-15",
+    "v3": true, "v4": true, "v5": true, "v6": true,  // one-time upgrades (v5: four extra habits; v6: restart on the 15th, a 15th habit)
     "habitsArchive": [ … ]            // the habit list from before the minimalist switch
   },
   "days": {

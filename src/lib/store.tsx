@@ -5,7 +5,7 @@ import { goOffline, goOnline, onValue, ref, remove, set, update } from "firebase
 import type { AppData, DayRecord, HabitDef, Settings, VoiceMeta } from "./types";
 import { materializeDay, normalizeData, normalizeDays, normalizeSettings, stripUndefined, uid } from "./model";
 import { todayKey } from "./dates";
-import { DEFAULT_HABITS, EXTRA_HABITS, MAX_HABITS, START_DATE } from "./defaults";
+import { DEFAULT_HABITS, EXTRA_HABITS, FIFTEENTH_HABIT, MAX_HABITS, START_DATE } from "./defaults";
 import { SOUND_IDS, isSound } from "./sounds";
 import { cached, canUpload, forget, getPieces, keep, putPieces, removePath, storageAvailable, toChunks } from "./media";
 import { type PendingVoice, dropPending, getPending, listPending, putPending, voicePath } from "./voice";
@@ -67,12 +67,23 @@ function upgrade(s: Settings): Settings {
     const habits = [...next.habits];
     const used = new Set(habits.map((h) => h.sound).filter(Boolean));
     for (const extra of EXTRA_HABITS) {
-      if (habits.length >= MAX_HABITS || habits.some((h) => h.id === extra.id)) continue;
+      if (habits.length >= 14 || habits.some((h) => h.id === extra.id)) continue;
       const sound = extra.sound && !used.has(extra.sound) ? extra.sound : (SOUND_IDS.find((id) => !used.has(id)) ?? extra.sound);
       if (sound) used.add(sound);
       habits.push({ ...extra, sound });
     }
     next = { ...next, v5: true, habits };
+  }
+  // v6: the run restarts on the 15th (earlier days hidden, not deleted), Tech Off moves to 9:15PM, and a fifteenth
+  // habit with a placeholder name goes on the end with a sound nobody else is using.
+  if (!next.v6) {
+    const habits = next.habits.map((h) => (/^tech\s*off\s*7[:.]?45/i.test(h.name.trim()) ? { ...h, name: "Tech Off 9:15PM" } : h));
+    if (habits.length < MAX_HABITS && !habits.some((h) => h.id === FIFTEENTH_HABIT.id)) {
+      const used = new Set(habits.map((h) => h.sound).filter(Boolean));
+      const sound = FIFTEENTH_HABIT.sound && !used.has(FIFTEENTH_HABIT.sound) ? FIFTEENTH_HABIT.sound : (SOUND_IDS.find((id) => !used.has(id)) ?? FIFTEENTH_HABIT.sound);
+      habits.push({ ...FIFTEENTH_HABIT, sound });
+    }
+    next = { ...next, v6: true, startDate: START_DATE, habits };
   }
   return next;
 }
@@ -278,7 +289,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!settingsReady) return;
     const s = dataRef.current.settings;
-    if (s.v3 && s.v4 && s.v5) return;
+    if (s.v3 && s.v4 && s.v5 && s.v6) return;
     const id = window.setTimeout(() => updateSettings(upgrade), 0);
     return () => window.clearTimeout(id);
   }, [settingsReady, updateSettings]);

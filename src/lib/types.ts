@@ -160,6 +160,8 @@ export type Settings = {
   v4?: boolean;
   /** Set once the four extra habits were added (fourteen in all). */
   v5?: boolean;
+  /** Set once the run restarted on the 15th: fifteen habits, Tech Off moved to 9:15PM. */
+  v6?: boolean;
   /** Stats and the calendar count from this day ("YYYY-MM-DD"). Earlier days are hidden, not deleted. */
   startDate?: string;
   /** The habit list from before that swap, kept so nothing is lost. */
