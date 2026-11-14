@@ -5,7 +5,7 @@ import { goOffline, goOnline, onValue, ref, remove, set, update } from "firebase
 import type { AppData, DayRecord, HabitDef, Settings, VoiceMeta } from "./types";
 import { materializeDay, normalizeData, normalizeDays, normalizeSettings, stripUndefined, uid } from "./model";
 import { todayKey } from "./dates";
-import { DEFAULT_HABITS, MAX_HABITS, START_DATE } from "./defaults";
+import { DEFAULT_HABITS, EXTRA_HABITS, MAX_HABITS, START_DATE } from "./defaults";
 import { SOUND_IDS, isSound } from "./sounds";
 import { cached, canUpload, forget, getPieces, keep, putPieces, removePath, storageAvailable, toChunks } from "./media";
 import { type PendingVoice, dropPending, getPending, listPending, putPending, voicePath } from "./voice";
@@ -34,32 +34,47 @@ type Store = {
   removeVoice: (date: string, id: string) => Promise<void>;
 };
 
-/** Exactly ten habits, the must-do (No gooning) on top, no times, and a different sound on each. */
+/** One-time upgrades of the habit list, in order. Each runs once (flags v3, v4, v5) and never touches past days. */
 function upgrade(s: Settings): Settings {
-  if (!s.v3) {
-    return { ...s, v3: true, v4: true, startDate: s.startDate ?? START_DATE, habitsArchive: s.habitsArchive ?? s.habits, habits: DEFAULT_HABITS.map((h) => ({ ...h })) };
+  let next = s;
+  // v3: the ten starting habits (the old list is kept in habitsArchive).
+  if (!next.v3) next = { ...next, v3: true, v4: true, startDate: next.startDate ?? START_DATE, habitsArchive: next.habitsArchive ?? next.habits, habits: DEFAULT_HABITS.map((h) => ({ ...h })) };
+  // v4: exactly ten, the must-do (No gooning) on top, no times, a different sound on each.
+  if (!next.v4) {
+    let habits: HabitDef[] = next.habits.slice(0, 10).map((h) => {
+      const copy = { ...h };
+      delete copy.time;
+      return copy;
+    });
+    for (const d of DEFAULT_HABITS) if (habits.length < 10 && !habits.some((h) => h.id === d.id)) habits.push({ ...d });
+    const goon = habits.findIndex((h) => h.id === "sc-nogoon");
+    if (goon > 0) habits = [habits[goon], ...habits.slice(0, goon), ...habits.slice(goon + 1)];
+    const used = new Set<string>();
+    habits = habits.map((h) => {
+      if (isSound(h.sound) && !used.has(h.sound)) {
+        used.add(h.sound);
+        return h;
+      }
+      const preferred = DEFAULT_HABITS.find((d) => d.id === h.id)?.sound;
+      const sound = preferred && !used.has(preferred) ? preferred : (SOUND_IDS.find((id) => !used.has(id)) ?? SOUND_IDS[0]);
+      used.add(sound);
+      return { ...h, sound };
+    });
+    next = { ...next, v4: true, startDate: next.startDate ?? START_DATE, habits };
   }
-  if (s.v4) return s;
-  let habits: HabitDef[] = s.habits.slice(0, MAX_HABITS).map((h) => {
-    const next = { ...h };
-    delete next.time;
-    return next;
-  });
-  for (const d of DEFAULT_HABITS) if (habits.length < MAX_HABITS && !habits.some((h) => h.id === d.id)) habits.push({ ...d });
-  const goon = habits.findIndex((h) => h.id === "sc-nogoon");
-  if (goon > 0) habits = [habits[goon], ...habits.slice(0, goon), ...habits.slice(goon + 1)];
-  const used = new Set<string>();
-  habits = habits.map((h) => {
-    if (isSound(h.sound) && !used.has(h.sound)) {
-      used.add(h.sound);
-      return h;
+  // v5: the four extra habits on the end, fourteen in all, each with a sound nobody else is using if possible.
+  if (!next.v5) {
+    const habits = [...next.habits];
+    const used = new Set(habits.map((h) => h.sound).filter(Boolean));
+    for (const extra of EXTRA_HABITS) {
+      if (habits.length >= MAX_HABITS || habits.some((h) => h.id === extra.id)) continue;
+      const sound = extra.sound && !used.has(extra.sound) ? extra.sound : (SOUND_IDS.find((id) => !used.has(id)) ?? extra.sound);
+      if (sound) used.add(sound);
+      habits.push({ ...extra, sound });
     }
-    const preferred = DEFAULT_HABITS.find((d) => d.id === h.id)?.sound;
-    const sound = preferred && !used.has(preferred) ? preferred : (SOUND_IDS.find((id) => !used.has(id)) ?? SOUND_IDS[0]);
-    used.add(sound);
-    return { ...h, sound };
-  });
-  return { ...s, v4: true, startDate: s.startDate ?? START_DATE, habits };
+    next = { ...next, v5: true, habits };
+  }
+  return next;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -263,7 +278,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!settingsReady) return;
     const s = dataRef.current.settings;
-    if (s.v3 && s.v4) return;
+    if (s.v3 && s.v4 && s.v5) return;
     const id = window.setTimeout(() => updateSettings(upgrade), 0);
     return () => window.clearTimeout(id);
   }, [settingsReady, updateSettings]);

@@ -20,8 +20,16 @@ export const DEFAULT_HABITS: HabitDef[] = [
 /** The day the current run started: stats and the calendar count from here. */
 export const START_DATE = "2026-11-14";
 
-/** Always exactly ten. */
-export const MAX_HABITS = 10;
+/** Added on 14 November 2026, the day the run started: fourteen habits for the 14th. */
+export const EXTRA_HABITS: HabitDef[] = [
+  { id: "sc-grounding", name: "2 Minutes Grounding", sound: "bell" },
+  { id: "sc-phone5", name: "No Phone Until 5pm", sound: "whistle" },
+  { id: "sc-redlight", name: "Red Light >6pm", sound: "zap" },
+  { id: "sc-posture", name: "Conscious Posture & Breathing", sound: "knock" },
+];
+
+/** Always exactly fourteen. */
+export const MAX_HABITS = 14;
 
 export const DEFAULT_NAME = "Hugo";
 

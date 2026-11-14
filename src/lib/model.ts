@@ -206,6 +206,7 @@ export function normalizeSettings(raw: unknown): Settings {
     examDate: typeof r.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.examDate) ? r.examDate : undefined,
     v3: r.v3 === true ? true : undefined,
     v4: r.v4 === true ? true : undefined,
+    v5: r.v5 === true ? true : undefined,
     startDate: typeof r.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.startDate) ? r.startDate : undefined,
     habitsArchive: Array.isArray(r.habitsArchive) || (r.habitsArchive && typeof r.habitsArchive === "object") ? asArray<unknown>(r.habitsArchive).map(normalizeHabitDef).filter((h): h is HabitDef => h !== null) : undefined,
   };

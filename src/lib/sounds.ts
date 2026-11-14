@@ -22,6 +22,8 @@ export const SOUNDS: SoundDef[] = [
   { id: "swish", name: "Swish" },
   { id: "coin", name: "Coin" },
   { id: "snap", name: "Snap" },
+  { id: "whistle", name: "Whistle" },
+  { id: "zap", name: "Zap" },
 ];
 
 export const SOUND_IDS = SOUNDS.map((s) => s.id);
@@ -218,6 +220,40 @@ const SYNTHS: Record<string, Synth> = {
     square(0.07, 1318.5, 0.35, 0.12);
     // take the harsh top off
     for (let i = 1; i < out.length; i++) out[i] = out[i] * 0.45 + out[i - 1] * 0.55;
+    return out;
+  },
+  // Someone whistling: a quick slide up, then a held note with a little vibrato.
+  whistle: (sr) => {
+    const n = len(sr, 0.6);
+    const out = new Float32Array(n);
+    let phase = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const base = t < 0.09 ? 1250 * Math.pow(1760 / 1250, t / 0.09) : 1760;
+      const f = base * (1 + 0.012 * Math.sin(TAU * 6 * t) * Math.min(1, Math.max(0, (t - 0.12) / 0.1)));
+      phase += (TAU * f) / sr;
+      const env = Math.min(1, t / 0.02) * (t > 0.42 ? Math.exp(-(t - 0.42) / 0.05) : 1);
+      out[i] = (Math.sin(phase) + 0.08 * Math.sin(2 * phase)) * env;
+    }
+    const air = bandpass(noise(n, 41), sr, () => 1760, 6);
+    for (let i = 0; i < n; i++) out[i] += air[i] * 0.15 * Math.abs(out[i]);
+    return out;
+  },
+  // A short laser zap: a buzzy tone diving from high to low.
+  zap: (sr) => {
+    const n = len(sr, 0.32);
+    const out = new Float32Array(n);
+    let phase = 0;
+    let lp = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      const f = 1700 * Math.pow(170 / 1700, Math.min(1, t / 0.24));
+      phase += f / sr;
+      phase -= Math.floor(phase);
+      const saw = 2 * phase - 1;
+      lp += 0.35 * (saw - lp); // soften the buzz
+      out[i] = lp * Math.exp(-t / 0.11) * Math.min(1, t / 0.002);
+    }
     return out;
   },
   // A dry finger snap.

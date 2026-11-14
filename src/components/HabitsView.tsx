@@ -51,11 +51,10 @@ export default function HabitsView() {
     if (done + 1 === total) playAllDone();
   };
 
-  // Twelve identical slices fill the screen above the bottom icons: the title, the ten habits, the bar. Every
-  // gap is the same, top to bottom. On a very short screen the slices stop at 50px and the page scrolls instead.
-  const slices = day.habits.length + 2;
+  // The screen above the bottom icons is cut into twelve equal slices: one for the title, ten for the habits (all
+  // fourteen share them, evenly), one for the bar. On a very short screen it stops shrinking and scrolls instead.
   return (
-    <div className="fade-up flex flex-1 flex-col" style={{ minHeight: slices * 50 }}>
+    <div className="fade-up flex flex-1 flex-col" style={{ minHeight: 100 + day.habits.length * 38 }}>
       {/* The title row sits a little below the middle of its slice (3 parts space above, 1 below), closer to the habits. */}
       <header className="flex min-h-[50px] flex-col" style={{ flex: "1 1 0" }}>
         <div style={{ flex: "3 1 0" }} />
@@ -68,7 +67,7 @@ export default function HabitsView() {
         <div style={{ flex: "1 1 0" }} />
       </header>
 
-      <div className="flex flex-col" style={{ flex: `${day.habits.length} 1 0` }}>
+      <div className="flex flex-col" style={{ flex: "10 1 0" }}>
         <HabitList habits={day.habits} onToggle={toggle} fill />
       </div>
 

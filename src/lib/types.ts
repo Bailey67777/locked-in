@@ -158,6 +158,8 @@ export type Settings = {
   v3?: boolean;
   /** Set once the habits got sounds, no times and the must-do on top. */
   v4?: boolean;
+  /** Set once the four extra habits were added (fourteen in all). */
+  v5?: boolean;
   /** Stats and the calendar count from this day ("YYYY-MM-DD"). Earlier days are hidden, not deleted. */
   startDate?: string;
   /** The habit list from before that swap, kept so nothing is lost. */
