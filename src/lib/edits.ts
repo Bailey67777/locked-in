@@ -136,10 +136,18 @@ export async function uploadEdit(file: File, onProgress?: (fraction: number) => 
   const db = getDb();
   if (!db || !canUpload()) throw new Error("Edits need the cloud sync to be set up.");
   const id = uid();
-  const [dur, thumb] = await Promise.all([mediaDuration(file, "video"), videoThumb(file)]);
   // iPhone videos arrive as QuickTime; labelled as MP4 they play everywhere.
   const mime = !file.type || file.type === "video/quicktime" ? "video/mp4" : file.type.split(";")[0];
-  const chunks = await toChunks(file);
+  // Read the file once, straight away, and work from that copy. A Mac can lose access to a picked file part-way
+  // (iCloud files that aren't downloaded, or a file still being saved), which made later reads fail.
+  let copy: Blob;
+  try {
+    copy = new Blob([await file.arrayBuffer()], { type: mime });
+  } catch {
+    throw new Error("Your computer couldn't open that video. If it's in iCloud or Photos, save it to your Desktop first, then upload it from there.");
+  }
+  const [dur, thumb] = await Promise.all([mediaDuration(copy, "video"), videoThumb(copy)]);
+  const chunks = await toChunks(copy);
   try {
     await putPieces(piecesPath(id), chunks, 0, (n) => onProgress?.(n / chunks.length));
   } catch {
