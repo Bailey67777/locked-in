@@ -12,6 +12,12 @@
       "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": ["NEXT_PUBLIC_DATA_KEY=test-v4", "/opt/homebrew/bin/npx", "next", "dev", "--port", "3113"],
       "port": 3113
+    },
+    {
+      "name": "hugo-test",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["NEXT_PUBLIC_DATA_KEY=test-hugo", "/opt/homebrew/bin/npx", "next", "dev", "--port", "3115"],
+      "port": 3115
     }
   ]
 }

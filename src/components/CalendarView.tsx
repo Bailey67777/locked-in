@@ -11,6 +11,13 @@ import { cn } from "@/lib/cn";
 import { CloseIcon, MicIcon } from "./Icons";
 import HabitList from "./HabitList";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
+import { useHub } from "@/lib/hub/store";
+import { minutesOn, total } from "@/lib/hub/model";
+import { mins } from "@/lib/hub/time";
+import { POSES } from "@/lib/hub/subjects";
+import type { PoseId } from "@/lib/hub/types";
+import PhotoTile from "./PhotoTile";
+import PhotoViewer from "./PhotoViewer";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -33,17 +40,22 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   const counts = date >= startOf(settings);
   const progress = dayProgress(day);
   const entries = useVoiceEntries(date);
+  const hub = useHub();
+  const photos = hub.data.photos[date] ?? {};
+  const hasPhotos = Object.keys(photos).length > 0;
+  const studied = total(minutesOn(date, hub.data.sessions, hub.data.timer, hub.now));
+  const [photo, setPhoto] = useState<PoseId | null>(null);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !photo && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onClose, photo]);
 
   const toggle = (id: string) => {
     const turningOn = !day.habits.find((h) => h.id === id)?.done;
@@ -97,9 +109,26 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
               <VoiceEntries date={date} entries={entries} />
             </div>
           )}
+          {studied >= 1 && (
+            <div className="mt-6 flex items-baseline justify-between">
+              <span className="label">Studied</span>
+              <span className="font-mono text-[13px] tabular-nums">{mins(studied)}</span>
+            </div>
+          )}
+          {hasPhotos && (
+            <div className="mt-6">
+              <div className="label mb-2">Photos</div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {POSES.map((p) => (
+                  <PhotoTile key={p.id} meta={photos[p.id]} label="" className="rounded-[10px]" onClick={photos[p.id] ? () => setPhoto(p.id) : undefined} />
+                ))}
+              </div>
+            </div>
+          )}
           <div className="h-6" />
         </div>
       </div>
+      {photo && <PhotoViewer date={date} pose={photo} onClose={() => setPhoto(null)} />}
     </div>,
     document.body,
   );

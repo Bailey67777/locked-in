@@ -1,25 +1,54 @@
-# Locked In
+# Hugo
 
-A minimalist daily habit tracker, installable as a web app (PWA). One person, iPhone and iPad, no login.
-Black, white and grey; fifteen habits; nothing else. Next.js + React + Tailwind, synced through a Firebase Realtime Database.
+Hugo's own app (it was called Locked In): habits, academics and health in one place. Installable as a web app (PWA)
+on iPhone, iPad and laptop. One person, no login. Black, white and grey, plus one colour per subject as a thin
+marker (Maths red, Physics blue, Economics yellow). Next.js + React + Tailwind, synced through a Firebase Realtime
+Database.
 
-**Four icons at the bottom**
+**Six icons at the bottom**
 
-- **Habits** – today's fifteen habits (squeezed into the space of ten, evenly), a percentage bar, and **Submit day** (*Reopen* undoes it). Ticking a habit plays
-  its own sound, or its **edit** (a short video, full screen) if it has one. The microphone at the top opens the
-  **journal**: tap, talk, tap again; it saves itself and you can listen back. Nothing is transcribed.
-- **Calendar** – each day shaded from clear to solid black by percentage. A slash through a day means the top habit
-  (the must-do) was missed; a dot means there's a journal entry. Tap a day to see or fix its ticks and play its journal.
-- **Statistics** – 7- and 30-day averages, every day as a bar, and each habit's rate over the last 30 days.
-- **Settings** – the fifteen habits (always fifteen: rename, reorder, pick each one's sound from fourteen, give it an edit), sound on/off,
-  light/dark, how to add it to the home screen, sync status.
+- **Habits** – unchanged from Locked In: today's fifteen habits, a percentage bar, each habit's own sound and edit.
+  Two buttons at the top: the **to-do list** and the voice **journal**.
+  - **To do** – three lists: **Today**, **Tomorrow**, **For a while**. Tomorrow's become today's by themselves;
+    anything not done stays on Today. Tap an item to rename, move or delete it.
+- **Academics** – one page:
+  - the next exam and how many days are left (Settings → Exams, or tap it);
+  - the day's lessons (from a calendar link, else the weekly timetable, else one row per subject). Tap a lesson,
+    press the button and say what you did: it's written down as you talk, with Shaky / Okay / Solid. Where the
+    browser won't transcribe (an iPhone home-screen app), the keyboard's own microphone does it;
+  - **Study** (pick a subject; the timer lives in the database, so it survives closing the app) and
+    **Stare at Wall** (5–20 minutes of a blank screen first);
+  - time studied today (no goal), this week, and grades before and after 15 November.
+- **Health** – five photos a day: face front, face side, body front, body side, back. **Upload** takes all five at
+  once and puts them in the order they were taken; tap one tile to add or replace a single photo. **Compare** puts
+  two days side by side in the same pose; **Random day** spins to a past day. Weight is optional.
+- **Calendar**, **Statistics** – as before, plus random body progress, study hours and the weight trend.
+- **Settings** – habits, lessons (timetable or calendar link), exams, Stare at Wall length, the photo passcode,
+  the Claude connector link, sound, light/dark, sync.
 
-Everything counts from **15 November 2026** (`settings.startDate`; moved from the 14th). Earlier days are hidden, not deleted. From the
-start date, a past day the app wasn't opened on counts as 0%.
+## Photos are locked
 
-The ten habits start from what Santa Cruz Medicinals repeats most for daily health; change them in Settings. Earlier
-versions had a written journal, to-do planner, vlogs, study coach, photos and fifty sound effects. That data is all
-still in the database; the app just doesn't show it. The habit list from before the switch is in `settings.habitsArchive`.
+Everything else in the app is protected only by an unguessable address. The photos are different: they are
+encrypted on the device before they go anywhere, with a key that only exists wrapped by **a passcode you choose**
+(Settings → Photos). The database holds scrambled data; nobody without the passcode can open them, including
+whoever runs the database. You type the passcode once on each device. If you forget it, change it from a device
+that is still unlocked (Settings → Photos → Change passcode); if no device is unlocked, the photos can't be
+recovered. Code: `src/lib/hub/vault.ts` (keys) and `src/lib/hub/photos.ts` (pictures).
+
+## Claude
+
+The app is also a connector for claude.ai, so Claude can read the day (lessons and what was said, study time,
+habits, to-dos, grades, exams) and write back lesson notes, grades, study time, exams and to-dos. It can never see
+the photos, weight, journal or voice notes. Set-up and the tool list: [`docs/CLAUDE_CONNECTOR.md`](docs/CLAUDE_CONNECTOR.md).
+
+## Where things are kept
+
+The habits are exactly where Locked In kept them (`settings`, `days`, `voice`, `edits`). Everything new is one
+small tree at `hub` (shape: `src/lib/hub/types.ts`), and the encrypted photos are at `body/<id>`. Habit stats count
+from **15 November 2026** (`settings.startDate`).
+
+Test without touching real data: `NEXT_PUBLIC_DATA_KEY=test-hugo npx next dev --port 3115`, then
+`curl -X DELETE "<database url>/spaces/test-hugo.json"`.
 
 ---
 

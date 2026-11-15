@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
+import { useHub } from "@/lib/hub/store";
+import { useVault } from "@/lib/hub/useVault";
+import { fetchEvents } from "@/lib/hub/calendar";
+import { dayBounds } from "@/lib/hub/time";
+import { SUBJECT_META, subjectFromTitle } from "@/lib/hub/subjects";
+import { addDays } from "@/lib/dates";
+import { DATA_KEY } from "@/lib/firebase";
 import { soundName } from "@/lib/sounds";
 import { useEditBank } from "@/lib/edits";
 import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
@@ -9,6 +16,13 @@ import { cloudConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/cn";
 import { ChevronIcon } from "./Icons";
 import HabitSheet from "./HabitSheet";
+import TimetableSheet from "./TimetableSheet";
+import ExamsSheet from "./ExamsSheet";
+import PasscodeSheet from "./PasscodeSheet";
+
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const STARE_LENGTHS = [5, 10, 15, 20];
 
 function Section({ title, aside, children }: { title: string; aside?: string; children: React.ReactNode }) {
   return (
@@ -37,6 +51,61 @@ export default function SettingsView() {
   const habits = settings.habits;
   const [editing, setEditing] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeChoice>(() => (typeof window === "undefined" ? "system" : readTheme()));
+  const hub = useHub();
+  const vault = useVault();
+  const school = hub.data.settings;
+  const [day, setDay] = useState<number | null>(null);
+  const [exams, setExams] = useState(false);
+  const [passcode, setPasscode] = useState<"create" | "unlock" | "change" | null>(null);
+  const [cal, setCal] = useState(school.calendarUrl);
+  const [calStatus, setCalStatus] = useState<string | null>(null);
+  const [claude, setClaude] = useState<string | null>(null);
+  const [claudeLink, setClaudeLink] = useState<string | null>(null);
+  const examCount = Object.values(school.exams).filter((e) => e.date >= hub.today).length;
+
+  const saveCalendar = async () => {
+    const url = cal.trim();
+    if (url === school.calendarUrl && calStatus) return;
+    hub.write("settings/calendarUrl", url || null);
+    if (!url) return setCalStatus(null);
+    setCalStatus("Checking…");
+    try {
+      const [from] = dayBounds(hub.today);
+      const events = await fetchEvents(url, from, dayBounds(addDays(hub.today, 13))[1]);
+      const lessons = events.filter((e) => subjectFromTitle(e.title)).length;
+      setCalStatus(`${lessons} lesson${lessons === 1 ? "" : "s"} in the next two weeks`);
+    } catch (e) {
+      setCalStatus(e instanceof Error ? e.message : "Couldn't load it.");
+    }
+  };
+
+  /**
+   * The link that connects Claude to the app. The server only hands it to this app, never puts it in the page.
+   * iPhones only allow copying straight from a tap, so the clipboard is given a promise of the link, not the link.
+   */
+  const copyClaudeLink = async () => {
+    setClaude("…");
+    setClaudeLink(null);
+    const link = fetch("/api/mcp-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: DATA_KEY }) }).then(async (res) => {
+      const body = (await res.json().catch(() => ({}))) as { url?: string };
+      if (!res.ok || !body.url) throw new Error("no link");
+      return body.url;
+    });
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": link.then((u) => new Blob([u], { type: "text/plain" })) })]);
+      } else {
+        await navigator.clipboard.writeText(await link);
+      }
+      setClaude("Copied");
+    } catch {
+      // Copying was refused: show the link so it can be copied by hand.
+      const url = await link.catch(() => null);
+      setClaudeLink(url);
+      setClaude(url ? null : "Couldn't get it");
+    }
+    window.setTimeout(() => setClaude(null), 2500);
+  };
 
   const move = (i: number, dir: -1 | 1) =>
     updateSettings((s) => {
@@ -91,11 +160,101 @@ export default function SettingsView() {
         </ul>
       </Section>
 
+      <Section title="Lessons">
+        <ul className="divide-y divide-line border-y border-line">
+          {DAY_ORDER.map((d) => {
+            const lessons = school.timetable[String(d)] ?? [];
+            return (
+              <li key={d}>
+                <button type="button" onClick={() => setDay(d)} className="tap flex w-full items-center gap-3 py-3.5 text-left">
+                  <span className="w-12 shrink-0 text-[17px] font-medium tracking-[-0.01em]">{DAY_SHORT[d]}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-1">
+                    {lessons.map((l) => (
+                      <span key={l.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: SUBJECT_META[l.subject].color }} />
+                    ))}
+                  </span>
+                  <span className="font-mono text-[12px] tabular-nums text-muted">{lessons.length ? `${lessons[0].start}–${lessons[lessons.length - 1].end}` : "–"}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="mt-3 flex gap-2">
+          <input value={cal} onChange={(e) => setCal(e.target.value)} onBlur={() => void saveCalendar()} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} placeholder="Or a calendar link (.ics)" className="field min-w-0 flex-1 text-[14px]" inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="Calendar link" />
+          {cal && (
+            <button
+              type="button"
+              className="btn-quiet h-auto rounded-xl bg-surface px-3 text-[13px]"
+              onClick={() => {
+                setCal("");
+                setCalStatus(null);
+                hub.write("settings/calendarUrl", null);
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {calStatus && <p className="mt-2 px-1 text-[12.5px] text-muted">{calStatus}</p>}
+      </Section>
+
+      <Section title="Study">
+        <ul className="divide-y divide-line border-y border-line">
+          <li>
+            <button type="button" onClick={() => setExams(true)} className="tap flex w-full items-center justify-between py-3.5 text-left">
+              <span className="text-[17px] font-medium tracking-[-0.01em]">Exams</span>
+              <span className="font-mono text-[12px] tabular-nums text-muted">{examCount || "–"}</span>
+            </button>
+          </li>
+          <li className="flex items-center justify-between gap-4 py-2.5">
+            <span className="text-[17px] font-medium tracking-[-0.01em]">Stare at Wall</span>
+            <span className="grid grid-cols-4 gap-1 rounded-xl bg-surface p-1">
+              {STARE_LENGTHS.map((m) => (
+                <button key={m} type="button" aria-pressed={school.stareMin === m} onClick={() => hub.write("settings/stareMin", m)} className={cn("h-8 w-11 rounded-lg font-mono text-[12.5px] tabular-nums transition-colors", school.stareMin === m ? "bg-ink text-bg" : "text-ink-2")}>
+                  {m}m
+                </button>
+              ))}
+            </span>
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="Photos">
+        <ul className="divide-y divide-line border-y border-line">
+          <li>
+            <button
+              type="button"
+              onClick={() => setPasscode(vault.state === "none" ? "create" : vault.state === "locked" ? "unlock" : "change")}
+              disabled={vault.state === "checking"}
+              className="tap flex w-full items-center justify-between py-3.5 text-left disabled:opacity-40"
+            >
+              <span className="text-[17px] font-medium tracking-[-0.01em]">{vault.state === "none" ? "Set a passcode" : vault.state === "locked" ? "Unlock on this device" : "Change passcode"}</span>
+              <span className="text-[12.5px] text-muted">{vault.state === "open" ? "Unlocked" : vault.state === "locked" ? "Locked" : ""}</span>
+            </button>
+          </li>
+          {vault.state === "open" && (
+            <li>
+              <button type="button" onClick={() => void vault.lock()} className="tap flex w-full items-center justify-between py-3.5 text-left">
+                <span className="text-[17px] font-medium tracking-[-0.01em]">Lock this device</span>
+              </button>
+            </li>
+          )}
+        </ul>
+      </Section>
+
+      <Section title="Claude">
+        <button type="button" onClick={() => void copyClaudeLink()} className="tap flex h-14 w-full items-center justify-between rounded-2xl bg-surface px-4 text-left">
+          <span className="text-[16px] font-medium">Copy connector link</span>
+          <span className="text-[12.5px] text-muted">{claude ?? ""}</span>
+        </button>
+        {claudeLink && <input readOnly value={claudeLink} onFocus={(e) => e.currentTarget.select()} className="field mt-2 font-mono text-[12px]" aria-label="Connector link" />}
+      </Section>
+
       <Section title="Sound">
-        <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-3.5">
-          <div>
+        <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-4 py-3.5">
+          <div className="min-w-0">
             <div className="text-[15px]">Tick sounds</div>
-            <div className="text-[12px] text-muted">Each habit&apos;s own sound, a chime when all ten are done.</div>
+            <div className="text-[12px] text-muted">Each habit&apos;s own sound, a chime when they&apos;re all done.</div>
           </div>
           <Switch on={settings.soundsOn} onClick={() => updateSettings((s) => ({ ...s, soundsOn: !s.soundsOn }))} label="Tick sounds" />
         </div>
@@ -128,9 +287,12 @@ export default function SettingsView() {
         </div>
       </Section>
 
-      <p className="mt-12 text-center font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">Locked In</p>
+      <p className="mt-12 text-center font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">Hugo</p>
 
       {editing && <HabitSheet habitId={editing} onClose={() => setEditing(null)} />}
+      {day !== null && <TimetableSheet day={day} onClose={() => setDay(null)} />}
+      {exams && <ExamsSheet onClose={() => setExams(false)} />}
+      {passcode && <PasscodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
     </div>
   );
 }

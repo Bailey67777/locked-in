@@ -1,0 +1,139 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useHub } from "@/lib/hub/store";
+import { useTimer } from "@/lib/hub/timer";
+import { uid } from "@/lib/hub/model";
+import { stopwatch } from "@/lib/hub/time";
+import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
+import { haptic, playChime, unlockAudio } from "@/lib/hub/chimes";
+import { cn } from "@/lib/cn";
+import SubjectMark from "./SubjectMark";
+import { CloseIcon } from "./Icons";
+
+const LENGTHS = [5, 10, 15, 20];
+
+type WakeLock = { release: () => Promise<void> };
+
+/**
+ * Stare at Wall: a blank screen for a few minutes before studying, to bring your dopamine down.
+ * Nothing moves except a faint countdown. A soft chime at the end, then straight into a study block.
+ */
+export default function StareOverlay({ onClose }: { onClose: () => void }) {
+  const { data, write } = useHub();
+  const { start: startStudy } = useTimer();
+  const [mins, setMins] = useState(data.settings.stareMin);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  const [done, setDone] = useState(false);
+  const lock = useRef<WakeLock | null>(null);
+  const length = mins * 60000;
+  const left = startedAt ? Math.max(0, startedAt + length - now) : length;
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+      void lock.current?.release().catch(() => undefined);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!startedAt || done) return;
+    const tick = () => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= startedAt + length) {
+        setDone(true);
+        write(`stares/${uid()}`, { start: startedAt, end: startedAt + length });
+        playChime();
+        haptic([30, 80, 30]);
+        void lock.current?.release().catch(() => undefined);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, [startedAt, done, length, write]);
+
+  const begin = async () => {
+    unlockAudio();
+    setStartedAt(Date.now());
+    setNow(Date.now());
+    try {
+      const wl = (navigator as unknown as { wakeLock?: { request: (t: "screen") => Promise<WakeLock> } }).wakeLock;
+      if (wl) lock.current = await wl.request("screen");
+    } catch {
+      /* the screen may dim; the countdown still runs off the clock */
+    }
+  };
+
+  const endEarly = () => {
+    if (startedAt && Date.now() - startedAt >= 60000) write(`stares/${uid()}`, { start: startedAt, end: Date.now() });
+    onClose();
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex flex-col bg-bg pb-safe pt-safe" role="dialog" aria-modal="true" aria-label="Stare at Wall">
+      {!startedAt && (
+        <div className="fade-up mx-auto flex w-full max-w-[420px] flex-1 flex-col px-6">
+          <div className="flex justify-end pt-4">
+            <button type="button" onClick={onClose} className="tap -mr-2 flex h-10 w-10 items-center justify-center rounded-full text-ink-2" aria-label="Close">
+              <CloseIcon />
+            </button>
+          </div>
+          <div className="flex flex-1 flex-col justify-center pb-16">
+            <h2 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Stare at Wall</h2>
+            <div className="mt-8 grid grid-cols-4 gap-1 rounded-2xl bg-surface p-1">
+              {LENGTHS.map((m) => (
+                <button key={m} type="button" aria-pressed={mins === m} onClick={() => setMins(m)} className={cn("h-11 rounded-xl font-mono text-[14px] tabular-nums transition-colors", mins === m ? "bg-ink text-bg" : "text-ink-2")}>
+                  {m}m
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => void begin()} className="btn mt-4 h-14 w-full text-[16px]">
+              Start
+            </button>
+          </div>
+        </div>
+      )}
+
+      {startedAt && !done && (
+        <div className="flex flex-1 flex-col items-center justify-end pb-10">
+          <div className="font-mono text-[13px] tabular-nums text-faint">{stopwatch(Math.ceil(left / 1000))}</div>
+          <button type="button" onClick={endEarly} className="mt-3 px-4 py-2 text-[12px] text-faint">
+            End
+          </button>
+        </div>
+      )}
+
+      {done && (
+        <div className="fade-up mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6">
+          <h2 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Done.</h2>
+          <div className="mt-8 space-y-2">
+            {SUBJECT_IDS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  startStudy(s);
+                  onClose();
+                }}
+                className="tap flex h-[62px] w-full items-center gap-3.5 rounded-2xl bg-surface px-5 text-left"
+              >
+                <SubjectMark subject={s} height={22} />
+                <span className="text-[17px] font-medium tracking-[-0.015em]">{SUBJECT_META[s].name}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={onClose} className="btn-quiet mx-auto mt-4 text-muted">
+            Not now
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+}

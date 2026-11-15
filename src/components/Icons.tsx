@@ -98,3 +98,79 @@ export function PauseIcon(p: P) {
     </svg>
   );
 }
+
+export function AcademicsIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M2.5 9 12 4.5 21.5 9 12 13.5z" />
+      <path d="M6.5 11v4.75c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11M21.5 9v5.5" />
+    </svg>
+  );
+}
+
+export function HealthIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M12 20.25S3.75 15.4 3.75 9.4A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 8.25 2.2c0 6-8.25 10.85-8.25 10.85z" />
+    </svg>
+  );
+}
+
+export function TodoIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <path d="M4 6.75l1.75 1.75L9 5.25M4 15.75l1.75 1.75L9 14.25M13 7h7M13 16h7" />
+    </svg>
+  );
+}
+
+export function EyeIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
+
+export function ArrowIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...base} {...p}>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+export function CameraIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <path d="M3.5 8.5a2 2 0 0 1 2-2h2l1.4-2h6.2l1.4 2h2a2 2 0 0 1 2 2v8.75a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="12.75" r="3.5" />
+    </svg>
+  );
+}
+
+export function LockIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </svg>
+  );
+}
+
+export function SwapIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <path d="M4 8h14M14.5 4.5 18 8l-3.500 3.500M20 16H6M9.500 12.500 6 16l3.500 3.500" />
+    </svg>
+  );
+}
+
+export function TrashIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...base} {...p}>
+      <path d="M4.5 7h15M9.500 7V4.750h5V7M6.500 7l.9 12.250h9.200L17.500 7" />
+    </svg>
+  );
+}

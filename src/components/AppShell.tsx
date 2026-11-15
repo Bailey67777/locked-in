@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
-import { CalendarIcon, HabitsIcon, SettingsIcon, StatsIcon } from "./Icons";
+import { useHub } from "@/lib/hub/store";
+import { AcademicsIcon, CalendarIcon, HabitsIcon, HealthIcon, SettingsIcon, StatsIcon } from "./Icons";
 import HabitsView from "./HabitsView";
+import AcademicsView from "./AcademicsView";
+import HealthView from "./HealthView";
 import CalendarView from "./CalendarView";
 import StatsView from "./StatsView";
 import SettingsView from "./SettingsView";
 
-type Tab = "habits" | "calendar" | "stats" | "settings";
+type Tab = "habits" | "academics" | "health" | "calendar" | "stats" | "settings";
 
 const TABS: { id: Tab; label: string; Icon: typeof HabitsIcon }[] = [
   { id: "habits", label: "Habits", Icon: HabitsIcon },
+  { id: "academics", label: "Academics", Icon: AcademicsIcon },
+  { id: "health", label: "Health", Icon: HealthIcon },
   { id: "calendar", label: "Calendar", Icon: CalendarIcon },
   { id: "stats", label: "Stats", Icon: StatsIcon },
   { id: "settings", label: "Settings", Icon: SettingsIcon },
@@ -20,6 +25,7 @@ const TABS: { id: Tab; label: string; Icon: typeof HabitsIcon }[] = [
 
 export default function AppShell() {
   const { loaded, today } = useStore();
+  const hub = useHub();
   const [tab, setTab] = useState<Tab>("habits");
 
   useEffect(() => {
@@ -45,7 +51,7 @@ export default function AppShell() {
     window.scrollTo({ top: 0 });
   };
 
-  const ready = loaded && today !== "";
+  const ready = loaded && today !== "" && hub.loaded && hub.today !== "";
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
@@ -54,6 +60,8 @@ export default function AppShell() {
         {ready && (
           <>
             {tab === "habits" && <HabitsView />}
+            {tab === "academics" && <AcademicsView />}
+            {tab === "health" && <HealthView />}
             {tab === "calendar" && <CalendarView />}
             {tab === "stats" && <StatsView />}
             {tab === "settings" && <SettingsView />}
@@ -62,7 +70,7 @@ export default function AppShell() {
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-xl" aria-label="Sections">
-        <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-6">
+        <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-3">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -70,7 +78,7 @@ export default function AppShell() {
               onClick={() => go(id)}
               aria-label={label}
               aria-current={tab === id ? "page" : undefined}
-              className={cn("tap flex h-11 w-14 items-center justify-center rounded-full transition-colors", tab === id ? "text-ink" : "text-faint hover:text-muted")}
+              className={cn("tap flex h-11 w-12 items-center justify-center rounded-full transition-colors", tab === id ? "text-ink" : "text-faint hover:text-muted")}
             >
               <Icon width={id === "settings" ? 20 : 22} height={id === "settings" ? 20 : 22} strokeWidth={tab === id ? 1.9 : 1.6} />
             </button>

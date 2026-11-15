@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /*
- * Locked In, minimalist edition: black, white and greys only.
+ * Hugo (was Locked In), minimalist: black, white and greys, plus one colour per subject (Maths red, Physics blue,
+ * Economics yellow) used only as a thin marker and in charts.
  * Every colour is a variable, so light and dark are the same design. html[data-theme] (set in Settings, per device)
  * overrides the phone's own setting.
  */
@@ -14,6 +15,9 @@
   --faint: #c4c4c4;
   --line: #dededd;
   --track: #e2e2e1;
+  --maths: #e5484d;
+  --physics: #3e63dd;
+  --econ: #f2b600;
   color-scheme: light;
 }
 
@@ -27,6 +31,9 @@
     --faint: #3a3a3a;
     --line: #1c1c1c;
     --track: #222222;
+    --maths: #ff5c62;
+    --physics: #6d8cff;
+    --econ: #ffc928;
     color-scheme: dark;
   }
 }
@@ -40,6 +47,9 @@
   --faint: #3a3a3a;
   --line: #1c1c1c;
   --track: #222222;
+  --maths: #ff5c62;
+  --physics: #6d8cff;
+  --econ: #ffc928;
   color-scheme: dark;
 }
 
@@ -54,6 +64,9 @@
   --color-faint: var(--faint);
   --color-line: var(--line);
   --color-track: var(--track);
+  --color-maths: var(--maths);
+  --color-physics: var(--physics);
+  --color-econ: var(--econ);
 }
 
 html {
@@ -148,9 +161,53 @@ input::-webkit-inner-spin-button {
   animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 
+/* A photo appearing once it has been unlocked. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 0.25s ease-out backwards;
+}
+
+/* A slow pulse while the microphone is listening. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+}
+.breathe {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+/* Date fields: just the text, no picker icon. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 0;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: right;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fade-up,
-  .sheet-up {
+  .sheet-up,
+  .breathe,
+  .fade-in {
     animation: none;
   }
 }
