@@ -26,7 +26,7 @@ function Goy({ date, today }: { date: string; today: string }) {
   };
   return (
     <label className="flex items-center gap-3 py-4">
-      <span className="shrink-0 text-[17px] font-medium tracking-[-0.015em]">{date === today ? "Goy eaten today:" : "Goy eaten:"}</span>
+      <span className="shrink-0 text-[17px] font-medium tracking-[-0.015em]">{date === today ? "Goy Eaten Today:" : "Goy Eaten:"}</span>
       <input
         value={draft ?? saved}
         onChange={(e) => setDraft(e.target.value)}

@@ -333,7 +333,7 @@ export function renderTodos(lists: TodoLists, today: string): string[] {
   return [
     ...block("Today", lists.today.map((t) => item(t, t.date && t.date < today ? `, carried over from ${t.date}` : ""))),
     ...block("Tomorrow", lists.tomorrow.map((t) => item(t, t.date && t.date !== tomorrow ? `, for ${t.date}` : ""))),
-    ...block("For a while", lists.later.map((t) => item(t, ""))),
+    ...block("Miscellaneous", lists.later.map((t) => item(t, ""))),
   ];
 }
 

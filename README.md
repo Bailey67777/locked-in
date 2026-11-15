@@ -5,32 +5,34 @@ on iPhone, iPad and laptop. One person, no login. Black, white and grey, plus on
 Physics blue, Economics yellow): a thin marker at rest, the whole slab while that subject's timer is running. Next.js + React + Tailwind, synced through a Firebase Realtime
 Database.
 
-**Six icons at the bottom**
+**Seven icons at the bottom**
 
 - **Habits** – unchanged from Locked In: today's fifteen habits, a percentage bar, each habit's own sound and edit.
-  Two buttons at the top: the **to-do list** and the voice **journal**.
-  - **To do** – three lists: **Today**, **Tomorrow**, **For a while**. Tomorrow's become today's by themselves;
-    anything not done stays on Today. Tap an item to rename, move or delete it.
+  The button at the top is the voice **journal**.
+- **To do** – only for ticking, like the habits: **Today** and **Miscellaneous**. To-dos are written in Settings
+  (for today, tomorrow or miscellaneous) or on a day in the Calendar; one set for a later day appears under Today
+  when that day comes, and anything not done stays there.
 - **Academics** – three slabs, one per subject, filling the screen the way the habits do:
   - each slab shows the subject, today's lesson times and the next exam, and the time studied today, large;
   - **tap a slab** to study that subject: it takes over the screen in the subject's colour with the clock running
-    (hours and minutes, no seconds; a line crosses the slab once a minute), and the other two fold to strips. Tap
-    a strip to switch subject. **Hold to stop**. The timer lives in the database, so it survives closing the app;
+    (with seconds), and the other two fold to strips. Tap a strip to switch subject. **Hold to stop**. The timer lives in the database, so it survives closing the app;
   - the **round button on a slab** is where you say what you did in that lesson (one note per subject per day):
     press and talk, it's written down, with Shaky / Okay / Solid. Where the browser won't transcribe (an iPhone
     home-screen app), the keyboard's own microphone does it;
-  - along the bottom, the day from 06:00 to midnight with the study drawn where it fell, and today's total. No goal;
-  - the two buttons at the top: **Stare at Wall** (5–20 minutes of a blank screen first) and **…** for today's
-    blocks (fix or add time), grades before and after 15 November, and exams.
+  - every upcoming exam for the subject sits under its name, grouped by day ("13 days Integration · Vectors");
+  - along the bottom, today's total and the week split into its seven days. No goal;
+  - the two buttons at the top: **Stare at Wall** (always ten minutes of a blank screen) and **…** for grades
+    before and after 15 November, and exams.
 - **Health** – five photos a day: face front, face side, body front, body side, back. **Upload** takes all five at
   once and puts them in the order they were taken; tap one tile to add or replace a single photo. Under them:
-  **Random day** (spins to a past day's five) and **Goy eaten today:** (one line).
+  **Random day** (spins to a past day's five) and **Goy Eaten Today:** (one line).
 - **Calendar** – as before; a day's square also carries a dash if there was study, a square if there are photos and
-  a dot for a journal entry, and the day sheet shows Claude's rating, the study, the lesson notes and the photos.
+  a dot for a journal entry, the month shows its average rating, and the day sheet shows Claude's rating, the
+  study, the lesson notes and the photos. Today and days to come can be given to-dos.
 - **Statistics** – Claude's **day rating out of 10**, averaged over 7 / 30 / 365 days (the habit percentage sits
   small underneath), every day as a bar, random recordings, random body progress, the **best three and worst
   three habits**, then study hours.
-- **Settings** – habits, lessons (timetable or calendar link), exams, Stare at Wall length, the photo code,
+- **Settings** – habits, to-dos, lessons (timetable or calendar link), exams, the photo code,
   the Claude connector link, sound, light/dark, sync.
 
 ## The day rating

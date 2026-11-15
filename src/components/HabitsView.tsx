@@ -5,11 +5,10 @@ import { useStore } from "@/lib/store";
 import { dayProgress } from "@/lib/model";
 import { haptic, playAllDone, playSound, playUntick } from "@/lib/sounds";
 import { prewarmEdits, useEditBank } from "@/lib/edits";
-import { MicIcon, PlayIcon, TodoIcon } from "./Icons";
+import { MicIcon, PlayIcon } from "./Icons";
 import HabitList from "./HabitList";
 import EditPlayer from "./EditPlayer";
 import JournalSheet from "./JournalSheet";
-import TodoView from "./TodoView";
 import { useVoiceEntries } from "./VoiceEntries";
 
 /** Today: ten habits, a bar, and the journal. */
@@ -21,7 +20,6 @@ export default function HabitsView() {
   const { done, total, pct } = dayProgress(day);
   const [playing, setPlaying] = useState<{ editId: string; title: string; habitId: string } | null>(null);
   const [journal, setJournal] = useState(false);
-  const [todo, setTodo] = useState(false);
   const recordings = useVoiceEntries(today).length;
 
   // Edits not yet watched today load in the background, so the play button starts them straight away.
@@ -81,14 +79,9 @@ export default function HabitsView() {
         <div style={{ flex: "3 1 0" }} />
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
-          <div className="flex shrink-0 items-center gap-2.5">
-            <button type="button" onClick={() => setTodo(true)} className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="To do">
-              <TodoIcon />
-            </button>
-            <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
-              <MicIcon />
-            </button>
-          </div>
+          <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
+            <MicIcon />
+          </button>
         </div>
         <div style={{ flex: "1 1 0" }} />
       </header>
@@ -111,7 +104,6 @@ export default function HabitsView() {
 
       {playing && <EditPlayer editId={playing.editId} title={playing.title} onClose={() => setPlaying(null)} onStarted={() => watched(playing.habitId)} />}
       {journal && <JournalSheet date={today} onClose={() => setJournal(false)} />}
-      {todo && <TodoView onClose={() => setTodo(false)} />}
     </div>
   );
 }

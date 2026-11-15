@@ -8,12 +8,12 @@ import { uid } from "@/lib/hub/model";
 import { stopwatch } from "@/lib/hub/time";
 import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
 import { haptic, playChime, unlockAudio } from "@/lib/hub/chimes";
-import { cn } from "@/lib/cn";
 import SubjectMark from "./SubjectMark";
 import { CloseIcon } from "./Icons";
 import { lockScroll } from "@/lib/scrollLock";
 
-const LENGTHS = [5, 10, 15, 20];
+/** Always ten minutes. */
+const MINUTES = 10;
 
 type WakeLock = { release: () => Promise<void> };
 
@@ -22,14 +22,13 @@ type WakeLock = { release: () => Promise<void> };
  * Nothing moves except a faint countdown. A soft chime at the end, then straight into a study block.
  */
 export default function StareOverlay({ onClose }: { onClose: () => void }) {
-  const { data, write } = useHub();
+  const { write } = useHub();
   const { start: startStudy } = useTimer();
-  const [mins, setMins] = useState(data.settings.stareMin);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const [done, setDone] = useState(false);
   const lock = useRef<WakeLock | null>(null);
-  const length = mins * 60000;
+  const length = MINUTES * 60000;
   const left = startedAt ? Math.max(0, startedAt + length - now) : length;
 
   useEffect(() => {
@@ -86,14 +85,8 @@ export default function StareOverlay({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex flex-1 flex-col justify-center pb-16">
             <h2 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Stare at Wall</h2>
-            <div className="mt-8 grid grid-cols-4 gap-1 rounded-2xl bg-surface p-1">
-              {LENGTHS.map((m) => (
-                <button key={m} type="button" aria-pressed={mins === m} onClick={() => setMins(m)} className={cn("h-11 rounded-xl font-mono text-[14px] tabular-nums transition-colors", mins === m ? "bg-ink text-bg" : "text-ink-2")}>
-                  {m}m
-                </button>
-              ))}
-            </div>
-            <button type="button" onClick={() => void begin()} className="btn mt-4 h-14 w-full text-[16px]">
+            <div className="mt-3 font-mono text-[13px] text-muted">10 minutes</div>
+            <button type="button" onClick={() => void begin()} className="btn mt-8 h-14 w-full text-[16px]">
               Start
             </button>
           </div>

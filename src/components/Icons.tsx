@@ -184,3 +184,12 @@ export function MoreIcon(p: P) {
     </svg>
   );
 }
+
+export function WallIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+      <path d="M3.5 9.67h17M3.5 14.33h17M12 5v4.67M8 9.67v4.66M16 9.67v4.66M12 14.33V19" />
+    </svg>
+  );
+}

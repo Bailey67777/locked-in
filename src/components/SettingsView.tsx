@@ -19,10 +19,10 @@ import HabitSheet from "./HabitSheet";
 import TimetableSheet from "./TimetableSheet";
 import ExamsSheet from "./ExamsSheet";
 import CodeSheet from "./CodeSheet";
+import TodoSettings from "./TodoSettings";
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const STARE_LENGTHS = [5, 10, 15, 20];
 
 function Section({ title, aside, children }: { title: string; aside?: string; children: React.ReactNode }) {
   return (
@@ -164,6 +164,10 @@ export default function SettingsView() {
         </ul>
       </Section>
 
+      <Section title="To do">
+        <TodoSettings />
+      </Section>
+
       <Section title="Lessons">
         <ul className="divide-y divide-line border-y border-line">
           {DAY_ORDER.map((d) => {
@@ -209,16 +213,6 @@ export default function SettingsView() {
               <span className="text-[17px] font-medium tracking-[-0.01em]">Exams</span>
               <span className="font-mono text-[12px] tabular-nums text-muted">{examCount || "–"}</span>
             </button>
-          </li>
-          <li className="flex items-center justify-between gap-4 py-2.5">
-            <span className="text-[17px] font-medium tracking-[-0.01em]">Stare at Wall</span>
-            <span className="grid grid-cols-4 gap-1 rounded-xl bg-surface p-1">
-              {STARE_LENGTHS.map((m) => (
-                <button key={m} type="button" aria-pressed={school.stareMin === m} onClick={() => hub.write("settings/stareMin", m)} className={cn("h-8 w-11 rounded-lg font-mono text-[12.5px] tabular-nums transition-colors", school.stareMin === m ? "bg-ink text-bg" : "text-ink-2")}>
-                  {m}m
-                </button>
-              ))}
-            </span>
           </li>
         </ul>
       </Section>

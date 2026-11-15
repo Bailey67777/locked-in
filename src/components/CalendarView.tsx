@@ -12,7 +12,7 @@ import { CloseIcon, MicIcon } from "./Icons";
 import HabitList from "./HabitList";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
 import { useHub } from "@/lib/hub/store";
-import { minutesOn, total } from "@/lib/hub/model";
+import { minutesOn, total, uid } from "@/lib/hub/model";
 import { mins } from "@/lib/hub/time";
 import { POSES, SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
 import SubjectMark from "./SubjectMark";
@@ -32,6 +32,46 @@ function Slash({ light }: { light: boolean }) {
     <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 40 40" preserveAspectRatio="none" aria-hidden="true">
       <line x1="7" y1="33" x2="33" y2="7" stroke={light ? "var(--bg)" : "var(--ink)"} strokeWidth="1.6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+}
+
+/** The to-dos set for one day (today or a day to come), with a box to add another. */
+function DayTodos({ date, focus }: { date: string; focus: boolean }) {
+  const { data, write } = useHub();
+  const [text, setText] = useState("");
+  const items = Object.entries(data.todos)
+    .filter(([, t]) => t.when === "day" && t.date === date)
+    .sort((a, b) => a[1].at - b[1].at);
+  const add = () => {
+    const t = text.trim();
+    if (!t) return;
+    write(`todos/${uid()}`, { text: t, when: "day", date, at: Date.now() });
+    setText("");
+  };
+  return (
+    <div className="mt-6">
+      <div className="label mb-1">To do</div>
+      <ul className="divide-y divide-line border-y border-line">
+        {items.map(([id, t]) => (
+          <li key={id} className="flex items-center gap-3 py-2.5">
+            <span className={cn("min-w-0 flex-1 truncate text-[16px]", Boolean(t.done) && "text-muted")}>{t.text}</span>
+            <button type="button" onClick={() => write(`todos/${id}`, null)} className="tap -mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-faint hover:text-ink" aria-label={`Remove ${t.text}`}>
+              <CloseIcon width={14} height={14} />
+            </button>
+          </li>
+        ))}
+        <li>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+          >
+            <input value={text} onChange={(e) => setText(e.target.value)} onBlur={add} placeholder="Add" enterKeyHint="done" autoFocus={focus} className="w-full bg-transparent py-3 text-[16px] text-ink placeholder:text-faint focus:outline-none" aria-label="Add a to-do for this day" />
+          </form>
+        </li>
+      </ul>
+    </div>
   );
 }
 
@@ -82,7 +122,7 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
       <div className="sheet-up flex max-h-[88dvh] w-full max-w-[520px] flex-col rounded-t-[22px] bg-bg px-5 pt-5" role="dialog" aria-modal="true" aria-label={formatLong(date)}>
         <div className="flex items-start justify-between">
           <div>
-            <div className="label">{date === today ? "Today" : counts ? "Looking back" : "Before the start"}</div>
+            <div className="label">{date === today ? "Today" : date > today ? "Coming up" : counts ? "Looking back" : "Before the start"}</div>
             <div className="mt-1.5 text-[22px] font-semibold tracking-[-0.03em]">{formatLong(date)}</div>
           </div>
           <button type="button" className="tap -mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-2" onClick={onClose} aria-label="Close">
@@ -96,7 +136,8 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
               <span className="text-[30px] font-bold leading-none tracking-[-0.04em] tabular-nums">{rating.score.toFixed(2)}</span>
             </div>
           )}
-          {counts && (
+          {date >= today && <DayTodos date={date} focus={date > today} />}
+          {counts && date <= today && (
             <>
               <div className="mt-3 flex items-baseline justify-between font-mono text-[12px] tabular-nums">
                 <span className="text-muted">
@@ -204,7 +245,17 @@ export default function CalendarView() {
     <div className="fade-up flex flex-col gap-10">
       {monthsFrom(start, today).map(({ year, month }) => (
         <section key={`${year}-${month}`}>
-          <h2 className="mb-4 text-[28px] font-bold leading-none tracking-[-0.035em]">{monthLabel(year, month)}</h2>
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h2 className="text-[28px] font-bold leading-none tracking-[-0.035em]">{monthLabel(year, month)}</h2>
+            {/* Claude's ratings for the month, averaged, once there are any. */}
+            {(() => {
+              const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+              const scores = Object.entries(hub.data.ratings)
+                .filter(([d]) => d.startsWith(prefix))
+                .map(([, r]) => r.score);
+              return scores.length ? <span className="text-[17px] font-semibold tabular-nums tracking-[-0.02em]">{(scores.reduce((t, x) => t + x, 0) / scores.length).toFixed(2)}</span> : null;
+            })()}
+          </div>
           <div className="grid grid-cols-7 gap-1.5">
             {WEEKDAYS.map((w, i) => (
               <div key={i} className="pb-1 text-center font-mono text-[11px] text-muted">
@@ -227,7 +278,6 @@ export default function CalendarView() {
                   <button
                     key={key}
                     type="button"
-                    disabled={future}
                     onClick={() => setOpen(key)}
                     className={cn("tap relative flex aspect-square items-center justify-center overflow-hidden rounded-[10px] text-[14px] tabular-nums disabled:active:scale-100", key === today && "ring-[1.5px] ring-ink ring-offset-2 ring-offset-bg")}
                     aria-label={`${formatLong(key)}${pct !== null ? `, ${pct}%` : ""}${missed && top ? `, ${top.name} missed` : ""}`}
