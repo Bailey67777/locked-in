@@ -6,7 +6,7 @@ import { editUrlNow, loadEditUrl, useEditBank } from "@/lib/edits";
 import { CloseIcon } from "./Icons";
 
 /** Plays an edit full screen with sound, once, then closes itself. */
-export default function EditPlayer({ editId, title, onClose }: { editId: string; title?: string; onClose: () => void }) {
+export default function EditPlayer({ editId, title, onClose, onStarted }: { editId: string; title?: string; onClose: () => void; onStarted?: () => void }) {
   const bank = useEditBank();
   const meta = bank.byId[editId];
   const [loaded, setLoaded] = useState<{ url?: string; error?: string }>(() => ({ url: editUrlNow(editId) }));
@@ -57,7 +57,10 @@ export default function EditPlayer({ editId, title, onClose }: { editId: string;
       <div className="relative flex min-h-0 flex-1 items-center justify-center p-3">
         {loaded.url ? (
           <>
-            <video ref={video} src={loaded.url} playsInline autoPlay onPlay={() => setNeedsTap(false)} onEnded={() => window.setTimeout(onClose, 200)} className="max-h-full w-full max-w-[520px] rounded-2xl bg-black object-contain" />
+            <video ref={video} src={loaded.url} playsInline autoPlay onPlay={() => {
+                setNeedsTap(false);
+                onStarted?.();
+              }} onEnded={() => window.setTimeout(onClose, 200)} className="max-h-full w-full max-w-[520px] rounded-2xl bg-black object-contain" />
             {needsTap && (
               <button type="button" onClick={() => video.current?.play().catch(() => undefined)} className="tap absolute left-1/2 top-1/2 h-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-6 text-[15px] font-medium text-black">
                 Play

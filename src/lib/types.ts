@@ -120,6 +120,8 @@ export type DayRecord = {
   thumb?: string; // tiny JPEG data URL shown on the calendar
   vlog?: VlogMeta; // the day's video diary (stored separately, fetched only to play)
   voice?: Record<string, VoiceMeta>; // voice journal recordings, by id
+  /** Habits whose edit has been watched today (its play button goes once it has). */
+  watched?: Record<string, true>;
   updatedAt?: number;
 };
 

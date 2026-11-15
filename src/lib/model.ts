@@ -141,6 +141,11 @@ export function normalizeDay(date: string, raw: unknown): DayRecord {
     }
     if (Object.keys(out).length) day.voice = out;
   }
+  if (r.watched && typeof r.watched === "object") {
+    const watched: Record<string, true> = {};
+    for (const [id, v] of Object.entries(r.watched as Record<string, unknown>)) if (v === true) watched[id] = true;
+    if (Object.keys(watched).length) day.watched = watched;
+  }
   if (typeof r.updatedAt === "number") day.updatedAt = r.updatedAt;
   if (typeof r.song === "string" && r.song) day.song = r.song;
   if (typeof r.screenMinutes === "number" && r.screenMinutes >= 0 && r.screenMinutes <= 24 * 60) day.screenMinutes = Math.round(r.screenMinutes);

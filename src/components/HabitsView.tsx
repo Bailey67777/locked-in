@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { dayProgress } from "@/lib/model";
 import { haptic, playAllDone, playSound, playUntick } from "@/lib/sounds";
 import { prewarmEdits, useEditBank } from "@/lib/edits";
-import { MicIcon } from "./Icons";
+import { MicIcon, PlayIcon } from "./Icons";
 import HabitList from "./HabitList";
 import EditPlayer from "./EditPlayer";
 import JournalSheet from "./JournalSheet";
@@ -18,13 +18,13 @@ export default function HabitsView() {
   const bank = useEditBank();
   const day = getDay(today);
   const { done, total, pct } = dayProgress(day);
-  const [playing, setPlaying] = useState<{ editId: string; title: string } | null>(null);
+  const [playing, setPlaying] = useState<{ editId: string; title: string; habitId: string } | null>(null);
   const [journal, setJournal] = useState(false);
   const recordings = useVoiceEntries(today).length;
 
-  // Edits on habits still to tick load in the background, so ticking plays them straight away.
+  // Edits not yet watched today load in the background, so the play button starts them straight away.
   const editSig = day.habits
-        .filter((h) => !h.done)
+        .filter((h) => !day.watched?.[h.id])
         .map((h) => settings.habits.find((x) => x.id === h.id)?.editId)
         .filter((id): id is string => Boolean(id && bank.byId[id]))
         .join(",");
@@ -44,12 +44,31 @@ export default function HabitsView() {
       return;
     }
     const def = settings.habits.find((h) => h.id === id);
-    const edit = def?.editId ? bank.byId[def.editId] : undefined;
-    if (edit) return setPlaying({ editId: edit.id, title: def?.name ?? target.name });
     if (!settings.soundsOn) return;
     playSound(def?.sound);
     if (done + 1 === total) playAllDone();
   };
+
+  // A ticked habit with an edit gets a play button; it goes once the edit has been watched (or when the day ends).
+  const editFor = (id: string) => {
+    const def = settings.habits.find((h) => h.id === id);
+    return def?.editId ? bank.byId[def.editId] : undefined;
+  };
+  const watch = (id: string, name: string) => {
+    const edit = editFor(id);
+    if (!edit) return;
+    setPlaying({ editId: edit.id, title: name, habitId: id });
+  };
+  // Used up only once it actually starts playing, so a failed download leaves the button there to try again.
+  const watched = (id: string) => {
+    if (!getDay(today).watched?.[id]) updateDay(today, (d) => ({ ...d, watched: { ...(d.watched ?? {}), [id]: true } }));
+  };
+  const playButton = (h: { id: string; name: string; done: boolean }) =>
+    h.done && !day.watched?.[h.id] && editFor(h.id) ? (
+      <button type="button" onClick={() => watch(h.id, h.name)} className="tap ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Play the edit for ${h.name}`}>
+        <PlayIcon width={12} height={12} className="translate-x-[1px]" />
+      </button>
+    ) : null;
 
   // The screen above the bottom icons is cut into twelve equal slices: one for the title, ten for the habits (all
   // fourteen share them, evenly), one for the bar. On a very short screen it stops shrinking and scrolls instead.
@@ -68,7 +87,7 @@ export default function HabitsView() {
       </header>
 
       <div className="flex flex-col" style={{ flex: "10 1 0" }}>
-        <HabitList habits={day.habits} onToggle={toggle} fill />
+        <HabitList habits={day.habits} onToggle={toggle} trailing={playButton} fill />
       </div>
 
       <div className="flex min-h-[50px] flex-col justify-center" style={{ flex: "1 1 0" }}>
@@ -83,7 +102,7 @@ export default function HabitsView() {
         </div>
       </div>
 
-      {playing && <EditPlayer editId={playing.editId} title={playing.title} onClose={() => setPlaying(null)} />}
+      {playing && <EditPlayer editId={playing.editId} title={playing.title} onClose={() => setPlaying(null)} onStarted={() => watched(playing.habitId)} />}
       {journal && <JournalSheet date={today} onClose={() => setJournal(false)} />}
     </div>
   );
