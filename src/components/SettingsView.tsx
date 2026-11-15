@@ -57,16 +57,20 @@ export default function SettingsView() {
   const [day, setDay] = useState<number | null>(null);
   const [exams, setExams] = useState(false);
   const [passcode, setPasscode] = useState<"create" | "unlock" | "change" | null>(null);
-  const [cal, setCal] = useState(school.calendarUrl);
+  // null = not being edited: the box shows the saved link, and leaving it changes nothing. This device's copy may
+  // be behind the cloud's, so a link is only ever saved when it was typed here.
+  const [calDraft, setCal] = useState<string | null>(null);
+  const cal = calDraft ?? school.calendarUrl;
   const [calStatus, setCalStatus] = useState<string | null>(null);
   const [claude, setClaude] = useState<string | null>(null);
   const [claudeLink, setClaudeLink] = useState<string | null>(null);
   const examCount = Object.values(school.exams).filter((e) => e.date >= hub.today).length;
 
   const saveCalendar = async () => {
-    const url = cal.trim();
-    if (url === school.calendarUrl && calStatus) return;
-    hub.write("settings/calendarUrl", url || null);
+    if (calDraft === null) return;
+    const url = calDraft.trim();
+    setCal(null);
+    if (url !== school.calendarUrl) hub.write("settings/calendarUrl", url || null);
     if (!url) return setCalStatus(null);
     setCalStatus("Checking…");
     try {
@@ -186,7 +190,7 @@ export default function SettingsView() {
               type="button"
               className="btn-quiet h-auto rounded-xl bg-surface px-3 text-[13px]"
               onClick={() => {
-                setCal("");
+                setCal(null);
                 setCalStatus(null);
                 hub.write("settings/calendarUrl", null);
               }}

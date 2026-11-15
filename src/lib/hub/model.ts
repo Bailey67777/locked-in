@@ -222,11 +222,11 @@ export function studyStreak(today: string, sessions: Record<string, Session>, ti
   return n;
 }
 
-/** Sessions that started on a day, newest first. */
+/** Sessions that fall on a day, newest first. One that runs past midnight is on both days. */
 export function sessionsOn(date: string, sessions: Record<string, Session>): (Session & { id: string })[] {
   const [from, to] = dayBounds(date);
   return Object.entries(sessions)
-    .filter(([, s]) => s.start >= from && s.start < to)
+    .filter(([, s]) => s.start < to && s.end > from)
     .map(([id, s]) => ({ id, ...s }))
     .sort((a, b) => b.start - a.start);
 }

@@ -11,6 +11,7 @@ import { haptic, playChime, unlockAudio } from "@/lib/hub/chimes";
 import { cn } from "@/lib/cn";
 import SubjectMark from "./SubjectMark";
 import { CloseIcon } from "./Icons";
+import { lockScroll } from "@/lib/scrollLock";
 
 const LENGTHS = [5, 10, 15, 20];
 
@@ -32,10 +33,9 @@ export default function StareOverlay({ onClose }: { onClose: () => void }) {
   const left = startedAt ? Math.max(0, startedAt + length - now) : length;
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       void lock.current?.release().catch(() => undefined);
     };
   }, []);

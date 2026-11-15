@@ -7,6 +7,7 @@ import { formatShort } from "@/lib/dates";
 import { hourOf } from "@/lib/media";
 import { CloseIcon } from "./Icons";
 import VoiceEntries from "./VoiceEntries";
+import { lockScroll } from "@/lib/scrollLock";
 
 type Rec = { date: string; id: string; at: number; dur: number };
 
@@ -89,12 +90,11 @@ export default function RandomRecording({ onClose }: { onClose: () => void }) {
   const all = useAllRecordings();
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);

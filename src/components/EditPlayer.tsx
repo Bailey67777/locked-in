@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { editUrlNow, loadEditUrl, useEditBank } from "@/lib/edits";
 import { CloseIcon } from "./Icons";
+import { lockScroll } from "@/lib/scrollLock";
 
 /** Plays an edit full screen with sound, once, then closes itself. */
 export default function EditPlayer({ editId, title, onClose, onStarted }: { editId: string; title?: string; onClose: () => void; onStarted?: () => void }) {
@@ -33,12 +34,11 @@ export default function EditPlayer({ editId, title, onClose, onStarted }: { edit
   }, [loaded.url]);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);

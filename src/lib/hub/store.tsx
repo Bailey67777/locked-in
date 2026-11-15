@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { onValue, ref, set } from "firebase/database";
+import { get, onValue, ref, set } from "firebase/database";
 import type { HubData } from "./types";
 import { normalizeData } from "./model";
 import { todayKey } from "../dates";
@@ -28,6 +28,8 @@ type Hub = {
   online: boolean;
   /** Write a value (null deletes) at a path under the hub, e.g. "days/2026-11-16/logs/physics". */
   write: (path: string, value: unknown) => void;
+  /** Take in a value that is already in the cloud (written some other way), without sending it again. */
+  adopt: (path: string, value: unknown) => void;
 };
 
 const HubContext = createContext<Hub | null>(null);
@@ -79,7 +81,10 @@ function setIn(root: unknown, parts: string[], value: unknown): unknown {
 
 /* ---------- outbox: writes made offline survive the app being closed ---------- */
 
-type OutboxItem = { id: string; path: string; value: unknown };
+type OutboxItem = { id: string; path: string; value: unknown; at?: number };
+
+/** A queued write older than this was made offline and is being replayed. */
+const REPLAY_MS = 15_000;
 
 function readOutbox(): OutboxItem[] {
   try {
@@ -127,7 +132,14 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
       while (items.length) {
         const item = items[0];
         try {
-          await set(ref(db, `${HUB_PATH}/${item.path}`), item.value);
+          // The timer is one shared slot. A stop or start made offline hours ago must not wipe a timer that was
+          // started on another device since: if the cloud's timer is newer than this write, the write is dropped.
+          let stale = false;
+          if (item.path === "timer" && item.at && Date.now() - item.at > REPLAY_MS) {
+            const cloud = (await get(ref(db, `${HUB_PATH}/timer`))).val() as { start?: unknown } | null;
+            stale = typeof cloud?.start === "number" && cloud.start > item.at;
+          }
+          if (!stale) await set(ref(db, `${HUB_PATH}/${item.path}`), item.value);
         } catch {
           break; // offline or refused: try again on the next connection
         }
@@ -144,10 +156,17 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
       const v = clean(value);
       commitRaw(setIn(rawRef.current ?? dataRef.current, path.split("/").filter(Boolean), v));
       if (!dbRef.current) return;
-      writeOutbox([...readOutbox(), { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, path, value: v }]);
+      writeOutbox([...readOutbox(), { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, path, value: v, at: Date.now() }]);
       void flush();
     },
     [commitRaw, flush],
+  );
+
+  const adopt = useCallback(
+    (path: string, value: unknown) => {
+      commitRaw(setIn(rawRef.current ?? dataRef.current, path.split("/").filter(Boolean), clean(value)));
+    },
+    [commitRaw],
   );
 
   // The date, and a clock that ticks fast only while a timer is running.
@@ -211,7 +230,7 @@ export function HubProvider({ children }: { children: React.ReactNode }) {
     };
   }, [commitRaw, flush]);
 
-  return <HubContext.Provider value={{ data, loaded, fresh, today, now, online, write }}>{children}</HubContext.Provider>;
+  return <HubContext.Provider value={{ data, loaded, fresh, today, now, online, write, adopt }}>{children}</HubContext.Provider>;
 }
 
 export function useHub(): Hub {

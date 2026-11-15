@@ -10,6 +10,7 @@ import type { HabitDef } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { CloseIcon, PlayIcon, PlusIcon } from "./Icons";
 import EditPlayer from "./EditPlayer";
+import { lockScroll } from "@/lib/scrollLock";
 
 /** One habit: its name, its sound and its edit. Everything saves as you go. */
 export default function HabitSheet({ habitId, onClose }: { habitId: string; onClose: () => void }) {
@@ -23,12 +24,11 @@ export default function HabitSheet({ habitId, onClose }: { habitId: string; onCl
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && !preview && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose, preview]);

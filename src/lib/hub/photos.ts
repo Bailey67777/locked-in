@@ -392,6 +392,7 @@ async function flushOnce(): Promise<number> {
       /* offline, or the upload failed: it stays queued for next time */
     }
   }
+  await emptyTrash();
   return left;
 }
 
@@ -453,14 +454,84 @@ export function loadPhoto(key: CryptoKey, meta: PhotoMeta, size: Size): Promise<
   return running;
 }
 
-/** Delete a photo everywhere this device can reach: its copies here, its place in the queue, and the cloud's. */
+/* ---------- deleting ---------- */
+
+/** Ids of deleted photos whose cloud copy hasn't been confirmed gone yet (deleted while offline, say). */
+const TRASH_KEY = "locked-in:photo-trash:v1";
+/** A copy this recent is never swept: its label may not have been written yet. */
+const SWEEP_GRACE_MS = 10 * 60_000;
+
+function readTrash(): string[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(TRASH_KEY) ?? "[]") as unknown;
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeTrash(ids: string[]) {
+  try {
+    localStorage.setItem(TRASH_KEY, JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Delete from the cloud every photo still owed a deletion. One that fails stays on the list for next time. */
+async function emptyTrash(): Promise<void> {
+  if (!canUpload()) return;
+  for (const id of readTrash()) {
+    try {
+      await request(`${DB_URL}/${cloudPath(id)}.json`, { method: "DELETE" });
+      writeTrash(readTrash().filter((x) => x !== id));
+    } catch {
+      /* offline: it goes when the connection is back */
+    }
+  }
+}
+
+/**
+ * Delete a photo everywhere this device can reach: its copies here, its place in the queue, and the cloud's. If the
+ * cloud can't be reached right now the deletion is remembered and finished later, so "deleted" always ends up true.
+ */
 export async function removePhoto(id: string): Promise<void> {
+  // Ids are letters and digits; anything else would make the cloud address point somewhere it shouldn't.
+  if (!/^[a-z0-9]+$/i.test(id)) return;
   removed.add(id);
+  if (canUpload()) writeTrash([...new Set([...readTrash(), id])]);
   try {
     await tx(EVERYTHING, "readwrite", (t) => EVERYTHING.forEach((name) => void t.objectStore(name).delete(id)));
   } catch {
     /* no storage on this device: nothing of it was here */
   }
-  // Ids are letters and digits; anything else would make the address below point somewhere it shouldn't.
-  if (/^[a-z0-9]+$/i.test(id)) await removePath(cloudPath(id));
+  await emptyTrash();
+}
+
+/**
+ * Drop this device's copies of photos that nothing points at any more: ones deleted or replaced on another device.
+ * `listed` is every photo id that still has a label. Only for a device with a cloud behind it, and only once the
+ * cloud's labels have arrived; anything waiting to upload, or saved in the last few minutes, is left alone.
+ */
+export async function forgetUnlisted(listed: Set<string>): Promise<void> {
+  if (!canUpload()) return;
+  try {
+    await tx(EVERYTHING, "readwrite", (t) => {
+      const queued = t.objectStore(QUEUE).getAllKeys();
+      const used = t.objectStore(USED).getAll() as IDBRequest<Stamp[]>;
+      const thumbs = t.objectStore(THUMB).getAllKeys();
+      const fulls = t.objectStore(FULL).getAllKeys();
+      // Requests finish in the order they were made, so by now all four have their answers.
+      fulls.onsuccess = () => {
+        const waiting = new Set(queued.result);
+        const recent = new Set(used.result.filter((s) => Date.now() - s.at < SWEEP_GRACE_MS).map((s) => s.id));
+        for (const id of new Set([...thumbs.result, ...fulls.result])) {
+          if (typeof id !== "string" || listed.has(id) || waiting.has(id) || recent.has(id)) continue;
+          for (const name of [THUMB, FULL, USED]) t.objectStore(name).delete(id);
+        }
+      };
+    });
+  } catch {
+    /* nothing stored here, or storage is unavailable */
+  }
 }

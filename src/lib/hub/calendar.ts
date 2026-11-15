@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CalendarEvent } from "./model";
 import { dayBounds } from "./time";
+import { DATA_KEY } from "../firebase";
 
 /** Lessons from the linked calendar for one day, cached on the device so it opens instantly and offline. */
 
@@ -34,7 +35,7 @@ function remember(key: string, entry: Entry) {
 }
 
 export async function fetchEvents(url: string, from: number, to: number): Promise<CalendarEvent[]> {
-  const res = await fetch("/api/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, from, to }) });
+  const res = await fetch("/api/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, from, to, key: DATA_KEY }) });
   const body = (await res.json().catch(() => ({}))) as { events?: CalendarEvent[]; error?: string };
   if (!res.ok || !body.events) throw new Error(body.error ?? "Couldn't load the calendar.");
   return body.events;

@@ -11,20 +11,23 @@ import { cn } from "@/lib/cn";
 import Sheet from "./Sheet";
 
 /** Add study time by hand, or fix/delete a block. */
-export default function SessionSheet({ id, defaultSubject, onClose }: { id: string | null; defaultSubject: SubjectId; onClose: () => void }) {
+export default function SessionSheet({ id, day, defaultSubject, onClose }: { id: string | null; day?: string; defaultSubject: SubjectId; onClose: () => void }) {
   const { data, today, now: nowMs, write } = useHub();
   const existing = id ? data.sessions[id] : undefined;
   const [subject, setSubject] = useState<SubjectId>(existing?.subject ?? defaultSubject);
-  const [date, setDate] = useState(existing ? keyFromDate(new Date(existing.start)) : today);
-  const [from, setFrom] = useState(existing ? clock(existing.start) : clock(nowMs - 60 * 60000));
-  const [to, setTo] = useState(existing ? clock(existing.end) : clock(nowMs));
+  // "Day" is the day the block ended on: that's the day you'd think of it as belonging to.
+  const [date, setDate] = useState(existing ? keyFromDate(new Date(existing.end)) : (day ?? today));
+  const adding = !existing && (day ?? today) === today;
+  const [from, setFrom] = useState(existing ? clock(existing.start) : adding ? clock(nowMs - 60 * 60000) : "16:00");
+  const [to, setTo] = useState(existing ? clock(existing.end) : adding ? clock(nowMs) : "17:00");
 
   let start = atTime(date, from);
-  let end = atTime(date, to);
-  if (end <= start) end += 86400000; // past midnight
-  if (!from || !to) start = end = 0;
+  const end = !from || !to ? 0 : atTime(date, to);
+  if (end <= start) start -= 86400000; // began before midnight, the evening before
+  if (!from || !to) start = 0;
   const length = (end - start) / 60000;
-  const valid = length >= 1 && length <= 16 * 60;
+  // Not in the future (a minute's grace for the clock), and no single block longer than sixteen hours.
+  const valid = length >= 1 && length <= 16 * 60 && end <= nowMs + 90_000;
 
   const save = () => {
     if (!valid) return;

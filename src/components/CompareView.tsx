@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { ChevronIcon, CloseIcon } from "./Icons";
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
+import { lockScroll } from "@/lib/scrollLock";
 
 const label = (date: string, today: string) => `${formatDayMonth(date)}${parseKey(date).getFullYear() !== parseKey(today).getFullYear() ? ` ${parseKey(date).getFullYear()}` : ""}`;
 
@@ -54,12 +55,11 @@ export default function CompareView({ onClose }: { onClose: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && !open && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose, open]);

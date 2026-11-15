@@ -29,7 +29,7 @@ Database.
 ## Photos are locked
 
 Everything else in the app is protected only by an unguessable address. The photos are different: they are
-encrypted on the device before they go anywhere, with a key that only exists wrapped by **a passcode you choose**
+encrypted on the device before they go anywhere, with a key that only exists wrapped by **a passcode you choose** (8 characters or more)
 (Settings → Photos). The database holds scrambled data; nobody without the passcode can open them, including
 whoever runs the database. You type the passcode once on each device. If you forget it, change it from a device
 that is still unlocked (Settings → Photos → Change passcode); if no device is unlocked, the photos can't be

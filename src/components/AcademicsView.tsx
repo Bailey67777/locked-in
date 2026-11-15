@@ -29,11 +29,18 @@ export default function AcademicsView() {
   const settings = data.settings;
   const [back, setBack] = useState(0);
   const date = addDays(today, -back);
-  const { events } = useCalendarDay(settings.calendarUrl, date);
-  const lessons = lessonsFor(date, settings, events);
-  const waiting = Boolean(settings.calendarUrl) && events === null;
-  const showTimes = lessons.some((l) => l.start);
+  const { events, error: calendarDown } = useCalendarDay(settings.calendarUrl, date);
+  // The calendar can't be reached and this day isn't remembered: fall back to the timetable (or the bare subjects)
+  // rather than leaving nowhere to say what happened.
+  const planned = lessonsFor(date, settings.calendarUrl && events === null && calendarDown ? { ...settings, calendarUrl: "" } : settings, events);
+  const waiting = Boolean(settings.calendarUrl) && events === null && !calendarDown;
   const day = data.days[date];
+  // Anything already said that day stays on the page, even if the timetable or calendar has changed since.
+  const strays: DayLesson[] = Object.entries(day?.logs ?? {})
+    .filter(([key, log]) => (log.text.trim() || log.conf) && !planned.some((l) => safeKey(l.key) === key))
+    .map(([key, log]) => ({ key, subject: log.subject, ...(/@\d{2}:\d{2}$/.test(key) ? { start: key.slice(-5) } : {}) }));
+  const lessons = [...planned, ...strays].sort((a, b) => (a.start ?? "99").localeCompare(b.start ?? "99"));
+  const showTimes = lessons.some((l) => l.start);
 
   const [lesson, setLesson] = useState<DayLesson | null>(null);
   const [picking, setPicking] = useState(false);
@@ -42,9 +49,10 @@ export default function AcademicsView() {
   const [grade, setGrade] = useState<SubjectId | null>(null);
   const [exams, setExams] = useState(false);
 
-  const studied = minutesOn(today, data.sessions, timer, now);
+  // The study figures follow the day being looked at, so an earlier day's blocks can be seen and fixed.
+  const studied = minutesOn(date, data.sessions, timer, now);
   const sum = total(studied);
-  const blocks = sessionsOn(today, data.sessions);
+  const blocks = sessionsOn(date, data.sessions);
   const monday = weekStartOf(today);
   const week = WEEK.map((_, i) => {
     const d = addDays(monday, i);
@@ -150,7 +158,7 @@ export default function AcademicsView() {
 
       <section className="mt-10">
         <div className="flex items-baseline justify-between">
-          <span className="text-[13px] text-muted">Studied today</span>
+          <span className="text-[13px] text-muted">{back === 0 ? "Studied today" : `Studied · ${dayTitle(date, today)}`}</span>
           <button type="button" onClick={() => setSession("new")} className="-my-2 py-2 text-[13px] text-muted">
             Add time
           </button>
@@ -240,7 +248,7 @@ export default function AcademicsView() {
       {lesson && <LessonSheet date={date} lesson={lesson} onClose={() => setLesson(null)} />}
       {picking && <StudySheet onClose={() => setPicking(false)} />}
       {stare && <StareOverlay onClose={() => setStare(false)} />}
-      {session && <SessionSheet id={session === "new" ? null : session} defaultSubject={timer?.subject ?? "maths"} onClose={() => setSession(null)} />}
+      {session && <SessionSheet id={session === "new" ? null : session} day={date} defaultSubject={timer?.subject ?? "maths"} onClose={() => setSession(null)} />}
       {grade && <GradeSheet subject={grade} onClose={() => setGrade(null)} />}
       {exams && <ExamsSheet onClose={() => setExams(false)} />}
     </div>

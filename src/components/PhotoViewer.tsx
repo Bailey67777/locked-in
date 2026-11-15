@@ -11,6 +11,7 @@ import { formatShort } from "@/lib/dates";
 import type { PoseId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
 import { CloseIcon } from "./Icons";
+import { lockScroll } from "@/lib/scrollLock";
 
 /** A day's photos full screen, on black. Swipe or tap the sides to move between them. */
 export default function PhotoViewer({ date, pose, onClose, onReplace }: { date: string; pose: PoseId; onClose: () => void; onReplace?: (pose: PoseId) => void }) {
@@ -35,10 +36,9 @@ export default function PhotoViewer({ date, pose, onClose, onReplace }: { date: 
   };
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
     };
   }, []);
 

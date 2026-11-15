@@ -18,6 +18,7 @@ import { POSES } from "@/lib/hub/subjects";
 import type { PoseId } from "@/lib/hub/types";
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
+import { lockScroll } from "@/lib/scrollLock";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -47,12 +48,11 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   const [photo, setPhoto] = useState<PoseId | null>(null);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && !photo && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose, photo]);

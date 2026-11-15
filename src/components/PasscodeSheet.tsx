@@ -5,9 +5,9 @@ import { useVault } from "@/lib/hub/useVault";
 import Sheet from "./Sheet";
 
 const COPY = {
-  create: { title: "Lock your photos", line: "One passcode. You type it once on each device, and nobody without it can see them.", button: "Set passcode" },
+  create: { title: "Lock your photos", line: "One passcode, 8 characters or more. You type it once on each device, and nobody without it can see them.", button: "Set passcode" },
   unlock: { title: "Unlock photos", line: "", button: "Unlock" },
-  change: { title: "New passcode", line: "Your other devices will ask for it once.", button: "Change passcode" },
+  change: { title: "New passcode", line: "8 characters or more. Your other devices will ask for it once.", button: "Change passcode" },
 } as const;
 
 /** Choose the photo passcode (first time), type it (a new device), or change it. */
@@ -17,7 +17,9 @@ export default function PasscodeSheet({ mode, onClose, onDone }: { mode: keyof t
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = COPY[mode];
-  const ok = value.length >= 4;
+  // The scrambled photos can be fetched by anyone who finds the app's address, so the passcode is the whole lock:
+  // a short one could be guessed by a machine trying millions.
+  const ok = mode === "unlock" ? value.length > 0 : value.trim().length >= 8;
 
   const submit = async () => {
     if (!ok || busy) return;

@@ -8,6 +8,7 @@ import { addDays } from "@/lib/dates";
 import { haptic } from "@/lib/sounds";
 import { cn } from "@/lib/cn";
 import { CheckIcon, CloseIcon, PlusIcon } from "./Icons";
+import { lockScroll } from "@/lib/scrollLock";
 
 type ListId = "today" | "tomorrow" | "later";
 
@@ -23,9 +24,15 @@ const KEEP_DONE_MS = 30 * 86400000;
 function Row({ item, list, open, onOpen }: { item: TodoWithId; list: ListId; open: boolean; onOpen: (id: string | null) => void }) {
   const { today, write } = useHub();
   const done = Boolean(item.done);
+  const [draft, setDraft] = useState(item.text);
+  const text = draft.trim() || item.text;
 
+  // Saved here, by hand, on every way out: an iPhone doesn't tell a text box it lost focus when the box is removed.
+  const save = () => {
+    if (text !== item.text) write(`todos/${item.id}/text`, text);
+  };
   const move = (to: ListId) => {
-    write(`todos/${item.id}`, { text: item.text, at: item.at, ...(to === "later" ? { when: "later" } : { when: "day", date: to === "today" ? today : addDays(today, 1) }) });
+    write(`todos/${item.id}`, { text, at: item.at, ...(item.done ? { done: item.done } : {}), ...(to === "later" ? { when: "later" } : { when: "day", date: to === "today" ? today : addDays(today, 1) }) });
     onOpen(null);
   };
 
@@ -46,19 +53,28 @@ function Row({ item, list, open, onOpen }: { item: TodoWithId; list: ListId; ope
         </button>
         {open ? (
           <input
-            defaultValue={item.text}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
             autoFocus
             enterKeyHint="done"
-            onBlur={(e) => {
-              const t = e.target.value.trim();
-              if (t && t !== item.text) write(`todos/${item.id}/text`, t);
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              save();
+              onOpen(null);
             }}
-            onKeyDown={(e) => e.key === "Enter" && onOpen(null)}
             className="min-w-0 flex-1 bg-transparent py-3 pl-1 text-[17px] font-medium tracking-[-0.015em] text-ink focus:outline-none"
             aria-label="Edit"
           />
         ) : (
-          <button type="button" onClick={() => onOpen(item.id)} className={cn("min-w-0 flex-1 py-3 pl-1 text-left text-[17px] font-medium leading-snug tracking-[-0.015em] transition-colors duration-200", done ? "text-muted" : "text-ink")}>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(item.text);
+              onOpen(item.id);
+            }}
+            className={cn("min-w-0 flex-1 py-3 pl-1 text-left text-[17px] font-medium leading-snug tracking-[-0.015em] transition-colors duration-200", done ? "text-muted" : "text-ink")}
+          >
             {item.text}
           </button>
         )}
@@ -125,12 +141,11 @@ export default function TodoView({ onClose }: { onClose: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);

@@ -9,6 +9,7 @@ import { VOICE_BPS, VOICE_MAX_SECONDS, recorderSupported, voiceMimes } from "@/l
 import { cn } from "@/lib/cn";
 import { CloseIcon } from "./Icons";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
+import { lockScroll } from "@/lib/scrollLock";
 
 type Phase = "idle" | "starting" | "recording" | "saving";
 
@@ -169,11 +170,10 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
 
   useEffect(() => {
     alive.current = true;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
       alive.current = false;
-      document.body.style.overflow = prev;
+      unlock();
       // Closing while recording still saves it; otherwise just let go of the microphone.
       const rec = recorder.current;
       if (rec && rec.state !== "inactive") rec.stop();

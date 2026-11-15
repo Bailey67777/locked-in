@@ -1,11 +1,11 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useHub, HUB_PATH } from "./store";
 import { normalizeVault } from "./model";
 import type { PhotoMeta, Vault } from "./types";
 import { WrongPasscode, createVault, forgetKey, openVault, rememberKey, rememberedKey, rewrapVault } from "./vault";
-import { flushPhotos, loadPhoto } from "./photos";
+import { flushPhotos, forgetUnlisted, loadPhoto } from "./photos";
 import { DB_URL, canUpload } from "../media";
 
 /**
@@ -30,15 +30,33 @@ type Ctx = {
 
 const VaultContext = createContext<Ctx | null>(null);
 
-/** The vault as the cloud has it right now, so a second device never makes a second one by mistake. */
-async function cloudVault(): Promise<Vault | null | "unknown"> {
-  if (!canUpload()) return null;
+const VAULT_URL = () => `${DB_URL}/${HUB_PATH}/vault.json`;
+
+/**
+ * Put the vault record in the cloud, but only if what is there is still what this device last saw (`etag`; a
+ * vault that doesn't exist yet has the fixed tag "null_etag"). The database refuses otherwise. This goes straight
+ * to the cloud, never through the offline queue: a vault record replayed hours later could replace the one another
+ * device made in the meantime, and every photo locked with that one would be unreadable.
+ */
+async function putVault(vault: Vault, etag: string): Promise<"saved" | "changed" | "offline"> {
   try {
-    const res = await fetch(`${DB_URL}/${HUB_PATH}/vault.json`, { cache: "no-store" });
-    if (!res.ok) return "unknown";
-    return normalizeVault(await res.json());
+    const res = await fetch(VAULT_URL(), { method: "PUT", headers: { "Content-Type": "application/json", "if-match": etag }, body: JSON.stringify(vault) });
+    if (res.status === 412) return "changed";
+    return res.ok ? "saved" : "offline";
   } catch {
-    return "unknown";
+    return "offline";
+  }
+}
+
+/** The vault as the cloud has it right now, with the tag that says which version that is. */
+async function cloudVault(): Promise<{ vault: Vault | null; etag: string } | null> {
+  try {
+    const res = await fetch(VAULT_URL(), { cache: "no-store", headers: { "X-Firebase-ETag": "true" } });
+    const etag = res.headers.get("ETag");
+    if (!res.ok || !etag) return null;
+    return { vault: normalizeVault(await res.json()), etag };
+  } catch {
+    return null;
   }
 }
 
@@ -62,7 +80,7 @@ function dropUrls() {
 }
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
-  const { data, fresh, online, write } = useHub();
+  const { data, fresh, online, write, adopt } = useHub();
   const vault = data.vault;
   const salt = vault?.salt ?? null;
   // The key this device holds, and which vault (by salt) it belongs to.
@@ -85,24 +103,40 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const key = held && held.salt === salt ? held.key : null;
   const state: VaultState = !vault ? (fresh ? "none" : "checking") : !held || held.salt !== salt ? "checking" : key ? "open" : "locked";
 
-  // Photos taken offline go up when the app opens and whenever the connection comes back.
+  // Photos taken offline go up (and deletions made offline go through) when the app opens and whenever the
+  // connection comes back.
   useEffect(() => {
     if (state !== "open" || !online) return;
     const id = window.setTimeout(() => void flushPhotos().catch(() => undefined), 1500);
     return () => window.clearTimeout(id);
   }, [state, online]);
 
+  // Once per launch, when the cloud's list of photos is in: let go of copies of photos deleted on another device.
+  const swept = useRef(false);
+  const photos = data.photos;
+  useEffect(() => {
+    if (swept.current || !fresh || !online) return;
+    swept.current = true;
+    const listed = new Set<string>();
+    for (const day of Object.values(photos)) for (const meta of Object.values(day)) if (meta) listed.add(meta.id);
+    void forgetUnlisted(listed);
+  }, [fresh, online, photos]);
+
   const create = useCallback(
     async (passcode: string) => {
-      const existing = await cloudVault();
-      if (existing === "unknown") throw new Error("You need to be online to set this up.");
-      if (existing) throw new Error("A passcode is already set. Close this and unlock instead.");
       const made = await createVault(passcode);
+      if (canUpload()) {
+        const result = await putVault(made.vault, "null_etag");
+        if (result === "offline") throw new Error("You need to be online to set this up.");
+        if (result === "changed") throw new Error("A passcode is already set. Close this and unlock instead.");
+        adopt("vault", made.vault);
+      } else {
+        write("vault", made.vault); // no cloud: this device is the only copy
+      }
       await rememberKey(made.vault, made.key);
       setHeld({ salt: made.vault.salt, key: made.key });
-      write("vault", made.vault);
     },
-    [write],
+    [adopt, write],
   );
 
   const unlock = useCallback(
@@ -123,11 +157,21 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     async (passcode: string) => {
       if (!key) throw new Error("Unlock first.");
       const next = await rewrapVault(key, passcode);
+      if (canUpload()) {
+        const now = await cloudVault();
+        if (!now) throw new Error("You need to be online to change it.");
+        if (now.vault?.salt !== salt) throw new Error("It was just changed on another device. Unlock again first.");
+        const result = await putVault(next, now.etag);
+        if (result === "offline") throw new Error("You need to be online to change it.");
+        if (result === "changed") throw new Error("It was just changed on another device. Unlock again first.");
+        adopt("vault", next);
+      } else {
+        write("vault", next);
+      }
       await rememberKey(next, key);
       setHeld({ salt: next.salt, key });
-      write("vault", next);
     },
-    [key, write],
+    [key, salt, adopt, write],
   );
 
   const lock = useCallback(async () => {

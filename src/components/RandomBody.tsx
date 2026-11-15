@@ -13,6 +13,7 @@ import { CloseIcon } from "./Icons";
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
 import PasscodeSheet from "./PasscodeSheet";
+import { lockScroll } from "@/lib/scrollLock";
 
 const ROW = 56;
 const SPIN = 28;
@@ -90,12 +91,11 @@ export default function RandomBody({ onClose }: { onClose: () => void }) {
   const [unlock, setUnlock] = useState(false);
 
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);

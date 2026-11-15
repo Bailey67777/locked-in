@@ -3,16 +3,16 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "./Icons";
+import { lockScroll } from "@/lib/scrollLock";
 
 /** A panel that slides up from the bottom. A tap on the dim background or Escape closes it. */
 export default function Sheet({ label, accent, onClose, children, footer }: { label: React.ReactNode; accent?: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }) {
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
