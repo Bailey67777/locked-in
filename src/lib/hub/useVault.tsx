@@ -4,13 +4,14 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useHub, HUB_PATH } from "./store";
 import { normalizeVault } from "./model";
 import type { PhotoMeta, Vault } from "./types";
-import { WrongPasscode, createVault, forgetKey, openVault, rememberKey, rememberedKey, rewrapVault } from "./vault";
+import { type Pepper, WrongPasscode, createVault, forgetKey, openVault, rememberKey, rememberedKey, rewrapVault } from "./vault";
 import { flushPhotos, forgetUnlisted, loadPhoto } from "./photos";
-import { DB_URL, canUpload } from "../media";
+import { DB_URL, b64ToBytes, canUpload } from "../media";
+import { DATA_KEY } from "../firebase";
 
 /**
  * The lock on the progress photos, as the screens see it.
- *   "checking": still finding out · "none": no passcode has ever been set · "locked": set, but not typed in on this
+ *   "checking": still finding out · "none": no code has ever been set · "locked": set, but not typed in on this
  *   device yet · "open": this device can show and add photos.
  */
 export type VaultState = "checking" | "none" | "locked" | "open";
@@ -31,6 +32,36 @@ type Ctx = {
 const VaultContext = createContext<Ctx | null>(null);
 
 const VAULT_URL = () => `${DB_URL}/${HUB_PATH}/vault.json`;
+
+/** The server has answered as many tries as it will for now. */
+class TooManyTries extends Error {
+  constructor(readonly retryIn: number) {
+    super("too many tries");
+  }
+}
+
+/** The server's half of the key for one typed code (see src/lib/server/vault.ts). */
+const serverPepper: Pepper = async (salt, proof) => {
+  // No cloud, so no copy of the database for anyone to guess against: nothing for a server to guard.
+  if (!canUpload()) return new Uint8Array(32);
+  const res = await fetch("/api/vault", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: DATA_KEY, salt, proof }) });
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as { retryIn?: number };
+    throw new TooManyTries(Number(body.retryIn) || 0);
+  }
+  const body = (await res.json().catch(() => ({}))) as { pepper?: string };
+  if (!res.ok || !body.pepper) throw new Error("no pepper");
+  return b64ToBytes(body.pepper);
+};
+
+/** What to say when making or checking a code didn't work for a reason other than the code being wrong. */
+function whyNot(e: unknown, offline: string): Error {
+  if (e instanceof TooManyTries) {
+    const mins = Math.max(1, Math.ceil(e.retryIn / 60_000));
+    return new Error(`Too many tries. Try again in ${mins >= 90 ? `${Math.round(mins / 60)} hours` : `${mins} minute${mins === 1 ? "" : "s"}`}.`);
+  }
+  return new Error(offline);
+}
 
 /**
  * Put the vault record in the cloud, but only if what is there is still what this device last saw (`etag`; a
@@ -124,11 +155,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const create = useCallback(
     async (passcode: string) => {
-      const made = await createVault(passcode);
+      let made: Awaited<ReturnType<typeof createVault>>;
+      try {
+        made = await createVault(passcode, serverPepper);
+      } catch (e) {
+        throw whyNot(e, "You need to be online to set this up.");
+      }
       if (canUpload()) {
         const result = await putVault(made.vault, "null_etag");
         if (result === "offline") throw new Error("You need to be online to set this up.");
-        if (result === "changed") throw new Error("A passcode is already set. Close this and unlock instead.");
+        if (result === "changed") throw new Error("A code is already set. Close this and unlock instead.");
         adopt("vault", made.vault);
       } else {
         write("vault", made.vault); // no cloud: this device is the only copy
@@ -141,13 +177,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   const unlock = useCallback(
     async (passcode: string) => {
-      if (!vault) throw new Error("No passcode has been set yet.");
+      if (!vault) throw new Error("No code has been set yet.");
       try {
-        const k = await openVault(vault, passcode);
+        const k = await openVault(vault, passcode, serverPepper);
         await rememberKey(vault, k).catch(() => undefined);
         setHeld({ salt: vault.salt, key: k });
       } catch (e) {
-        throw new Error(e instanceof WrongPasscode ? "Wrong passcode." : "Couldn't unlock on this device.");
+        throw e instanceof WrongPasscode ? new Error("Wrong code.") : whyNot(e, "You need to be online to unlock.");
       }
     },
     [vault],
@@ -156,7 +192,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const change = useCallback(
     async (passcode: string) => {
       if (!key) throw new Error("Unlock first.");
-      const next = await rewrapVault(key, passcode);
+      let next: Awaited<ReturnType<typeof rewrapVault>>;
+      try {
+        next = await rewrapVault(key, passcode, serverPepper);
+      } catch (e) {
+        throw whyNot(e, "You need to be online to change it.");
+      }
       if (canUpload()) {
         const now = await cloudVault();
         if (!now) throw new Error("You need to be online to change it.");

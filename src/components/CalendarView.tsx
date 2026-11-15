@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
-import { formatLong, monthGrid, monthLabel, parseKey } from "@/lib/dates";
+import { formatLong, keyFromDate, monthGrid, monthLabel, parseKey } from "@/lib/dates";
 import { dayProgress } from "@/lib/model";
 import { pctOn, startOf, topMissed } from "@/lib/stats";
 import { haptic, playSound, playUntick } from "@/lib/sounds";
@@ -14,7 +14,8 @@ import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
 import { useHub } from "@/lib/hub/store";
 import { minutesOn, total } from "@/lib/hub/model";
 import { mins } from "@/lib/hub/time";
-import { POSES } from "@/lib/hub/subjects";
+import { POSES, SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
+import SubjectMark from "./SubjectMark";
 import type { PoseId } from "@/lib/hub/types";
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
@@ -44,7 +45,11 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   const hub = useHub();
   const photos = hub.data.photos[date] ?? {};
   const hasPhotos = Object.keys(photos).length > 0;
-  const studied = total(minutesOn(date, hub.data.sessions, hub.data.timer, hub.now));
+  const bySubject = minutesOn(date, hub.data.sessions, hub.data.timer, hub.now);
+  const studied = total(bySubject);
+  const rating = hub.data.ratings[date];
+  const said = Object.values(hub.data.days[date]?.logs ?? {}).filter((l) => l.text.trim());
+  const goy = hub.data.goy[date];
   const [photo, setPhoto] = useState<PoseId | null>(null);
 
   useEffect(() => {
@@ -85,6 +90,12 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-safe">
+          {rating && (
+            <div className="mt-4 flex items-baseline justify-between">
+              <span className="label">Rating</span>
+              <span className="text-[30px] font-bold leading-none tracking-[-0.04em] tabular-nums">{rating.score.toFixed(2)}</span>
+            </div>
+          )}
           {counts && (
             <>
               <div className="mt-3 flex items-baseline justify-between font-mono text-[12px] tabular-nums">
@@ -110,9 +121,36 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
             </div>
           )}
           {studied >= 1 && (
-            <div className="mt-6 flex items-baseline justify-between">
-              <span className="label">Studied</span>
-              <span className="font-mono text-[13px] tabular-nums">{mins(studied)}</span>
+            <div className="mt-6">
+              <div className="flex items-baseline justify-between">
+                <span className="label">Studied</span>
+                <span className="font-mono text-[13px] tabular-nums">{mins(studied)}</span>
+              </div>
+              <div className="mt-2 flex h-[4px] w-full overflow-hidden rounded-full bg-track" aria-hidden="true">
+                {SUBJECT_IDS.map((s) => (bySubject[s] > 0 ? <div key={s} className="h-full" style={{ width: `${(bySubject[s] / studied) * 100}%`, background: SUBJECT_META[s].color }} /> : null))}
+              </div>
+            </div>
+          )}
+          {said.length > 0 && (
+            <div className="mt-6">
+              <div className="label mb-2">Lessons</div>
+              <ul className="space-y-3">
+                {said.map((l, i) => (
+                  <li key={i} className="flex gap-3">
+                    <SubjectMark subject={l.subject} height={18} />
+                    <div className="min-w-0">
+                      <div className="text-[15px] font-medium leading-tight">{SUBJECT_META[l.subject].name}</div>
+                      <p className="mt-1 text-[14px] leading-snug text-ink-2">{l.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {goy && (
+            <div className="mt-6 flex items-baseline justify-between gap-4">
+              <span className="label shrink-0">Goy eaten</span>
+              <span className="min-w-0 truncate text-[14px]">{goy}</span>
             </div>
           )}
           {hasPhotos && (
@@ -151,6 +189,16 @@ export default function CalendarView() {
   const start = startOf(settings);
   const [open, setOpen] = useState<string | null>(null);
   const top = settings.habits[0];
+  const hub = useHub();
+  // Which days have photos, and which have any study on them (worked out once, not once per square).
+  const marks = useMemo(() => {
+    const studied = new Set<string>();
+    for (const s of Object.values(hub.data.sessions)) {
+      for (let t = s.start; t <= s.end; t += 12 * 3600_000) studied.add(keyFromDate(new Date(t)));
+      studied.add(keyFromDate(new Date(s.end)));
+    }
+    return { studied, photos: hub.data.photos };
+  }, [hub.data.sessions, hub.data.photos]);
 
   return (
     <div className="fade-up flex flex-col gap-10">
@@ -170,6 +218,8 @@ export default function CalendarView() {
                 if (!key || key < start) return <div key={key ?? `e${i}`} />;
                 const future = key > today;
                 const hasVoice = Boolean(data.days[key]?.voice && Object.keys(data.days[key].voice!).length);
+                const hasPhotos = Boolean(marks.photos[key]);
+                const hasStudy = marks.studied.has(key);
                 const pct = pctOn(data.days, settings, key, today);
                 const a = shade(pct);
                 const missed = topMissed(data.days, settings, key, today);
@@ -185,7 +235,14 @@ export default function CalendarView() {
                     <span className="absolute inset-0 bg-ink" style={{ opacity: a }} aria-hidden="true" />
                     {missed && <Slash light={a > 0.55} />}
                     <span className={cn("relative", a > 0.55 ? "text-bg" : future ? "text-faint" : "text-ink")}>{parseKey(key).getDate()}</span>
-                    {hasVoice && <span className={cn("absolute bottom-[5px] h-[3px] w-[3px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} aria-hidden="true" />}
+                    {/* Along the bottom: a dash for a day with study, a square for photos, a dot for a journal entry. */}
+                    {(hasStudy || hasPhotos || hasVoice) && (
+                      <span className="absolute bottom-[5px] flex items-center gap-[3px]" aria-hidden="true">
+                        {hasStudy && <span className={cn("h-[2px] w-[7px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} />}
+                        {hasPhotos && <span className={cn("h-[3px] w-[3px]", a > 0.55 ? "bg-bg" : "bg-ink")} />}
+                        {hasVoice && <span className={cn("h-[3px] w-[3px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} />}
+                      </span>
+                    )}
                   </button>
                 );
               })}

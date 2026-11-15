@@ -18,7 +18,7 @@ import { ChevronIcon } from "./Icons";
 import HabitSheet from "./HabitSheet";
 import TimetableSheet from "./TimetableSheet";
 import ExamsSheet from "./ExamsSheet";
-import PasscodeSheet from "./PasscodeSheet";
+import CodeSheet from "./CodeSheet";
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -232,7 +232,7 @@ export default function SettingsView() {
               disabled={vault.state === "checking"}
               className="tap flex w-full items-center justify-between py-3.5 text-left disabled:opacity-40"
             >
-              <span className="text-[17px] font-medium tracking-[-0.01em]">{vault.state === "none" ? "Set a passcode" : vault.state === "locked" ? "Unlock on this device" : "Change passcode"}</span>
+              <span className="text-[17px] font-medium tracking-[-0.01em]">{vault.state === "none" ? "Set a code" : vault.state === "locked" ? "Unlock on this device" : "Change code"}</span>
               <span className="text-[12.5px] text-muted">{vault.state === "open" ? "Unlocked" : vault.state === "locked" ? "Locked" : ""}</span>
             </button>
           </li>
@@ -296,7 +296,7 @@ export default function SettingsView() {
       {editing && <HabitSheet habitId={editing} onClose={() => setEditing(null)} />}
       {day !== null && <TimetableSheet day={day} onClose={() => setDay(null)} />}
       {exams && <ExamsSheet onClose={() => setExams(false)} />}
-      {passcode && <PasscodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
+      {passcode && <CodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
     </div>
   );
 }

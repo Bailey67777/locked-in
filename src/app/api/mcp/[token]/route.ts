@@ -1,4 +1,4 @@
-import { TOOLS, callTool, connectorSecret, hasTool, safeEqual } from "@/lib/server/hub";
+import { TOOLS, callTool, connectorToken, hasTool, safeEqual } from "@/lib/server/hub";
 
 /**
  * The Claude connector: a remote MCP server (Streamable HTTP, stateless, JSON-RPC 2.0 by hand) at
@@ -22,6 +22,7 @@ const INSTRUCTIONS = [
   "What he says is dictated, so read past transcription slips.",
   "When a subject has been worked through, call save_lesson_notes once for that subject.",
   "Use add_todo when he asks to be reminded of something.",
+  "When asked to rate a day (or when running as his morning routine), read get_day for the day just gone and get_progress for your earlier marks, then call rate_day once with a number out of 10 to two decimal places.",
   "Dates are YYYY-MM-DD and \"today\" is the date in Europe/London.",
 ].join(" ");
 
@@ -35,17 +36,10 @@ const send = (body: unknown, status = 200, extra: Record<string, string> = {}) =
 
 /** A Response to send when the link isn't the right one (or the server has no secret), else null. */
 async function refuse(ctx: Ctx): Promise<Response | null> {
-  const secret = connectorSecret();
-  if (!secret) return send({ error: "CLAUDE_API_SECRET is not configured on the server." }, 503);
+  const expected = connectorToken();
+  if (!expected) return send({ error: "CLAUDE_API_SECRET is not configured on the server." }, 503);
   const { token } = await ctx.params;
-  let decoded = token;
-  try {
-    decoded = decodeURIComponent(token);
-  } catch {
-    /* not percent-encoded: compare it as it came */
-  }
-  const match = safeEqual(token, secret) || safeEqual(decoded, secret);
-  return match ? null : send({}, 404);
+  return safeEqual(token, expected) ? null : send({}, 404);
 }
 
 /** One message in. A request gets a response; a notification, or a reply to something we never asked, gets null. */

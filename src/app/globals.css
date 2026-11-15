@@ -18,6 +18,9 @@
   --maths: #e5484d;
   --physics: #3e63dd;
   --econ: #f2b600;
+  --on-maths: #ffffff;
+  --on-physics: #ffffff;
+  --on-econ: #141414;
   color-scheme: light;
 }
 
@@ -34,6 +37,9 @@
     --maths: #ff5c62;
     --physics: #6d8cff;
     --econ: #ffc928;
+    --on-maths: #0a0a0a;
+    --on-physics: #0a0a0a;
+    --on-econ: #0a0a0a;
     color-scheme: dark;
   }
 }
@@ -50,6 +56,9 @@
   --maths: #ff5c62;
   --physics: #6d8cff;
   --econ: #ffc928;
+  --on-maths: #0a0a0a;
+  --on-physics: #0a0a0a;
+  --on-econ: #0a0a0a;
   color-scheme: dark;
 }
 

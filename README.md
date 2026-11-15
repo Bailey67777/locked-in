@@ -1,8 +1,8 @@
 # Hugo
 
 Hugo's own app (it was called Locked In): habits, academics and health in one place. Installable as a web app (PWA)
-on iPhone, iPad and laptop. One person, no login. Black, white and grey, plus one colour per subject as a thin
-marker (Maths red, Physics blue, Economics yellow). Next.js + React + Tailwind, synced through a Firebase Realtime
+on iPhone, iPad and laptop. One person, no login. Black, white and grey, plus one colour per subject (Maths red,
+Physics blue, Economics yellow): a thin marker at rest, the whole slab while that subject's timer is running. Next.js + React + Tailwind, synced through a Firebase Realtime
 Database.
 
 **Six icons at the bottom**
@@ -11,35 +11,52 @@ Database.
   Two buttons at the top: the **to-do list** and the voice **journal**.
   - **To do** – three lists: **Today**, **Tomorrow**, **For a while**. Tomorrow's become today's by themselves;
     anything not done stays on Today. Tap an item to rename, move or delete it.
-- **Academics** – one page:
-  - the next exam and how many days are left (Settings → Exams, or tap it);
-  - the day's lessons (from a calendar link, else the weekly timetable, else one row per subject). Tap a lesson,
-    press the button and say what you did: it's written down as you talk, with Shaky / Okay / Solid. Where the
-    browser won't transcribe (an iPhone home-screen app), the keyboard's own microphone does it;
-  - **Study** (pick a subject; the timer lives in the database, so it survives closing the app) and
-    **Stare at Wall** (5–20 minutes of a blank screen first);
-  - time studied today (no goal), this week, and grades before and after 15 November.
+- **Academics** – three slabs, one per subject, filling the screen the way the habits do:
+  - each slab shows the subject, today's lesson times and the next exam, and the time studied today, large;
+  - **tap a slab** to study that subject: it takes over the screen in the subject's colour with the clock running
+    (hours and minutes, no seconds; a line crosses the slab once a minute), and the other two fold to strips. Tap
+    a strip to switch subject. **Hold to stop**. The timer lives in the database, so it survives closing the app;
+  - the **round button on a slab** is where you say what you did in that lesson (one note per subject per day):
+    press and talk, it's written down, with Shaky / Okay / Solid. Where the browser won't transcribe (an iPhone
+    home-screen app), the keyboard's own microphone does it;
+  - along the bottom, the day from 06:00 to midnight with the study drawn where it fell, and today's total. No goal;
+  - the two buttons at the top: **Stare at Wall** (5–20 minutes of a blank screen first) and **…** for today's
+    blocks (fix or add time), grades before and after 15 November, and exams.
 - **Health** – five photos a day: face front, face side, body front, body side, back. **Upload** takes all five at
-  once and puts them in the order they were taken; tap one tile to add or replace a single photo. **Compare** puts
-  two days side by side in the same pose; **Random day** spins to a past day. Weight is optional.
-- **Calendar**, **Statistics** – as before, plus random body progress, study hours and the weight trend.
-- **Settings** – habits, lessons (timetable or calendar link), exams, Stare at Wall length, the photo passcode,
+  once and puts them in the order they were taken; tap one tile to add or replace a single photo. Under them:
+  **Random day** (spins to a past day's five) and **Goy eaten today:** (one line).
+- **Calendar** – as before; a day's square also carries a dash if there was study, a square if there are photos and
+  a dot for a journal entry, and the day sheet shows Claude's rating, the study, the lesson notes and the photos.
+- **Statistics** – Claude's **day rating out of 10**, averaged over 7 / 30 / 365 days (the habit percentage sits
+  small underneath), every day as a bar, random recordings, random body progress, the **best three and worst
+  three habits**, then study hours.
+- **Settings** – habits, lessons (timetable or calendar link), exams, Stare at Wall length, the photo code,
   the Claude connector link, sound, light/dark, sync.
+
+## The day rating
+
+Claude marks each finished day out of 10, to two decimals, through the connector's `rate_day` tool (it reads the
+day first: habits, study, lessons, to-dos, photos, with the timetable in mind). The next time the app is opened,
+the number comes up once, full screen; a tap puts it away on every device.
 
 ## Photos are locked
 
 Everything else in the app is protected only by an unguessable address. The photos are different: they are
-encrypted on the device before they go anywhere, with a key that only exists wrapped by **a passcode you choose** (8 characters or more)
-(Settings → Photos). The database holds scrambled data; nobody without the passcode can open them, including
-whoever runs the database. You type the passcode once on each device. If you forget it, change it from a device
-that is still unlocked (Settings → Photos → Change passcode); if no device is unlocked, the photos can't be
-recovered. Code: `src/lib/hub/vault.ts` (keys) and `src/lib/hub/photos.ts` (pictures).
+encrypted on the device before they go anywhere, with a key that only exists wrapped by **a six-digit code you
+choose** (Settings → Photos). Six digits alone would be guessable by a machine holding a copy of the database, so
+unwrapping also needs a value only the app's server can compute, and the server answers ten tries an hour, thirty a
+day (`src/lib/server/vault.ts`). You type the code once on each device. If you forget it, change it from a device
+that is still unlocked (Settings → Photos → Change code); if no device is unlocked, the photos can't be recovered.
+The server's part depends on `CLAUDE_API_SECRET` (or `VAULT_SECRET` if set), which never leaves the server: the
+connector link carries a separate token made from it. **Before ever changing `CLAUDE_API_SECRET`, add
+`VAULT_SECRET` with its old value**, or devices not yet unlocked will never unlock.
+Code: `src/lib/hub/vault.ts` (keys) and `src/lib/hub/photos.ts` (pictures).
 
 ## Claude
 
 The app is also a connector for claude.ai, so Claude can read the day (lessons and what was said, study time,
-habits, to-dos, grades, exams) and write back lesson notes, grades, study time, exams and to-dos. It can never see
-the photos, weight, journal or voice notes. Set-up and the tool list: [`docs/CLAUDE_CONNECTOR.md`](docs/CLAUDE_CONNECTOR.md).
+habits, to-dos, grades, exams) and write back lesson notes, a rating for the day, grades, study time, exams and
+to-dos. It can never see the photos, the journal or voice notes. Set-up and the tool list: [`docs/CLAUDE_CONNECTOR.md`](docs/CLAUDE_CONNECTOR.md).
 
 ## Where things are kept
 

@@ -9,11 +9,15 @@ write back into the app, so you can talk a lesson through with Claude without ty
   your habits, your to-dos, upcoming exams, and your grades and targets.
 - **Save lesson notes.** After you have worked a subject through, Claude writes a short summary, what is now
   solid and what is still open. The app shows these under the lesson.
-- **Look at your progress.** Study time, lessons talked through, habits and grades over the last few weeks.
+- **Rate your day.** A mark out of 10, to two decimals, for a day that has finished. The app shows you just the
+  number the next time you open it.
+- **Look at your progress.** Study time, lessons talked through, habits, grades and its earlier ratings over the
+  last few weeks.
 - **Keep small things up to date.** Add a grade, log study time you did away from the timer, set or remove an
   exam date, and add or tick off to-dos ("remind me to...").
 
-It cannot see your journal, voice notes, photos, weight, vlogs or edits. Those are never read by the connector.
+It cannot see your journal, voice notes, photos, vlogs or edits. Those are never read by the connector. (It can tell
+how many of the day's five photos you took, and what you wrote under "Goy eaten", nothing more.)
 
 ## Adding it to claude.ai
 
@@ -23,8 +27,9 @@ It cannot see your journal, voice notes, photos, weight, vlogs or edits. Those a
 4. In a chat, switch the connector on. The first time Claude uses a tool it asks for permission.
 
 The link is the key: anyone who has it can read and change the things listed above. Don't share it. If it ever
-leaks, change `CLAUDE_API_SECRET` on the server (Vercel → Settings → Environment Variables), redeploy, then copy
-the new link from Settings and replace the connector in claude.ai.
+leaks, add a variable `CONNECTOR_VERSION` on the server (Vercel → Settings → Environment Variables) with any new
+value, redeploy, then copy the new link from Settings and replace the connector in claude.ai. The old link stops
+working. **Don't change `CLAUDE_API_SECRET` to do this:** the photo code depends on it (see the README).
 
 ## The tools
 
@@ -35,6 +40,7 @@ Dates are `YYYY-MM-DD` and "today" is the date in London. Subjects are `maths` (
 | --- | --- |
 | `get_day` | Reads one day: lessons with what you said and how each felt, study minutes, saved notes, habits, to-dos, exams, grades. |
 | `save_lesson_notes` | Saves Claude's notes for one subject on one day: a summary, the points you now have, the points still open. |
+| `rate_day` | Gives a finished day one mark out of 10, to two decimals (yesterday unless told otherwise). |
 | `get_progress` | Reads the last N days (14 unless asked, up to 120): study time, lessons talked through, habits, grades, exams, Stare at Wall sessions. |
 | `add_grade` | Records a grade (A* to U) for a subject, with an optional label and mark. |
 | `log_study` | Adds study time for a subject (1 to 600 minutes) on a day. |
@@ -47,6 +53,7 @@ Dates are `YYYY-MM-DD` and "today" is the date in London. Subjects are `maths` (
 
 - The server is `src/app/api/mcp/[token]/route.ts` (MCP over Streamable HTTP, stateless, JSON responses only).
   The tools and the database access are in `src/lib/server/hub.ts`.
-- The token in the path must equal `CLAUDE_API_SECRET` (at least 16 characters). A wrong token gets a 404.
+- The token in the path is made from `CLAUDE_API_SECRET` (at least 16 characters) and `CONNECTOR_VERSION`; it is
+  not the secret itself, and the secret can't be worked out from it. A wrong token gets a 404.
 - `src/app/api/mcp-link/route.ts` hands the link to the Settings page: `POST { key }` with the data key returns
-  `{ url }`. This keeps the secret out of the browser bundle.
+  `{ url }`. This keeps the token out of the browser bundle.

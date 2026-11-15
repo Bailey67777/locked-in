@@ -12,14 +12,41 @@ import { haptic } from "@/lib/sounds";
 import type { PoseId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
 import { CameraIcon, CheckIcon, ChevronIcon, LockIcon } from "./Icons";
+
+/** The one thing eaten that day that shouldn't have been. One line: there should only ever be one. */
+function Goy({ date, today }: { date: string; today: string }) {
+  const { data, write } = useHub();
+  const saved = data.goy[date] ?? "";
+  const [draft, setDraft] = useState<string | null>(null);
+  const save = () => {
+    if (draft === null) return;
+    const text = draft.trim();
+    if (text !== saved) write(`goy/${date}`, text || null);
+    setDraft(null);
+  };
+  return (
+    <label className="flex items-center gap-3 py-4">
+      <span className="shrink-0 text-[17px] font-medium tracking-[-0.015em]">{date === today ? "Goy eaten today:" : "Goy eaten:"}</span>
+      <input
+        value={draft ?? saved}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        maxLength={60}
+        enterKeyHint="done"
+        placeholder="–"
+        className="min-w-0 flex-1 bg-transparent text-right text-[17px] tracking-[-0.015em] text-ink placeholder:text-faint focus:outline-none"
+        aria-label="Goy eaten"
+      />
+    </label>
+  );
+}
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
-import PasscodeSheet from "./PasscodeSheet";
-import CompareView from "./CompareView";
+import CodeSheet from "./CodeSheet";
 import RandomBody from "./RandomBody";
-import WeightSheet from "./WeightSheet";
 
-/** Five photos a day (face front, face side, body front, body side, back), locked with a passcode, to look back on. */
+/** Five photos a day (face front, face side, body front, body side, back), locked with a six-digit code, to look back on. */
 export default function HealthView() {
   const { data, today, write } = useHub();
   const vault = useVault();
@@ -33,9 +60,7 @@ export default function HealthView() {
   const [error, setError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<PoseId | null>(null);
   const [passcode, setPasscode] = useState<"create" | "unlock" | null>(null);
-  const [compare, setCompare] = useState(false);
   const [random, setRandom] = useState(false);
-  const [weight, setWeight] = useState(false);
   // A note about the last upload goes away by itself.
   useEffect(() => {
     if (!error) return;
@@ -170,30 +195,19 @@ export default function HealthView() {
 
       <ul className="mt-8 divide-y divide-line border-y border-line">
         <li>
-          <button type="button" onClick={() => (ready() ? setCompare(true) : undefined)} disabled={days.length < 2} className="tap flex w-full items-center justify-between py-4 text-left disabled:opacity-35">
-            <span className="text-[17px] font-medium tracking-[-0.015em]">Compare</span>
-            <ChevronIcon width={16} height={16} className="text-muted" />
-          </button>
-        </li>
-        <li>
           <button type="button" onClick={() => (ready() ? setRandom(true) : undefined)} disabled={days.length < 1} className="tap flex w-full items-center justify-between py-4 text-left disabled:opacity-35">
             <span className="text-[17px] font-medium tracking-[-0.015em]">Random day</span>
             <span className="font-mono text-[12px] tabular-nums text-muted">{days.length}</span>
           </button>
         </li>
         <li>
-          <button type="button" onClick={() => setWeight(true)} className="tap flex w-full items-center justify-between py-4 text-left">
-            <span className="text-[17px] font-medium tracking-[-0.015em]">Weight</span>
-            <span className="font-mono text-[13px] tabular-nums text-muted">{data.weights[date] ? `${data.weights[date]} kg` : "–"}</span>
-          </button>
+          <Goy key={date} date={date} today={today} />
         </li>
       </ul>
 
       {viewer && <PhotoViewer date={date} pose={viewer} onClose={() => setViewer(null)} onReplace={pickOne} />}
-      {passcode && <PasscodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
-      {compare && <CompareView onClose={() => setCompare(false)} />}
+      {passcode && <CodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
       {random && <RandomBody onClose={() => setRandom(false)} />}
-      {weight && <WeightSheet date={date} onClose={() => setWeight(false)} />}
     </div>
   );
 }

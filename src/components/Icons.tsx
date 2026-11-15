@@ -174,3 +174,13 @@ export function TrashIcon(p: P) {
     </svg>
   );
 }
+
+export function MoreIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none" {...p}>
+      <circle cx="5.5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="18.5" cy="12" r="1.6" />
+    </svg>
+  );
+}

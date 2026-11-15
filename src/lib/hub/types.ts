@@ -60,10 +60,13 @@ export type PhotoMeta = { id: string; at: number; w: number; h: number; bytes: n
 export type Sealed = { iv: string; ct: string };
 
 /**
- * What a device needs to unlock the photos with the passcode. Holds no secret: the photo key is in here only
- * wrapped (encrypted) by a key made from the passcode.
+ * What a device needs to unlock the photos with the six-digit code. Holds no secret: the photo key is in here only
+ * wrapped (encrypted) by a key made from the code together with a value only the app's server can work out.
  */
-export type Vault = { v: 1; salt: string; iterations: number; wrapped: Sealed; at: number };
+export type Vault = { v: 2; salt: string; iterations: number; wrapped: Sealed; at: number };
+
+/** Claude's mark for a whole day, out of 10 to two decimals. `seen` is when it was shown on screen. */
+export type Rating = { score: number; at: number; why?: string; seen?: number };
 
 export type HubData = {
   settings: HubSettings;
@@ -75,8 +78,10 @@ export type HubData = {
   todos: Record<string, Todo>;
   /** date → pose → label. */
   photos: Record<string, Partial<Record<PoseId, PhotoMeta>>>;
-  /** date → kg. */
-  weights: Record<string, number>;
+  /** date → the one thing eaten that day that shouldn't have been. */
+  goy: Record<string, string>;
+  /** date → Claude's rating of that day. */
+  ratings: Record<string, Rating>;
   vault: Vault | null;
 };
 

@@ -1,256 +1,247 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useHub } from "@/lib/hub/store";
 import { useTimer } from "@/lib/hub/timer";
 import { useCalendarDay } from "@/lib/hub/calendar";
-import { beforeAndNow, lessonsFor, minutesOn, safeKey, sessionsOn, total, upcomingExams } from "@/lib/hub/model";
-import { clock, dayTitle, daysUntil, mins, stopwatch } from "@/lib/hub/time";
-import { addDays, formatShort, weekStartOf } from "@/lib/dates";
+import { lessonsFor, minutesOn, openPoint, sessionsOn, total, upcomingExams } from "@/lib/hub/model";
+import { clock, dayBounds, daysUntil, mins } from "@/lib/hub/time";
 import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
-import type { DayLesson, SubjectId } from "@/lib/hub/types";
+import { haptic, unlockAudio } from "@/lib/hub/chimes";
+import type { SubjectId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
-import { ArrowIcon, CheckIcon, ChevronIcon, MicIcon } from "./Icons";
-import SubjectMark from "./SubjectMark";
+import { CheckIcon, EyeIcon, MicIcon, MoreIcon } from "./Icons";
 import LessonSheet from "./LessonSheet";
-import StudySheet from "./StudySheet";
-import SessionSheet from "./SessionSheet";
-import GradeSheet from "./GradeSheet";
-import ExamsSheet from "./ExamsSheet";
+import AcademicsSheet from "./AcademicsSheet";
 import StareOverlay from "./StareOverlay";
 
-const FEEL = { 1: "Shaky", 2: "Okay", 3: "Solid" } as const;
-const WEEK = ["M", "T", "W", "T", "F", "S", "S"];
+/** How long "Hold to stop" has to be held. */
+const HOLD_MS = 900;
+/** The strip along the bottom shows the day from six in the morning to midnight. */
+const STRIP_FROM_H = 6;
+const STRIP_HOURS = 18;
 
-/** School in one page: the day's lessons to talk through, the study timer, Stare at Wall, time studied, grades. */
+/** Time on the face of a running block: hours and minutes only, so nothing twitches once a second. */
+function face(seconds: number): string {
+  const m = Math.floor(Math.max(0, seconds) / 60);
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Stopping takes a deliberate press: hold, and the button fills; let go early and nothing happens. Starting is one
+ * tap because it happens often; stopping is rarer and shouldn't happen by accident with the phone in a pocket.
+ */
+function HoldToStop({ onDone }: { onDone: () => void }) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef<number | null>(null);
+  // If the button goes away mid-hold (another subject was tapped, another tab opened), the hold is off.
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = null;
+    },
+    [],
+  );
+  const begin = () => {
+    if (timer.current) return;
+    setHolding(true);
+    haptic(8);
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      setHolding(false);
+      onDone();
+    }, HOLD_MS);
+  };
+  const cancel = () => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
+    setHolding(false);
+  };
+  return (
+    <button
+      type="button"
+      onPointerDown={begin}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && !e.repeat && begin()}
+      onKeyUp={cancel}
+      className="relative h-12 shrink-0 touch-none select-none overflow-hidden rounded-full border-[1.5px] border-current px-6 text-[15px] font-medium tracking-[-0.01em]"
+      style={{ WebkitTouchCallout: "none" }}
+    >
+      <span className="absolute inset-y-0 left-0 bg-current opacity-25" style={{ width: holding ? "100%" : "0%", transition: holding ? `width ${HOLD_MS}ms linear` : "width 160ms ease-out" }} aria-hidden="true" />
+      <span className="relative">Hold to stop</span>
+    </button>
+  );
+}
+
+/**
+ * School in three slabs, one per subject, sharing the screen from the title down to the bar, the way the habits do.
+ * A slab is its subject's button: tap it and it takes over the screen in the subject's colour with the clock
+ * running, while the other two fold down to a strip. The round button on a slab is where you say what you did in
+ * that lesson. Along the bottom is the day from six in the morning to midnight, with the study drawn where it fell.
+ */
 export default function AcademicsView() {
   const { data, today, now } = useHub();
-  const { timer, stop } = useTimer();
+  const { timer, start, stop } = useTimer();
   const settings = data.settings;
-  const [back, setBack] = useState(0);
-  const date = addDays(today, -back);
-  const { events, error: calendarDown } = useCalendarDay(settings.calendarUrl, date);
-  // The calendar can't be reached and this day isn't remembered: fall back to the timetable (or the bare subjects)
-  // rather than leaving nowhere to say what happened.
-  const planned = lessonsFor(date, settings.calendarUrl && events === null && calendarDown ? { ...settings, calendarUrl: "" } : settings, events);
-  const waiting = Boolean(settings.calendarUrl) && events === null && !calendarDown;
-  const day = data.days[date];
-  // Anything already said that day stays on the page, even if the timetable or calendar has changed since.
-  const strays: DayLesson[] = Object.entries(day?.logs ?? {})
-    .filter(([key, log]) => (log.text.trim() || log.conf) && !planned.some((l) => safeKey(l.key) === key))
-    .map(([key, log]) => ({ key, subject: log.subject, ...(/@\d{2}:\d{2}$/.test(key) ? { start: key.slice(-5) } : {}) }));
-  const lessons = [...planned, ...strays].sort((a, b) => (a.start ?? "99").localeCompare(b.start ?? "99"));
-  const showTimes = lessons.some((l) => l.start);
-
-  const [lesson, setLesson] = useState<DayLesson | null>(null);
-  const [picking, setPicking] = useState(false);
-  const [stare, setStare] = useState(false);
-  const [session, setSession] = useState<string | null>(null);
-  const [grade, setGrade] = useState<SubjectId | null>(null);
-  const [exams, setExams] = useState(false);
-
-  // The study figures follow the day being looked at, so an earlier day's blocks can be seen and fixed.
-  const studied = minutesOn(date, data.sessions, timer, now);
+  const { events, error: calendarDown } = useCalendarDay(settings.calendarUrl, today);
+  // If the calendar can't be reached and today isn't remembered, the timetable stands in.
+  const lessons = lessonsFor(today, settings.calendarUrl && events === null && calendarDown ? { ...settings, calendarUrl: "" } : settings, events);
+  const day = data.days[today];
+  const studied = minutesOn(today, data.sessions, timer, now);
   const sum = total(studied);
-  const blocks = sessionsOn(date, data.sessions);
-  const monday = weekStartOf(today);
-  const week = WEEK.map((_, i) => {
-    const d = addDays(monday, i);
-    return { date: d, mins: minutesOn(d, data.sessions, timer, now) };
-  });
-  const weekTotal = week.reduce((t, d) => t + total(d.mins), 0);
-  const weekMax = Math.max(60, ...week.map((d) => total(d.mins)));
-  const next = upcomingExams(settings, today)[0];
-  const left = next ? daysUntil(next.date, today) : 0;
+  const exams = upcomingExams(settings, today);
+
+  const [talking, setTalking] = useState<SubjectId | null>(null);
+  const [stare, setStare] = useState(false);
+  const [more, setMore] = useState(false);
+
+  const begin = (s: SubjectId) => {
+    unlockAudio();
+    start(s);
+  };
+
+  // Where today's study sits on the strip: each block as a slice of the day between 06:00 and midnight.
+  const [dayStart] = dayBounds(today);
+  const stripFrom = dayStart + STRIP_FROM_H * 3600_000;
+  const stripSpan = STRIP_HOURS * 3600_000;
+  const drawn = [...sessionsOn(today, data.sessions).map((b) => ({ id: b.id, subject: b.subject, start: b.start, end: b.end })), ...(timer ? [{ id: "live", subject: timer.subject, start: timer.start, end: Math.max(now, timer.start) }] : [])]
+    .map((b) => {
+      const from = Math.max(0, (b.start - stripFrom) / stripSpan);
+      const to = Math.min(1, (b.end - stripFrom) / stripSpan);
+      return { id: b.id, subject: b.subject, left: from * 100, width: Math.max(0, to - from) * 100 };
+    })
+    .filter((b) => b.width > 0);
+
+  const talkingLesson = talking ? lessons.find((l) => l.subject === talking && l.start) : undefined;
 
   return (
-    <div className="fade-up">
-      <header className="mb-7">
-        <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Academics</h1>
-      </header>
-
-      <button type="button" onClick={() => setExams(true)} className="tap mb-8 flex w-full items-center gap-3.5 rounded-2xl bg-surface px-4 py-3.5 text-left">
-        {next ? (
-          <>
-            {next.subject && <SubjectMark subject={next.subject} height={30} />}
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[16px] font-medium tracking-[-0.01em]">{next.title}</span>
-              <span className="mt-0.5 block font-mono text-[12px] tabular-nums text-muted">{formatShort(next.date)}</span>
-            </span>
-            <span className="shrink-0 whitespace-nowrap">
-              <span className="text-[26px] font-bold leading-none tracking-[-0.04em] tabular-nums">{left === 0 ? "Today" : left}</span>
-              {left > 0 && <span className="ml-1.5 text-[13px] text-muted">{left === 1 ? "day" : "days"}</span>}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="flex-1 text-[15px] text-muted">Next exam</span>
-            <span className="text-[14px] font-medium">Add</span>
-          </>
-        )}
-      </button>
-
-      <section>
-        <div className="flex h-8 items-center justify-between">
-          <span className="text-[13px] text-muted">{dayTitle(date, today)}</span>
-          <span className="-mr-2 flex items-center">
-            <button type="button" onClick={() => setBack((n) => n + 1)} className="flex h-8 w-8 items-center justify-center text-muted" aria-label="The day before">
-              <ChevronIcon dir="left" width={16} height={16} />
+    <div className="fade-up flex flex-1 flex-col" style={{ minHeight: 100 + SUBJECT_IDS.length * 128 }}>
+      {/* The title row sits a little below the middle of its slice, like Habits. */}
+      <header className="flex min-h-[50px] flex-col" style={{ flex: "1 1 0" }}>
+        <div style={{ flex: "3 1 0" }} />
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Academics</h1>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <button type="button" onClick={() => setStare(true)} className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Stare at Wall">
+              <EyeIcon />
             </button>
-            <button type="button" onClick={() => setBack((n) => Math.max(0, n - 1))} disabled={back === 0} className="flex h-8 w-8 items-center justify-center text-muted disabled:opacity-25" aria-label="The day after">
-              <ChevronIcon width={16} height={16} />
-            </button>
-          </span>
-        </div>
-        {lessons.length ? (
-          <ul className="mt-1 divide-y divide-line border-y border-line">
-            {lessons.map((l) => {
-              const log = day?.logs[safeKey(l.key)];
-              const said = log?.text.trim() ?? "";
-              return (
-                <li key={l.key}>
-                  <button type="button" onClick={() => setLesson(l)} className="tap flex w-full items-center gap-3.5 py-[15px] text-left">
-                    <SubjectMark subject={l.subject} height={said ? 36 : 22} />
-                    {showTimes && <span className="w-[42px] shrink-0 font-mono text-[13px] tabular-nums text-muted">{l.start ?? ""}</span>}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[17px] font-medium tracking-[-0.015em]">{SUBJECT_META[l.subject].name}</span>
-                      {said && <span className="mt-0.5 block truncate text-[13px] text-muted">{said}</span>}
-                    </span>
-                    {said || log?.conf ? (
-                      <span className="flex shrink-0 items-center font-mono text-[12px] text-ink-2">{log?.conf ? FEEL[log.conf] : <CheckIcon width={15} height={15} />}</span>
-                    ) : (
-                      <MicIcon width={18} height={18} className="shrink-0 text-faint" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="mt-1 border-y border-line py-6 text-center text-[14px] text-muted">{waiting ? "…" : "No lessons"}</p>
-        )}
-      </section>
-
-      <section className="mt-7">
-        {timer ? (
-          <div className="flex items-center gap-2 rounded-[22px] bg-surface py-2 pl-5 pr-2">
-            <button type="button" onClick={() => setPicking(true)} className="tap flex min-w-0 flex-1 items-center gap-3.5 py-1.5 text-left" aria-label="Switch subject">
-              <SubjectMark subject={timer.subject} height={38} />
-              <span className="min-w-0">
-                <span className="block text-[13px] text-muted">{SUBJECT_META[timer.subject].name}</span>
-                <span className="block font-mono text-[28px] font-medium leading-tight tracking-[-0.03em] tabular-nums">{stopwatch(Math.max(0, now - timer.start) / 1000)}</span>
-              </span>
-            </button>
-            <button type="button" onClick={stop} className="btn h-12 shrink-0 px-7">
-              Stop
+            <button type="button" onClick={() => setMore(true)} className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Blocks, grades and exams">
+              <MoreIcon />
             </button>
           </div>
-        ) : (
-          <button type="button" onClick={() => setPicking(true)} className="btn h-14 w-full text-[16px]">
-            Study
-          </button>
-        )}
-        <button type="button" onClick={() => setStare(true)} className="tap mt-2.5 flex h-14 w-full items-center justify-between rounded-full border-[1.5px] border-ink px-6">
-          <span className="text-[16px] font-medium tracking-[-0.01em]">Stare at Wall</span>
-          <span className="font-mono text-[13px] tabular-nums text-muted">{settings.stareMin}m</span>
-        </button>
-      </section>
+        </div>
+        <div style={{ flex: "1 1 0" }} />
+      </header>
 
-      <section className="mt-10">
-        <div className="flex items-baseline justify-between">
-          <span className="text-[13px] text-muted">{back === 0 ? "Studied today" : `Studied · ${dayTitle(date, today)}`}</span>
-          <button type="button" onClick={() => setSession("new")} className="-my-2 py-2 text-[13px] text-muted">
-            Add time
-          </button>
-        </div>
-        <div className="mt-2 text-[44px] font-bold leading-none tracking-[-0.045em] tabular-nums">{mins(sum)}</div>
-        <div className="mt-4 flex h-[4px] w-full overflow-hidden rounded-full bg-track" aria-hidden="true">
-          {sum >= 1 && SUBJECT_IDS.map((s) => (studied[s] > 0 ? <div key={s} className="h-full transition-[width] duration-500" style={{ width: `${(studied[s] / sum) * 100}%`, background: SUBJECT_META[s].color }} /> : null))}
-        </div>
-        <ul className="mt-3 divide-y divide-line border-y border-line">
-          {SUBJECT_IDS.map((s) => (
-            <li key={s} className="flex items-center gap-3.5 py-3">
-              <SubjectMark subject={s} height={18} />
-              <span className="flex-1 text-[16px]">{SUBJECT_META[s].name}</span>
-              <span className={cn("font-mono text-[13px] tabular-nums", studied[s] >= 1 ? "text-ink" : "text-muted")}>{mins(studied[s])}</span>
-            </li>
-          ))}
-        </ul>
-        {blocks.length > 0 && (
-          <ul className="mt-2">
-            {blocks.map((b) => (
-              <li key={b.id}>
-                <button type="button" onClick={() => setSession(b.id)} className="tap flex w-full items-center gap-3 py-2 text-left font-mono text-[12px] tabular-nums text-muted">
-                  <span>
-                    {clock(b.start)}–{clock(b.end)}
-                  </span>
-                  <span className="flex-1 font-sans text-[13px]">{SUBJECT_META[b.subject].name}</span>
-                  <span>{mins((b.end - b.start) / 60000)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="-mx-5 flex flex-col" style={{ flex: "10 1 0" }}>
+        {SUBJECT_IDS.map((s, i) => {
+          const meta = SUBJECT_META[s];
+          const live = timer?.subject === s;
+          const folded = Boolean(timer) && !live;
+          const log = day?.logs[s];
+          const said = Boolean(log?.text.trim() || log?.conf);
+          const times = lessons.filter((l) => l.subject === s && l.start).map((l) => l.start as string);
+          const exam = exams.find((e) => e.subject === s) ?? exams.find((e) => !e.subject);
+          const left = exam ? daysUntil(exam.date, today) : 0;
+          const info = [times.join(" · "), exam ? `${exam.title} ${left === 0 ? "today" : `${left}d`}` : ""].filter(Boolean).join("  ·  ");
+          const elapsed = live && timer ? Math.max(0, now - timer.start) / 1000 : 0;
+          // What Claude last left unresolved in this subject: the thing to go and fix.
+          const shaky = openPoint(data.days, s, today);
+          return (
+            <section
+              key={s}
+              className="relative flex min-h-0 flex-col overflow-hidden px-5 transition-[flex-grow,flex-basis,min-height] duration-[420ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+              style={{
+                flexGrow: live ? 9 : folded ? 0 : 1,
+                flexShrink: 1,
+                flexBasis: folded ? 58 : 0,
+                minHeight: folded ? 58 : 116,
+                background: live ? meta.color : undefined,
+                color: live ? meta.on : undefined,
+              }}
+              aria-label={meta.name}
+            >
+              {/* Hairlines drawn inside the page margin, as on Habits; a slab filled with colour needs none. */}
+              {!live && <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-line" aria-hidden="true" />}
+              {!live && i === SUBJECT_IDS.length - 1 && <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-line" aria-hidden="true" />}
 
-      <section className="mt-9">
-        <div className="flex items-baseline justify-between">
-          <span className="text-[13px] text-muted">This week</span>
-          <span className="font-mono text-[12px] tabular-nums text-muted">{mins(weekTotal)}</span>
-        </div>
-        <div className="mt-3 flex h-24 items-end gap-2" role="img" aria-label="Time studied each day this week">
-          {week.map((d) => {
-            const t = total(d.mins);
-            return (
-              <div key={d.date} className="flex h-full flex-1 flex-col justify-end" title={`${formatShort(d.date)}: ${mins(t)}`}>
-                {t >= 1 ? (
-                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-[4px]" style={{ height: `${Math.max(5, (t / weekMax) * 100)}%` }}>
-                    {SUBJECT_IDS.map((s) => (d.mins[s] > 0 ? <div key={s} style={{ flexGrow: d.mins[s], background: SUBJECT_META[s].color }} /> : null))}
+              {/* At rest (or folded) the whole slab is the button that starts this subject. */}
+              {!live && <button type="button" onClick={() => begin(s)} className="absolute inset-0 transition-colors active:bg-surface" aria-label={timer ? `Switch to ${meta.name}` : `Study ${meta.name}`} />}
+
+              {folded ? (
+                <div className="pointer-events-none relative flex h-[58px] items-center gap-3.5">
+                  <span className="h-5 w-[3px] shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden="true" />
+                  <span className="flex-1 text-[17px] font-medium tracking-[-0.015em]">{meta.name}</span>
+                  <span className={cn("font-mono text-[13px] tabular-nums", studied[s] >= 1 ? "text-ink" : "text-muted")}>{mins(studied[s])}</span>
+                </div>
+              ) : (
+                <div className="pointer-events-none relative flex min-h-0 flex-1 flex-col py-5">
+                  <div className="flex items-start gap-3.5">
+                    {!live && <span className="mt-[3px] h-[26px] w-[3px] shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden="true" />}
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-[30px] font-bold leading-none tracking-[-0.04em]">{meta.name}</h2>
+                      {info && <div className={cn("mt-2.5 truncate font-mono text-[12px] tabular-nums", live ? "opacity-70" : "text-muted")}>{info}</div>}
+                      {shaky && <div className={cn("mt-1.5 truncate text-[13px]", live ? "opacity-80" : "text-ink-2")}>{shaky}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTalking(s)}
+                      className={cn("tap pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px]", live ? "border-current" : "border-ink", said && (live ? "bg-current" : "bg-ink text-bg"))}
+                      aria-label={said ? `What you did in ${meta.name}` : `Say what you did in ${meta.name}`}
+                    >
+                      {said ? <CheckIcon width={18} height={18} style={live ? { color: meta.color } : undefined} /> : <MicIcon />}
+                    </button>
                   </div>
-                ) : (
-                  <div className="mx-auto h-[3px] w-[3px] rounded-full bg-faint" />
-                )}
-              </div>
-            );
-          })}
+
+                  {live ? (
+                    <>
+                      <div className="flex min-h-0 flex-1 items-center">
+                        <div className="text-[clamp(72px,27vw,132px)] font-bold leading-none tracking-[-0.06em] tabular-nums">{face(elapsed)}</div>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-mono text-[12px] tabular-nums opacity-70">
+                          since {timer ? clock(timer.start) : ""} · today {mins(studied[s])}
+                        </span>
+                        <span className="pointer-events-auto">
+                          <HoldToStop onDone={stop} />
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className={cn("mt-auto pl-[17.5px] text-[52px] font-bold leading-none tracking-[-0.05em] tabular-nums", studied[s] >= 1 ? "text-ink" : "text-faint")}>{mins(studied[s])}</div>
+                  )}
+                </div>
+              )}
+
+              {/* The clock shows no seconds, so this line shows it's alive: it crosses the slab once a minute. */}
+              {live && (
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px]" aria-hidden="true">
+                  <span key={Math.floor(elapsed / 60)} className="block h-full bg-current opacity-40" style={{ width: `${((elapsed % 60) / 60) * 100}%`, transition: "width 1s linear" }} />
+                </span>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="flex min-h-[50px] flex-col justify-center" style={{ flex: "1 1 0" }}>
+        <div className="flex items-baseline justify-between tabular-nums">
+          <span className="font-mono text-[13px] text-muted">today</span>
+          <span className="text-[22px] font-bold leading-none tracking-[-0.03em] text-ink">{mins(sum)}</span>
         </div>
-        <div className="mt-2 flex gap-2">
-          {week.map((d, i) => (
-            <span key={d.date} className={cn("flex-1 text-center font-mono text-[10.5px]", d.date === today ? "text-ink" : "text-muted")}>
-              {WEEK[i]}
-            </span>
+        <div className="relative mt-2 h-[4px] w-full overflow-hidden rounded-full bg-track" role="img" aria-label={`Studied ${mins(sum)} today`}>
+          {drawn.map((b) => (
+            <span key={b.id} className="absolute inset-y-0 rounded-full" style={{ left: `${b.left}%`, width: `max(${b.width}%, 3px)`, background: SUBJECT_META[b.subject].color }} />
           ))}
         </div>
-      </section>
+      </div>
 
-      <section className="mt-9">
-        <div className="text-[13px] text-muted">Grades</div>
-        <ul className="mt-2 divide-y divide-line border-y border-line">
-          {SUBJECT_IDS.map((s) => {
-            const { before, now: current } = beforeAndNow(s, data.grades, settings.shiftDate);
-            return (
-              <li key={s}>
-                <button type="button" onClick={() => setGrade(s)} className="tap flex w-full items-center gap-3.5 py-3.5 text-left">
-                  <SubjectMark subject={s} />
-                  <span className="flex-1 text-[17px] font-medium tracking-[-0.015em]">{SUBJECT_META[s].name}</span>
-                  <span className="flex items-center gap-2 text-[17px] font-semibold tabular-nums">
-                    {before && <span className="text-muted">{before.grade}</span>}
-                    {before && <ArrowIcon width={14} height={14} className="text-faint" />}
-                    {current ? <span>{current.grade}</span> : <span className="font-normal text-faint">–</span>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {lesson && <LessonSheet date={date} lesson={lesson} onClose={() => setLesson(null)} />}
-      {picking && <StudySheet onClose={() => setPicking(false)} />}
+      {talking && <LessonSheet date={today} lesson={{ key: talking, subject: talking, start: talkingLesson?.start, end: talkingLesson?.end }} onClose={() => setTalking(null)} />}
       {stare && <StareOverlay onClose={() => setStare(false)} />}
-      {session && <SessionSheet id={session === "new" ? null : session} day={date} defaultSubject={timer?.subject ?? "maths"} onClose={() => setSession(null)} />}
-      {grade && <GradeSheet subject={grade} onClose={() => setGrade(null)} />}
-      {exams && <ExamsSheet onClose={() => setExams(false)} />}
+      {more && <AcademicsSheet onClose={() => setMore(false)} />}
     </div>
   );
 }

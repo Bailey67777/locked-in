@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { eventsBetween } from "@/lib/hub/ics";
 import { beforeAndNow, normalizeData, safeKey, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
 import { GRADES, SUBJECT_IDS, SUBJECT_META, isSubject, subjectFromTitle } from "@/lib/hub/subjects";
@@ -8,7 +8,8 @@ import type { DayLesson, Grade, HubData, HubSettings, Session, SubjectId, Todo }
 /**
  * Server side of the Claude connector (the MCP server at /api/mcp/<token>). Talks to the Realtime Database over
  * REST, only ever under <space>/hub plus the habit list and each day's habit ticks. It never reads or writes voice
- * notes, photos, weights, the photo vault, journals, vlogs or edits: `allowed()` below refuses any other path.
+ * notes, photos, the photo vault, journals, vlogs or edits: `allowed()` below refuses any other path. (For photos it
+ * may ask one thing only: how many of the day's five were taken, never which or where they are.)
  *
  * Everything that depends on "what day is it" uses Europe/London, whatever time zone the server runs in.
  */
@@ -20,10 +21,21 @@ export function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 }
 
-/** The connector secret, or null when the server isn't set up with a proper one. */
-export function connectorSecret(): string | null {
+/** The server's one secret, or null when it isn't set up with a proper one. It never leaves the server. */
+function serverSecret(): string | null {
   const secret = process.env.CLAUDE_API_SECRET;
   return secret && secret.length >= 16 ? secret : null;
+}
+
+/**
+ * What goes in the connector link: a token made FROM the secret, not the secret. The link is handed to anyone who
+ * holds the app's public data key, and other things (the photo lock) depend on the secret staying on the server, so
+ * the two must not be the same value, and one must not be workable from the other. To replace a leaked link without
+ * touching anything else, set CONNECTOR_VERSION to a new value on the server and copy the new link.
+ */
+export function connectorToken(): string | null {
+  const secret = serverSecret();
+  return secret ? createHmac("sha256", secret).update(`hugo-connector-token:${process.env.CONNECTOR_VERSION || "1"}`).digest("hex") : null;
 }
 
 /* ---------- dates and times, always Europe/London ---------- */
@@ -113,9 +125,9 @@ const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ?? "").replace(/\/
 const DATA_KEY = process.env.NEXT_PUBLIC_DATA_KEY || "default";
 
 /** The only places the connector may read. */
-const READABLE = /^(hub\/(settings|days|sessions|stares|grades|timer|todos)(\/|$)|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
+const READABLE = /^(hub\/(settings|days|sessions|stares|grades|timer|todos|ratings|goy)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
 /** The only places it may write, each a specific child (never a whole parent). */
-const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|sessions\/[^/]+|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+)$/;
+const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|sessions\/[^/]+|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
 
 export function allowed(method: "GET" | "PUT" | "PATCH" | "DELETE", path: string): boolean {
   if (path.split("/").some((part) => !part || part === "." || part === "..")) return false;
@@ -335,10 +347,12 @@ export type DayInput = {
   /** Set when a calendar is linked but couldn't be read. */
   calendarFailed: boolean;
   habits: HabitTick[];
+  /** How many of the day's five progress photos were taken (0–5). */
+  photos: number;
 };
 
 /** Everything `get_day` returns, as Markdown. */
-export function renderDay({ date, today, now, data, events, calendarFailed, habits }: DayInput): string {
+export function renderDay({ date, today, now, data, events, calendarFailed, habits, photos }: DayInput): string {
   const rel = date === today ? " (today)" : date === addDays(today, -1) ? " (yesterday)" : date === addDays(today, 1) ? " (tomorrow)" : "";
   const out: string[] = [`# ${dayLabel(date)}${rel}`, ""];
   const day = data.days[date] ?? { logs: {} };
@@ -353,11 +367,15 @@ export function renderDay({ date, today, now, data, events, calendarFailed, habi
   else if (!lessons.length) out.push("No lessons on this day.");
   const used = new Set<string>();
   lessons.forEach((l, i) => {
-    const key = safeKey(l.key);
-    used.add(key);
+    // He says one thing per subject per day (kept under the bare subject); a note tied to this exact lesson time
+    // comes first if there is one. A second lesson of the same subject points back at the first.
+    const own = safeKey(l.key);
+    const key = day.logs[own] ? own : l.subject;
     const time = l.start ? `, ${l.start}${l.end && l.end !== l.start ? `–${l.end}` : ""}` : "";
     const title = l.title && oneLine(l.title).toLowerCase() !== subjectName(l.subject).toLowerCase() ? ` ("${oneLine(l.title)}")` : "";
-    out.push(`### ${i + 1}. ${subjectName(l.subject)}${time}${title}`, ...said(day.logs[key]));
+    out.push(`### ${i + 1}. ${subjectName(l.subject)}${time}${title}`, ...(used.has(key) && day.logs[key] ? ["(Same subject as above: what he said covers both lessons.)"] : said(day.logs[key])));
+    used.add(key);
+    used.add(own);
   });
   const extra = Object.entries(day.logs).filter(([key, log]) => !used.has(key) && (log.text.trim() || log.conf));
   if (extra.length) {
@@ -387,8 +405,15 @@ export function renderDay({ date, today, now, data, events, calendarFailed, habi
   const done = habits.filter((h) => h.done);
   const left = habits.filter((h) => !h.done);
   out.push("", `## Habits: ${done.length}/${habits.length} done`);
+  if (habits[0]) out.push(`His must-do (the first habit): ${habits[0].name}, ${habits[0].done ? "done" : "NOT done"}.`);
   if (done.length) out.push(`Done: ${done.map((h) => h.name).join(", ")}`);
   if (left.length) out.push(`Not done: ${left.map((h) => h.name).join(", ")}`);
+
+  out.push("", "## Health", `Progress photos taken: ${photos} of 5.`);
+  out.push(`"Goy" eaten (his own word for the one junk item a day he allows himself at most): ${data.goy[date] ? oneLine(data.goy[date]) : "nothing written down"}.`);
+
+  const rating = data.ratings[date];
+  out.push("", "## Your rating of this day", rating ? `${rating.score.toFixed(2)} out of 10${rating.why ? `: ${oneLine(rating.why)}` : ""}` : "Not rated yet.");
 
   out.push("", date === today ? "## To-dos" : "## To-dos (as they stand today)", ...renderTodos(londonTodoLists(data.todos, today), today));
 
@@ -423,13 +448,14 @@ export function renderProgress({ today, now, days, data, records, defs }: Progre
     talkedAll += talked;
     const record = records[date] ?? null;
     const ticks = record ? habitsOn(date, today, defs, record) : null;
-    if (sumMinutes(m) < 0.5 && !talked && !ticks) {
+    if (sumMinutes(m) < 0.5 && !talked && !ticks && !data.ratings[date]) {
       quiet++;
       continue;
     }
     const study = SUBJECT_IDS.filter((id) => m[id] >= 0.5).map((id) => `${subjectName(id).toLowerCase()} ${mins(m[id])}`);
     const habits = ticks?.length ? `habits ${Math.round((ticks.filter((h) => h.done).length / ticks.length) * 100)}%` : "habits not recorded";
-    lines.push(`- ${shortDay(date)}: ${study.length ? `studied ${study.join(", ")}` : "no study"} · ${talked} lesson${talked === 1 ? "" : "s"} talked through · ${habits}`);
+    const rated = data.ratings[date] ? ` · rated ${data.ratings[date].score.toFixed(2)}` : "";
+    lines.push(`- ${shortDay(date)}: ${study.length ? `studied ${study.join(", ")}` : "no study"} · ${talked} lesson${talked === 1 ? "" : "s"} talked through · ${habits}${rated}`);
   }
   const [from] = londonDayBounds(dates[0]);
   const [, to] = londonDayBounds(today);
@@ -438,6 +464,8 @@ export function renderProgress({ today, now, days, data, records, defs }: Progre
 
   const out = [`# Last ${days} day${days === 1 ? "" : "s"}: ${dates[0]} to ${today}`, "", "## Totals", `Study: ${minutesLine(totals)}`];
   out.push(`Lessons talked through: ${talkedAll} · Stare at Wall sessions: ${staresIn} (${stares.length} ever)`);
+  const scores = dates.map((d) => data.ratings[d]?.score).filter((s): s is number => typeof s === "number");
+  out.push(scores.length ? `Your day ratings: ${scores.length} in this window, average ${(scores.reduce((t, s) => t + s, 0) / scores.length).toFixed(2)} out of 10.` : "Your day ratings: none in this window yet.");
   out.push("", "## Day by day", ...(lines.length ? lines : ["Nothing recorded in this window."]));
   if (quiet && lines.length) out.push(`(${quiet} day${quiet === 1 ? "" : "s"} with nothing recorded left out.)`);
 
@@ -496,6 +524,18 @@ export const TOOLS: ToolDef[] = [
       open: { type: "array", items: { type: "string", maxLength: 400 }, maxItems: 8, description: "Points still shaky or unresolved." },
     },
     ["subject", "summary"],
+    { idempotent: true },
+  ),
+  tool(
+    "rate_day",
+    "Rate a day",
+    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), study time and how it was spread across subjects, lessons talked through and how they felt, to-dos finished, the photos, and the one-junk-item rule. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
+    {
+      date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD, Europe/London. Defaults to yesterday. A day can only be rated once it is over." },
+      score: { type: "number", minimum: 0, maximum: 10, description: "Out of 10, two decimal places." },
+      why: { type: "string", maxLength: 300, description: "One line on what decided it, for your own later reference. He does not see this in the pop-up." },
+    },
+    ["score"],
     { idempotent: true },
   ),
   tool(
@@ -620,7 +660,7 @@ function notFuture(date: string, today: string) {
 async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<string> {
   only(args, ["date"]);
   const date = dateArg(args, today);
-  const [settings, day, sessions, timer, grades, todos, defsRaw, ticksRaw] = await Promise.all([
+  const [settings, day, sessions, timer, grades, todos, defsRaw, ticksRaw, rating, goy, poses] = await Promise.all([
     db.get("hub/settings"),
     db.get(`hub/days/${date}`),
     db.get("hub/sessions"),
@@ -629,8 +669,13 @@ async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<st
     db.get("hub/todos"),
     db.get("settings/habits"),
     db.get(`days/${date}/habits`),
+    db.get(`hub/ratings/${date}`),
+    db.get(`hub/goy/${date}`),
+    // Names of the poses taken that day and nothing else ("shallow"): enough to count them.
+    db.get(`hub/photos/${date}`, { shallow: "true" }),
   ]);
-  const data = normalizeData({ settings, days: { [date]: day }, sessions, timer, grades, todos });
+  const data = normalizeData({ settings, days: { [date]: day }, sessions, timer, grades, todos, ratings: { [date]: rating }, goy: { [date]: goy } });
+  const photos = poses && typeof poses === "object" ? Math.min(5, Object.keys(poses).length) : 0;
   let events: CalendarEvent[] | null = null;
   let calendarFailed = false;
   if (data.settings.calendarUrl) {
@@ -640,7 +685,19 @@ async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<st
       calendarFailed = true;
     }
   }
-  return renderDay({ date, today, now, data, events, calendarFailed, habits: habitsOn(date, today, habitDefs(defsRaw), habitRecord(ticksRaw)) });
+  return renderDay({ date, today, now, data, events, calendarFailed, habits: habitsOn(date, today, habitDefs(defsRaw), habitRecord(ticksRaw)), photos });
+}
+
+async function rateDay(args: Args, { db, now, today }: Ctx): Promise<string> {
+  only(args, ["date", "score", "why"]);
+  const date = args.date === undefined || args.date === null ? addDays(today, -1) : dateArg(args, today);
+  if (date >= today) throw new ToolError(`A day can only be rated once it is over. Today is ${today}; rate ${addDays(today, -1)} or earlier.`);
+  const raw = args.score;
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 10) throw new ToolError("score must be a number from 0 to 10, with two decimal places (for example 6.85).");
+  const score = Math.round(raw * 100) / 100;
+  const why = optionalText(args, "why", 300);
+  await db.put(`hub/ratings/${date}`, { score, at: now, ...(why ? { why } : {}) });
+  return `Rated ${date}: ${score.toFixed(2)} out of 10. He will see the number the next time he opens the app.`;
 }
 
 async function saveLessonNotes(args: Args, { db, now, today }: Ctx): Promise<string> {
@@ -660,7 +717,7 @@ async function getProgress(args: Args, { db, now, today }: Ctx): Promise<string>
   const days = args.days === undefined || args.days === null ? 14 : args.days;
   if (typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 120) throw new ToolError("days must be a whole number from 1 to 120.");
   const dates = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)));
-  const [settings, hubDays, sessions, timer, stares, grades, defsRaw, ticks] = await Promise.all([
+  const [settings, hubDays, sessions, timer, stares, grades, defsRaw, ticks, ratings] = await Promise.all([
     db.get("hub/settings"),
     db.get("hub/days", { orderBy: JSON.stringify("$key"), startAt: JSON.stringify(dates[0]), endAt: JSON.stringify(today) }),
     db.get("hub/sessions"),
@@ -669,10 +726,11 @@ async function getProgress(args: Args, { db, now, today }: Ctx): Promise<string>
     db.get("hub/grades"),
     db.get("settings/habits"),
     mapLimit(dates, 16, (d) => db.get(`days/${d}/habits`)),
+    db.get("hub/ratings", { orderBy: JSON.stringify("$key"), startAt: JSON.stringify(dates[0]), endAt: JSON.stringify(today) }),
   ]);
   const records: Record<string, HabitTick[] | null> = {};
   dates.forEach((d, i) => (records[d] = habitRecord(ticks[i])));
-  const data = normalizeData({ settings, days: hubDays, sessions, timer, stares, grades });
+  const data = normalizeData({ settings, days: hubDays, sessions, timer, stares, grades, ratings });
   return renderProgress({ today, now, days, data, records, defs: habitDefs(defsRaw) });
 }
 
@@ -758,6 +816,7 @@ async function completeTodo(args: Args, { db, now }: Ctx): Promise<string> {
 const HANDLERS = new Map<string, (args: Args, ctx: Ctx) => Promise<string>>([
   ["get_day", getDay],
   ["save_lesson_notes", saveLessonNotes],
+  ["rate_day", rateDay],
   ["get_progress", getProgress],
   ["add_grade", addGrade],
   ["log_study", logStudy],

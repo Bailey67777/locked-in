@@ -12,7 +12,7 @@ import type { PoseId } from "@/lib/hub/types";
 import { CloseIcon } from "./Icons";
 import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
-import PasscodeSheet from "./PasscodeSheet";
+import CodeSheet from "./CodeSheet";
 import { lockScroll } from "@/lib/scrollLock";
 
 const ROW = 56;
@@ -127,7 +127,7 @@ export default function RandomBody({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
-      {unlock && <PasscodeSheet mode="unlock" onClose={() => setUnlock(false)} />}
+      {unlock && <CodeSheet mode="unlock" onClose={() => setUnlock(false)} />}
     </div>,
     document.body,
   );

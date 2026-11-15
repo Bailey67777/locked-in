@@ -8,6 +8,7 @@ import { AcademicsIcon, CalendarIcon, HabitsIcon, HealthIcon, SettingsIcon, Stat
 import HabitsView from "./HabitsView";
 import AcademicsView from "./AcademicsView";
 import HealthView from "./HealthView";
+import RatingReveal from "./RatingReveal";
 import CalendarView from "./CalendarView";
 import StatsView from "./StatsView";
 import SettingsView from "./SettingsView";
@@ -56,7 +57,7 @@ export default function AppShell() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
       <div className="pt-safe" />
-      <main className={cn("flex flex-1 flex-col px-5", tab === "habits" ? "pb-[calc(58px+env(safe-area-inset-bottom,0px))]" : "pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-7")}>
+      <main className={cn("flex flex-1 flex-col px-5", tab === "habits" || tab === "academics" ? "pb-[calc(58px+env(safe-area-inset-bottom,0px))]" : "pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-7")}>
         {ready && (
           <>
             {tab === "habits" && <HabitsView />}
@@ -68,6 +69,8 @@ export default function AppShell() {
           </>
         )}
       </main>
+
+      {ready && <RatingReveal />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-xl" aria-label="Sections">
         <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-3">

@@ -1,9 +1,10 @@
-import { connectorSecret, safeEqual } from "@/lib/server/hub";
+import { connectorToken, safeEqual } from "@/lib/server/hub";
 
 /**
  * POST { key } → { url } — the link to paste into claude.ai as a custom connector.
- * The link holds CLAUDE_API_SECRET, which must never be in the JavaScript the browser downloads, so Settings asks
- * for it here and proves it is the app by sending the data key it already has. Anything else gets a 404.
+ * The link holds a token made from the server's secret (never the secret itself), which must not be in the JavaScript
+ * the browser downloads, so Settings asks for it here and proves it is the app by sending the data key it already
+ * has. Anything else gets a 404.
  */
 
 const HEADERS = { "Cache-Control": "no-store" };
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   }
   const dataKey = process.env.NEXT_PUBLIC_DATA_KEY;
   if (!dataKey || typeof key !== "string" || !safeEqual(key, dataKey)) return Response.json({}, { status: 404, headers: HEADERS });
-  const secret = connectorSecret();
-  if (!secret) return Response.json({ error: "CLAUDE_API_SECRET is not configured on the server." }, { status: 503, headers: HEADERS });
-  return Response.json({ url: `${origin(req)}/api/mcp/${encodeURIComponent(secret)}` }, { headers: HEADERS });
+  const token = connectorToken();
+  if (!token) return Response.json({ error: "CLAUDE_API_SECRET is not configured on the server." }, { status: 503, headers: HEADERS });
+  return Response.json({ url: `${origin(req)}/api/mcp/${token}` }, { headers: HEADERS });
 }

@@ -3,10 +3,10 @@ import type { PoseId, SubjectId } from "./types";
 export const SUBJECT_IDS: SubjectId[] = ["maths", "physics", "econ"];
 
 /** Each subject's colour is a CSS variable (globals.css), tuned for light and dark. */
-export const SUBJECT_META: Record<SubjectId, { name: string; board: string; color: string }> = {
-  maths: { name: "Maths", board: "Edexcel", color: "var(--maths)" },
-  physics: { name: "Physics", board: "AQA", color: "var(--physics)" },
-  econ: { name: "Economics", board: "AQA", color: "var(--econ)" },
+export const SUBJECT_META: Record<SubjectId, { name: string; board: string; color: string; on: string }> = {
+  maths: { name: "Maths", board: "Edexcel", color: "var(--maths)", on: "var(--on-maths)" },
+  physics: { name: "Physics", board: "AQA", color: "var(--physics)", on: "var(--on-physics)" },
+  econ: { name: "Economics", board: "AQA", color: "var(--econ)", on: "var(--on-econ)" },
 };
 
 export const isSubject = (v: unknown): v is SubjectId => typeof v === "string" && (SUBJECT_IDS as string[]).includes(v);

@@ -1,4 +1,4 @@
-import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Sealed, Session, Stare, SubjectId, TimetableLesson, Todo, Vault } from "./types";
+import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Rating, Sealed, Session, Stare, SubjectId, TimetableLesson, Todo, Vault } from "./types";
 import { POSE_IDS, SUBJECT_IDS, isSubject, subjectFromTitle } from "./subjects";
 import { dayBounds, weekday } from "./time";
 import { addDays, lastNDays } from "../dates";
@@ -91,8 +91,8 @@ function normalizeSealed(raw: unknown): Sealed | null {
 export function normalizeVault(raw: unknown): Vault | null {
   const v = obj(raw);
   const wrapped = normalizeSealed(v.wrapped);
-  if (!wrapped || !str(v.salt) || num(v.iterations) < 1000) return null;
-  return { v: 1, salt: str(v.salt), iterations: num(v.iterations), wrapped, at: num(v.at) };
+  if (v.v !== 2 || !wrapped || !str(v.salt) || num(v.iterations) < 1000) return null;
+  return { v: 2, salt: str(v.salt), iterations: num(v.iterations), wrapped, at: num(v.at) };
 }
 
 export function normalizeData(raw: unknown): HubData {
@@ -137,9 +137,16 @@ export function normalizeData(raw: unknown): HubData {
     }
     if (Object.keys(day).length) photos[date] = day;
   }
-  const weights: HubData["weights"] = {};
-  for (const [date, v] of Object.entries(obj(r.weights))) if (DATE_RE.test(date) && num(v) > 0) weights[date] = num(v);
-  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, weights, vault: normalizeVault(r.vault) };
+  const goy: HubData["goy"] = {};
+  for (const [date, v] of Object.entries(obj(r.goy))) if (DATE_RE.test(date) && str(v).trim()) goy[date] = str(v).trim();
+  const ratings: HubData["ratings"] = {};
+  for (const [date, v] of Object.entries(obj(r.ratings))) {
+    const g = obj(v);
+    const score = num(g.score, -1);
+    if (!DATE_RE.test(date) || score < 0 || score > 10) continue;
+    ratings[date] = { score: Math.round(score * 100) / 100, at: num(g.at), ...(str(g.why).trim() ? { why: str(g.why).trim() } : {}), ...(num(g.seen) > 0 ? { seen: num(g.seen) } : {}) } satisfies Rating;
+  }
+  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, goy, ratings, vault: normalizeVault(r.vault) };
 }
 
 /* ---------- lessons ---------- */
@@ -255,6 +262,20 @@ export function beforeAndNow(subject: SubjectId, grades: Record<string, Grade>, 
   return { before, now };
 }
 
+/* ---------- what's still shaky ---------- */
+
+/**
+ * The newest thing Claude left open for a subject: the first "still open" point from the most recent day it wrote
+ * notes on that subject (none once a later day's notes have nothing open).
+ */
+export function openPoint(days: Record<string, HubDay>, subject: SubjectId, today: string): string | null {
+  const dates = Object.keys(days)
+    .filter((d) => d <= today && days[d].claude?.subjects[subject])
+    .sort();
+  const last = dates.pop();
+  return last ? (days[last].claude?.subjects[subject]?.open[0] ?? null) : null;
+}
+
 /* ---------- exams ---------- */
 
 export type ExamWithId = Exam & { id: string };
@@ -293,6 +314,25 @@ export function todoLists(todos: Record<string, Todo>, today: string): TodoLists
   out.tomorrow.sort(order);
   out.later.sort(order);
   return out;
+}
+
+/* ---------- ratings ---------- */
+
+/** The mean of the ratings in the last n days ending today, or null when there are none. */
+export function averageRating(ratings: Record<string, Rating>, today: string, n: number): number | null {
+  const scores = lastNDays(today, n)
+    .map((d) => ratings[d]?.score)
+    .filter((s): s is number => typeof s === "number");
+  return scores.length ? scores.reduce((t, s) => t + s, 0) / scores.length : null;
+}
+
+/** The newest rating that hasn't been shown on screen yet (today's or earlier), if any. */
+export function unseenRating(ratings: Record<string, Rating>, today: string): { date: string; rating: Rating } | null {
+  const date = Object.keys(ratings)
+    .filter((d) => d <= today && !ratings[d].seen)
+    .sort()
+    .pop();
+  return date ? { date, rating: ratings[date] } : null;
 }
 
 /* ---------- photos ---------- */

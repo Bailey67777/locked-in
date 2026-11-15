@@ -3,16 +3,16 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { average, chartDays, habitRates } from "@/lib/stats";
-import { formatDayMonth, formatShort, lastNDays } from "@/lib/dates";
+import { formatShort, lastNDays } from "@/lib/dates";
 import { useHub } from "@/lib/hub/store";
-import { allMinutes, dailyMinutes, photoDays, staresOn, studyStreak, total } from "@/lib/hub/model";
+import { allMinutes, averageRating, dailyMinutes, photoDays, staresOn, studyStreak, total } from "@/lib/hub/model";
 import { hours, mins } from "@/lib/hub/time";
 import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
 import RandomRecording from "./RandomRecording";
 import RandomBody from "./RandomBody";
 import SubjectMark from "./SubjectMark";
 
-function Big({ label, value, unit = "%" }: { label: string; value: number | string | null; unit?: string }) {
+function Big({ label, value, unit = "%", sub }: { label: string; value: number | string | null; unit?: string; sub?: string }) {
   return (
     <div className="rounded-2xl bg-surface px-3.5 py-4">
       <div className="text-[13px] text-muted">{label}</div>
@@ -20,38 +20,30 @@ function Big({ label, value, unit = "%" }: { label: string; value: number | stri
         <span className="text-[30px] font-bold leading-none tracking-[-0.04em] tabular-nums">{value === null ? "–" : value}</span>
         {value !== null && unit && <span className={unit.length > 1 ? "ml-1 text-[15px] text-muted" : "text-[15px] text-muted"}>{unit}</span>}
       </div>
+      {sub !== undefined && <div className="mt-2 font-mono text-[12px] tabular-nums text-muted">{sub}</div>}
     </div>
   );
 }
 
-/** Weight over time as a single line. */
-function WeightChart({ points }: { points: { date: string; kg: number }[] }) {
-  const W = 320;
-  const H = 96;
-  const min = Math.min(...points.map((p) => p.kg));
-  const max = Math.max(...points.map((p) => p.kg));
-  const pad = Math.max(0.5, (max - min) * 0.15);
-  const lo = min - pad;
-  const hi = max + pad;
-  const t0 = new Date(points[0].date).getTime();
-  const t1 = new Date(points[points.length - 1].date).getTime();
-  const x = (d: string) => ((new Date(d).getTime() - t0) / Math.max(1, t1 - t0)) * (W - 8) + 4;
-  const y = (kg: number) => H - 4 - ((kg - lo) / (hi - lo)) * (H - 8);
-  const path = points.map((p, i) => `${i ? "L" : "M"}${x(p.date).toFixed(1)},${y(p.kg).toFixed(1)}`).join(" ");
-  const last = points[points.length - 1];
-  const change = Math.round((last.kg - points[0].kg) * 10) / 10;
+type Rate = { id: string; name: string; pct: number };
+
+function HabitRows({ title, rows }: { title: string; rows: Rate[] }) {
   return (
     <section className="mt-9">
-      <div className="flex items-baseline justify-between">
-        <span className="text-[13px] text-muted">Weight</span>
-        <span className="font-mono text-[12px] tabular-nums text-muted">
-          {last.kg} kg · {change > 0 ? "+" : ""}
-          {change} since {formatDayMonth(points[0].date)}
-        </span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 h-24 w-full" preserveAspectRatio="none" role="img" aria-label="Weight over time">
-        <path d={path} fill="none" stroke="var(--ink)" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      </svg>
+      <div className="text-[13px] text-muted">{title}</div>
+      <ul className="mt-2 divide-y divide-line border-y border-line">
+        {rows.map((r) => (
+          <li key={r.id} className="py-3.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-[16px]">{r.name}</span>
+              <span className="shrink-0 text-[14px] tabular-nums text-ink-2">{r.pct}%</span>
+            </div>
+            <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
+              <div className="h-full rounded-full bg-ink" style={{ width: `${r.pct}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -73,12 +65,27 @@ export default function StatsView() {
   const talked = lastNDays(today, 30).reduce((n, d) => n + Object.values(study.days[d]?.logs ?? {}).filter((l) => l.text.trim()).length, 0);
   const stares = lastNDays(today, 30).reduce((n, d) => n + staresOn(d, study.stares), 0);
   const photoCount = photoDays(study.photos).length;
-  const weights = Object.entries(study.weights)
-    .map(([date, kg]) => ({ date, kg }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Claude's day ratings, averaged. The habit percentage stays underneath, small.
+  const rated = (n: number) => {
+    const r = averageRating(study.ratings, today, n);
+    return r === null ? null : r.toFixed(2);
+  };
+  const pct = (n: number) => {
+    const p = average(days, settings, today, n);
+    return p === null ? "" : `${p}%`;
+  };
   const recordings = Object.values(days).reduce((n, d) => n + Object.keys(d.voice ?? {}).length, 0);
   const bars = chartDays(days, settings, today);
-  const rates = habitRates(days, settings, today, 30);
+  // Not all fifteen: the three kept best and the three kept worst over the last 30 days.
+  const ranked: Rate[] = habitRates(days, settings, today, 30)
+    .filter((r) => r.of > 0)
+    .map((r) => ({ id: r.id, name: r.name, pct: Math.round((r.done / r.of) * 100) }));
+  const best = [...ranked].sort((a, b) => b.pct - a.pct).slice(0, 3);
+  const worst = [...ranked]
+    .reverse()
+    .sort((a, b) => a.pct - b.pct)
+    .filter((r) => !best.some((x) => x.id === r.id))
+    .slice(0, 3);
 
   return (
     <div className="fade-up">
@@ -87,9 +94,9 @@ export default function StatsView() {
       </header>
 
       <div className="grid grid-cols-3 gap-2">
-        <Big label="7 days" value={average(days, settings, today, 7)} />
-        <Big label="30 days" value={average(days, settings, today, 30)} />
-        <Big label="365 days" value={average(days, settings, today, 365)} />
+        <Big label="7 days" value={rated(7)} unit="" sub={pct(7)} />
+        <Big label="30 days" value={rated(30)} unit="" sub={pct(30)} />
+        <Big label="365 days" value={rated(365)} unit="" sub={pct(365)} />
       </div>
 
       <section className="mt-9">
@@ -122,25 +129,8 @@ export default function StatsView() {
         </button>
       </div>
 
-      <section className="mt-9">
-        <div className="text-[13px] text-muted">Habits, last 30 days</div>
-        <ul className="mt-2 divide-y divide-line border-y border-line">
-          {rates.map((r) => {
-            const pct = r.of ? Math.round((r.done / r.of) * 100) : null;
-            return (
-              <li key={r.id} className="py-3.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate text-[16px]">{r.name}</span>
-                  <span className="shrink-0 text-[14px] tabular-nums text-ink-2">{pct === null ? "–" : `${pct}%`}</span>
-                </div>
-                <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
-                  <div className="h-full rounded-full bg-ink" style={{ width: `${pct ?? 0}%` }} />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {best.length > 0 && <HabitRows title="Best three, last 30 days" rows={best} />}
+      {worst.length > 0 && <HabitRows title="Worst three" rows={worst} />}
 
       <h2 className="mt-14 text-[28px] font-bold leading-none tracking-[-0.035em]">Study</h2>
 
@@ -197,8 +187,6 @@ export default function StatsView() {
         <Big label="Lessons" value={talked} unit="" />
         <Big label="Stares" value={stares} unit="" />
       </div>
-
-      {weights.length >= 2 && <WeightChart points={weights} />}
 
       {random && <RandomRecording onClose={() => setRandom(false)} />}
       {body && <RandomBody onClose={() => setBody(false)} />}
