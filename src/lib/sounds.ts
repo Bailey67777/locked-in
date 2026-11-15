@@ -264,6 +264,17 @@ const SYNTHS: Record<string, Synth> = {
     for (let i = 0; i < n; i++) out[i] = x[i] * Math.exp(-i / sr / 0.014) * (i < sr * 0.0008 ? i / (sr * 0.0008) : 1);
     return out;
   },
+  // The to-do tick: two quick notes stepping up, like a check mark being drawn. It is not in SOUNDS, so no habit
+  // can have it: ticking a to-do never sounds like ticking a habit.
+  todo: (sr) => {
+    const out = new Float32Array(len(sr, 0.7));
+    addPartial(out, sr, { f: 784, gain: 0.8, decay: 0.07, attack: 0.001 });
+    addPartial(out, sr, { f: 784 * 2, gain: 0.15, decay: 0.04, attack: 0.001 });
+    addPartial(out, sr, { at: 0.085, f: 1318.5, gain: 1, decay: 0.26, attack: 0.001 });
+    addPartial(out, sr, { at: 0.085, f: 1318.5 * 2, gain: 0.18, decay: 0.12, attack: 0.001 });
+    addPartial(out, sr, { at: 0.085, f: 1318.5 * 3.01, gain: 0.05, decay: 0.06, attack: 0.001 });
+    return out;
+  },
 };
 
 /** Level a buffer: the loudest 40 ms all sounds land at the same strength, peaks kept under 0.95. */
@@ -301,11 +312,10 @@ function bufferFor(c: AudioContext, id: string): AudioBuffer | null {
   return buf;
 }
 
-/** Play a habit's sound (or a quiet default if it has none). Call from inside the tap. */
-export function playSound(id: string | undefined) {
+function playSynth(id: string) {
   const c = audio();
   if (!c) return;
-  const buf = bufferFor(c, isSound(id) ? id : "glass");
+  const buf = bufferFor(c, id);
   if (!buf) return;
   const src = c.createBufferSource();
   const g = c.createGain();
@@ -313,6 +323,16 @@ export function playSound(id: string | undefined) {
   src.buffer = buf;
   src.connect(g).connect(c.destination);
   src.start();
+}
+
+/** Play a habit's sound (or a quiet default if it has none). Call from inside the tap. */
+export function playSound(id: string | undefined) {
+  playSynth(isSound(id) ? id : "glass");
+}
+
+/** The sound of ticking a to-do: its own, different from every habit's. Call from inside the tap. */
+export function playTodo() {
+  playSynth("todo");
 }
 
 /* ---------- the rest: untick, all done, submit ---------- */

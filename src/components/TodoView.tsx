@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useHub } from "@/lib/hub/store";
 import { todoLists } from "@/lib/hub/model";
-import { haptic } from "@/lib/sounds";
+import { useStore } from "@/lib/store";
+import { haptic, playTodo, playUntick } from "@/lib/sounds";
 import HabitList from "./HabitList";
 
 /** Ticked things older than this are cleared out for good. */
@@ -21,6 +22,7 @@ const LISTS: { id: "today" | "later"; name: string }[] = [
  */
 export default function TodoView() {
   const { data, today, write } = useHub();
+  const soundsOn = useStore().data.settings.soundsOn;
   const lists = todoLists(data.todos, today);
 
   // Clear out things ticked more than a month ago, once, when the list opens.
@@ -51,6 +53,7 @@ export default function TodoView() {
                   const done = Boolean(items.find((x) => x.id === id)?.done);
                   write(`todos/${id}/done`, done ? null : Date.now());
                   haptic(done ? 6 : 10);
+                  if (soundsOn) (done ? playUntick : playTodo)();
                 }}
               />
             ) : (
