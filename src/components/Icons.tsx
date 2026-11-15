@@ -193,3 +193,22 @@ export function WallIcon(p: P) {
     </svg>
   );
 }
+
+export function LibraryIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="8.75" cy="9.5" r="1.5" />
+      <path d="m4 16.5 4.5-4 3.5 3 3-2.5 5 4.25" />
+    </svg>
+  );
+}
+
+export function FlipIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <path d="M4.5 10a7.75 7.75 0 0 1 14-3.5M19.5 14a7.75 7.75 0 0 1-14 3.5" />
+      <path d="M18.75 3v3.75H15M5.25 21v-3.75H9" />
+    </svg>
+  );
+}

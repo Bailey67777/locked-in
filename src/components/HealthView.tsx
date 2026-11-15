@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useHub } from "@/lib/hub/store";
+import { useStore } from "@/lib/store";
 import { useVault } from "@/lib/hub/useVault";
 import { photoDays } from "@/lib/hub/model";
 import { inCaptureOrder, preparePhoto, removePhoto, savePhoto, type Prepared } from "@/lib/hub/photos";
@@ -45,8 +46,12 @@ import PhotoTile from "./PhotoTile";
 import PhotoViewer from "./PhotoViewer";
 import CodeSheet from "./CodeSheet";
 import RandomBody from "./RandomBody";
+import CameraFlow from "./CameraFlow";
 
-/** Five photos a day (face front, face side, body front, body side, back), locked with a six-digit code, to look back on. */
+/**
+ * Five photos a day (face front, face side, body front, body side, back), locked with a six-digit code, to look back
+ * on. They're taken here, one after another, each inside the same outline every day.
+ */
 export default function HealthView() {
   const { data, today, write } = useHub();
   const vault = useVault();
@@ -61,6 +66,11 @@ export default function HealthView() {
   const [viewer, setViewer] = useState<PoseId | null>(null);
   const [passcode, setPasscode] = useState<"create" | "unlock" | null>(null);
   const [random, setRandom] = useState(false);
+  /** The photos the camera is open for, in the order it takes them. */
+  const [camera, setCamera] = useState<PoseId[] | null>(null);
+  const soundsOn = useStore().data.settings.soundsOn;
+  /** Photos just taken are locked and stored one at a time, behind the camera, so it never waits. */
+  const saving = useRef<Promise<void>>(Promise.resolve());
   // A note about the last upload goes away by itself.
   useEffect(() => {
     if (!error) return;
@@ -79,16 +89,46 @@ export default function HealthView() {
     return false;
   };
 
-  const pickAll = () => {
+  /** Open the camera: for the photos still missing, or for all five again once they're in. */
+  const takeAll = () => {
     if (busy || !ready()) return;
     setError(null);
-    many.current?.click();
+    const empty = POSE_IDS.filter((p) => !day[p]);
+    setCamera(empty.length ? empty : POSE_IDS);
   };
-  const pickOne = (pose: PoseId) => {
+  /** Open the camera on one photo: an empty one carries on through the empty ones after it; a replacement is just that one. */
+  const takeOne = (pose: PoseId) => {
     if (busy || !ready()) return;
     setError(null);
+    setCamera(day[pose] ? [pose] : POSE_IDS.filter((p) => p === pose || (!day[p] && POSE_IDS.indexOf(p) > POSE_IDS.indexOf(pose))));
+  };
+  /** From the camera, choose pictures already on the phone instead: all that are needed, or the one being replaced. */
+  const pick = (pose: PoseId) => {
+    const several = (camera?.length ?? 0) > 1;
+    setCamera(null);
+    if (several) return many.current?.click();
     target.current = pose;
     one.current?.click();
+  };
+
+  /** Keep a photo the camera just took. */
+  const shoot = (pose: PoseId, shot: Blob) => {
+    const key = vault.key;
+    if (!key) return;
+    const old = day[pose];
+    const on = date;
+    setBusy((b) => ({ done: b?.done ?? 0, of: (b?.of ?? 0) + 1 }));
+    saving.current = saving.current.then(async () => {
+      try {
+        const meta = await savePhoto(key, await preparePhoto(shot));
+        write(`photos/${on}/${pose}`, meta);
+        if (old) void removePhoto(old.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't save that photo.");
+      } finally {
+        setBusy((b) => (b && b.done + 1 < b.of ? { done: b.done + 1, of: b.of } : null));
+      }
+    });
   };
 
   /** Shrink, lock and store the chosen photos, and put them on the day's poses. */
@@ -176,17 +216,17 @@ export default function HealthView() {
 
         <div className="mt-1 grid grid-cols-3 gap-2">
           {POSES.map((p) => (
-            <PhotoTile key={p.id} meta={day[p.id]} label={p.name} onClick={() => (day[p.id] ? (ready() ? setViewer(p.id) : undefined) : pickOne(p.id))} />
+            <PhotoTile key={p.id} meta={day[p.id]} label={p.name} onClick={() => (day[p.id] ? (ready() ? setViewer(p.id) : undefined) : takeOne(p.id))} />
           ))}
           <button
             type="button"
-            onClick={locked ? () => setPasscode("unlock") : pickAll}
+            onClick={locked ? () => setPasscode("unlock") : takeAll}
             disabled={Boolean(busy) || vault.state === "checking"}
             className={cn("tap flex aspect-[3/4] w-full flex-col items-center justify-center gap-2 rounded-[14px] transition-colors", full && !busy ? "bg-surface text-ink" : "bg-ink text-bg")}
-            aria-label={locked ? "Unlock photos" : full ? "All five photos are in. Upload again to replace them" : "Upload five photos"}
+            aria-label={locked ? "Unlock photos" : full ? "All five photos are in. Take them again to replace them" : "Take the photos"}
           >
             {locked ? <LockIcon width={22} height={22} /> : full && !busy ? <CheckIcon width={24} height={24} /> : <CameraIcon width={24} height={24} />}
-            <span className="text-[14px] font-medium tracking-[-0.01em]">{locked ? "Unlock" : busy ? "Saving" : full ? "Done" : "Upload"}</span>
+            <span className="text-[14px] font-medium tracking-[-0.01em]">{locked ? "Unlock" : busy ? "Saving" : full ? "Done" : "Take photos"}</span>
             <span className={cn("font-mono text-[11.5px] tabular-nums", full && !busy ? "text-muted" : "opacity-60")}>{busy ? `${busy.done}/${busy.of}` : `${count}/5`}</span>
           </button>
         </div>
@@ -205,9 +245,10 @@ export default function HealthView() {
         </li>
       </ul>
 
-      {viewer && <PhotoViewer date={date} pose={viewer} onClose={() => setViewer(null)} onReplace={pickOne} />}
+      {viewer && <PhotoViewer date={date} pose={viewer} onClose={() => setViewer(null)} onReplace={takeOne} />}
       {passcode && <CodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
       {random && <RandomBody onClose={() => setRandom(false)} />}
+      {camera && <CameraFlow poses={camera} sounds={soundsOn} onShot={shoot} onLibrary={pick} onClose={() => setCamera(null)} />}
     </div>
   );
 }

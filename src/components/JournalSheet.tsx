@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { formatLong } from "@/lib/dates";
 import { formatClock } from "@/lib/media";
-import { VOICE_BPS, VOICE_MAX_SECONDS, recorderSupported, voiceMimes } from "@/lib/voice";
+import { VOICE_BPS, VOICE_MAX_SECONDS, micName, openMic, recorderSupported, voiceMimes } from "@/lib/voice";
 import { cn } from "@/lib/cn";
 import { CloseIcon } from "./Icons";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
@@ -32,6 +32,7 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0));
+  const [mic, setMic] = useState("");
   const stream = useRef<MediaStream | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const parts = useRef<Blob[]>([]);
@@ -87,7 +88,9 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
     if (!recorderSupported()) return setError("This browser can't record audio.");
     setPhase("starting");
     try {
-      if (!stream.current) stream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      // A microphone that has gone (AirPods taken out or put in since) is let go of and opened again.
+      if (stream.current && stream.current.getAudioTracks().every((t) => t.readyState !== "live")) cleanup();
+      if (!stream.current) stream.current = await openMic();
     } catch (e) {
       cleanup();
       setPhase("idle");
@@ -134,6 +137,10 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
       };
       rec.start(1000); // hand over data every second, so an interruption still keeps what was said
       recorder.current = rec;
+      // The microphone going away mid-sentence (AirPods out of battery, back in their case) keeps what was said.
+      const track = s.getAudioTracks()[0];
+      track?.addEventListener("ended", () => rec.state !== "inactive" && rec.stop(), { once: true });
+      setMic(micName(track));
       startedAt.current = clock();
       setElapsed(0);
       if (attempt === 0) startMeter(s);
@@ -219,7 +226,10 @@ export default function JournalSheet({ date, onClose }: { date: string; onClose:
               <span key={i} className={cn("w-[3px] rounded-full transition-[height] duration-75", phase === "recording" ? "bg-ink" : "bg-faint")} style={{ height: `${Math.max(3, l * 36)}px` }} />
             ))}
           </div>
-          <div className="mt-2 font-mono text-[13px] tabular-nums text-ink-2">{phase === "recording" ? formatClock(elapsed) : phase === "saving" ? "Saving" : phase === "starting" ? "…" : formatClock(0)}</div>
+          <div className="mt-2 font-mono text-[13px] tabular-nums text-ink-2">
+            {phase === "recording" ? formatClock(elapsed) : phase === "saving" ? "Saving" : phase === "starting" ? "…" : formatClock(0)}
+            {phase === "recording" && mic && <span className="text-muted"> · {mic}</span>}
+          </div>
           <button
             type="button"
             onClick={() => (phase === "recording" ? stop() : phase === "idle" ? void begin() : undefined)}

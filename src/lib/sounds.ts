@@ -266,6 +266,19 @@ const SYNTHS: Record<string, Synth> = {
   },
   // The to-do tick: two quick notes stepping up, like a check mark being drawn. It is not in SOUNDS, so no habit
   // can have it: ticking a to-do never sounds like ticking a habit.
+  // The camera's countdown: one short, plain pip a second.
+  count: (sr) => {
+    const out = new Float32Array(len(sr, 0.3));
+    addPartial(out, sr, { f: 880, gain: 1, decay: 0.05, attack: 0.002 });
+    return out;
+  },
+  // The picture being taken: two quick clicks, a shutter opening and closing.
+  shutter: (sr) => {
+    const out = new Float32Array(len(sr, 0.45));
+    addPartial(out, sr, { f: 1568, gain: 0.9, decay: 0.025, attack: 0.001 });
+    addPartial(out, sr, { at: 0.075, f: 2093, gain: 1, decay: 0.11, attack: 0.001 });
+    return out;
+  },
   todo: (sr) => {
     const out = new Float32Array(len(sr, 0.7));
     addPartial(out, sr, { f: 784, gain: 0.8, decay: 0.07, attack: 0.001 });
@@ -328,6 +341,16 @@ function playSynth(id: string) {
 /** Play a habit's sound (or a quiet default if it has none). Call from inside the tap. */
 export function playSound(id: string | undefined) {
   playSynth(isSound(id) ? id : "glass");
+}
+
+/** One second of the camera's countdown going by. */
+export function playCount() {
+  playSynth("count");
+}
+
+/** The picture being taken. */
+export function playShutter() {
+  playSynth("shutter");
 }
 
 /** The sound of ticking a to-do: its own, different from every habit's. Call from inside the tap. */

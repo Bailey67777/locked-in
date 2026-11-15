@@ -67,6 +67,48 @@ export function voiceMimes(): string[] {
   return ok.length ? ok : [""]; // "" = let the browser choose
 }
 
+const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+/** Microphones worn on the head: AirPods and other earphones. */
+const EARPHONES = /airpods|earpods|earphone|earbud|headset|headphone|hands-?free|bluetooth|buds|beats/i;
+
+const pause = (ms: number) => new Promise<void>((done) => window.setTimeout(done, ms));
+
+/** The microphone's name as the phone gives it, without the browser's extras ("Default - ", "(Bluetooth)"). */
+export function micName(track: MediaStreamTrack | undefined): string {
+  return (track?.label ?? "")
+    .replace(/^default\s*[-–:]\s*/i, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim();
+}
+
+/**
+ * Open the microphone, on the AirPods (or other earphones) whenever they're connected. A phone usually switches to
+ * them by itself; where it has kept its own microphone, they're asked for by name. Earphones take a moment to
+ * change over from playing to listening, so recording waits for that rather than losing the first words.
+ */
+export async function openMic(): Promise<MediaStream> {
+  const media = navigator.mediaDevices;
+  let stream = await media.getUserMedia({ audio: AUDIO });
+  try {
+    if (!EARPHONES.test(stream.getAudioTracks()[0]?.label ?? "")) {
+      // Names are only given once the microphone has been allowed, which it now has.
+      const ear = (await media.enumerateDevices()).find((d) => d.kind === "audioinput" && d.deviceId && d.deviceId !== "default" && EARPHONES.test(d.label));
+      if (ear) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = await media.getUserMedia({ audio: { ...AUDIO, deviceId: { exact: ear.deviceId } } }).catch(() => media.getUserMedia({ audio: AUDIO }));
+      }
+    }
+  } catch {
+    /* the microphone it opened first still records */
+  }
+  const track = stream.getAudioTracks()[0];
+  if (track && EARPHONES.test(track.label)) {
+    if (track.muted) await Promise.race([new Promise<void>((done) => track.addEventListener("unmute", () => done(), { once: true })), pause(1500)]);
+    await pause(450);
+  }
+  return stream;
+}
+
 export function recorderSupported(): boolean {
   return typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== "undefined";
 }
