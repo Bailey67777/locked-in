@@ -17,7 +17,6 @@ import { cn } from "@/lib/cn";
 import { ChevronIcon } from "./Icons";
 import HabitSheet from "./HabitSheet";
 import TimetableSheet from "./TimetableSheet";
-import ExamsSheet from "./ExamsSheet";
 import CodeSheet from "./CodeSheet";
 import TodoSettings from "./TodoSettings";
 import WhoopSettings from "./WhoopSettings";
@@ -56,7 +55,6 @@ export default function SettingsView() {
   const vault = useVault();
   const school = hub.data.settings;
   const [day, setDay] = useState<number | null>(null);
-  const [exams, setExams] = useState(false);
   const [passcode, setPasscode] = useState<"create" | "unlock" | "change" | null>(null);
   // null = not being edited: the box shows the saved link, and leaving it changes nothing. This device's copy may
   // be behind the cloud's, so a link is only ever saved when it was typed here.
@@ -65,7 +63,6 @@ export default function SettingsView() {
   const [calStatus, setCalStatus] = useState<string | null>(null);
   const [claude, setClaude] = useState<string | null>(null);
   const [claudeLink, setClaudeLink] = useState<string | null>(null);
-  const examCount = Object.values(school.exams).filter((e) => e.date >= hub.today).length;
 
   const saveCalendar = async () => {
     if (calDraft === null) return;
@@ -207,17 +204,6 @@ export default function SettingsView() {
         {calStatus && <p className="mt-2 px-1 text-[12.5px] text-muted">{calStatus}</p>}
       </Section>
 
-      <Section title="Study">
-        <ul className="divide-y divide-line border-y border-line">
-          <li>
-            <button type="button" onClick={() => setExams(true)} className="tap flex w-full items-center justify-between py-3.5 text-left">
-              <span className="text-[17px] font-medium tracking-[-0.01em]">Exams</span>
-              <span className="font-mono text-[12px] tabular-nums text-muted">{examCount || "–"}</span>
-            </button>
-          </li>
-        </ul>
-      </Section>
-
       <Section title="Photos">
         <ul className="divide-y divide-line border-y border-line">
           <li>
@@ -294,7 +280,6 @@ export default function SettingsView() {
 
       {editing && <HabitSheet habitId={editing} onClose={() => setEditing(null)} />}
       {day !== null && <TimetableSheet day={day} onClose={() => setDay(null)} />}
-      {exams && <ExamsSheet onClose={() => setExams(false)} />}
       {passcode && <CodeSheet mode={passcode} onClose={() => setPasscode(null)} />}
     </div>
   );

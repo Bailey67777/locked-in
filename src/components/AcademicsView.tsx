@@ -3,115 +3,183 @@
 import { useState } from "react";
 import { useHub } from "@/lib/hub/store";
 import { useCalendarDay } from "@/lib/hub/calendar";
-import { lessonsFor, upcomingExams } from "@/lib/hub/model";
+import { lessonsFor } from "@/lib/hub/model";
 import { daysUntil } from "@/lib/hub/time";
-import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
+import { formatShort } from "@/lib/dates";
+import { SUBJECT_IDS, SUBJECT_META, gradeRank } from "@/lib/hub/subjects";
 import type { SubjectId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
-import { MoreIcon, WallIcon } from "./Icons";
-import GradeSheet from "./GradeSheet";
-import ExamsSheet from "./ExamsSheet";
+import { PlusIcon, WallIcon } from "./Icons";
+import AssessmentSheet, { type AssessmentTarget } from "./AssessmentSheet";
 import StareOverlay from "./StareOverlay";
 
+type Sort = "date" | "subject" | "grade";
+const SORTS: { id: Sort; name: string }[] = [
+  { id: "date", name: "Date" },
+  { id: "subject", name: "Subject" },
+  { id: "grade", name: "Grade" },
+];
+const SORT_KEY = "locked-in:results-sort:v1";
+
+/** "18/25" or "72%" as a fraction, so marks can be put in order; -1 when it isn't one. */
+function fraction(score: string | undefined): number {
+  const of = score?.match(/^\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*$/);
+  if (of && Number(of[2]) > 0) return Number(of[1]) / Number(of[2]);
+  const pct = score?.match(/^\s*(\d+(?:\.\d+)?)\s*%\s*$/);
+  return pct ? Number(pct[1]) / 100 : -1;
+}
+
+/** One line of either list: the subject's colour, the name, when, and on the right what's left or what it got. */
+function Row({ subject, title, date, onClick, children }: { subject: SubjectId | undefined; title: string; date: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <li>
+      <button type="button" onClick={onClick} className="tap flex w-full items-center gap-3.5 py-[13px] text-left">
+        <span className="h-9 w-[3px] shrink-0 rounded-full" style={{ background: subject ? SUBJECT_META[subject].color : "var(--faint)" }} aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 text-[17px] font-medium leading-snug tracking-[-0.015em]">{title}</span>
+          <span className="mt-0.5 block truncate font-mono text-[12px] tabular-nums text-muted">
+            {subject ? `${SUBJECT_META[subject].name} · ` : ""}
+            {formatShort(date)}
+          </span>
+        </span>
+        <span className="shrink-0 text-right">{children}</span>
+      </button>
+    </li>
+  );
+}
+
 /**
- * School in three slabs, one per subject, sharing the screen from the title down to the bar, the way the habits do.
- * A slab says two things: when that subject's lessons are today, and how long until its next exam, as one large
- * number. While one of its lessons is on, the slab fills with the subject's colour. Nothing is timed and nothing
- * is typed here; a tap opens the subject's grades, which stay out of sight.
+ * School as two lists in the same hand as the to-dos. Upcoming: every assessment still to come, nearest first, with
+ * the days left. Results: every one that's been sat, with its grade or mark, in the order you choose (date, subject
+ * or grade); one whose date has passed waits there until its result is put in. Under the title, today's lessons as
+ * a row of times, each with its subject's colour. Nothing is timed.
  */
 export default function AcademicsView() {
   const { data, today, now } = useHub();
   const settings = data.settings;
   const { events, error: calendarDown } = useCalendarDay(settings.calendarUrl, today);
   // If the calendar can't be reached and today isn't remembered, the timetable stands in.
-  const lessons = lessonsFor(today, settings.calendarUrl && events === null && calendarDown ? { ...settings, calendarUrl: "" } : settings, events);
-  const exams = upcomingExams(settings, today);
+  const lessons = lessonsFor(today, settings.calendarUrl && events === null && calendarDown ? { ...settings, calendarUrl: "" } : settings, events).filter((l) => l.start);
   const clockNow = now ? `${String(new Date(now).getHours()).padStart(2, "0")}:${String(new Date(now).getMinutes()).padStart(2, "0")}` : "";
 
-  const [grades, setGrades] = useState<SubjectId | null>(null);
+  const [open, setOpen] = useState<AssessmentTarget | null>(null);
   const [stare, setStare] = useState(false);
-  const [showExams, setShowExams] = useState(false);
+  const [sort, setSort] = useState<Sort>(() => {
+    try {
+      const saved = localStorage.getItem(SORT_KEY);
+      return SORTS.some((s) => s.id === saved) ? (saved as Sort) : "date";
+    } catch {
+      return "date";
+    }
+  });
+  const pick = (s: Sort) => {
+    setSort(s);
+    try {
+      localStorage.setItem(SORT_KEY, s);
+    } catch {
+      /* it just won't be remembered */
+    }
+  };
+
+  const exams = Object.entries(settings.exams).map(([id, e]) => ({ id, ...e }));
+  const upcoming = exams.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  // Sat, but no result yet: these head the results until one is put in.
+  const waiting = exams.filter((e) => e.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const newest = (a: { date: string; at: number }, b: { date: string; at: number }) => b.date.localeCompare(a.date) || b.at - a.at;
+  const results = Object.entries(data.grades)
+    .map(([id, g]) => ({ id, ...g }))
+    .sort((a, b) => {
+      if (sort === "subject") return SUBJECT_IDS.indexOf(a.subject) - SUBJECT_IDS.indexOf(b.subject) || newest(a, b);
+      if (sort === "grade") return gradeRank(b.grade || undefined) - gradeRank(a.grade || undefined) || fraction(b.score) - fraction(a.score) || newest(a, b);
+      return newest(a, b);
+    });
 
   return (
-    <div className="fade-up flex flex-1 flex-col" style={{ minHeight: 60 + SUBJECT_IDS.length * 150 }}>
-      {/* The title row sits a little below the middle of its slice, like Habits. */}
-      <header className="flex min-h-[50px] flex-col" style={{ flex: "1 1 0" }}>
-        <div style={{ flex: "3 1 0" }} />
+    <div className="fade-up">
+      <header className="mb-7">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Academics</h1>
           <div className="flex shrink-0 items-center gap-2.5">
             <button type="button" onClick={() => setStare(true)} className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Stare at Wall">
               <WallIcon />
             </button>
-            <button type="button" onClick={() => setShowExams(true)} className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Exams">
-              <MoreIcon />
+            <button type="button" onClick={() => setOpen({ kind: "new" })} className="tap flex h-11 w-11 items-center justify-center rounded-full bg-ink text-bg" aria-label="Add an assessment">
+              <PlusIcon width={20} height={20} />
             </button>
           </div>
         </div>
-        <div style={{ flex: "1 1 0" }} />
+        {lessons.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[12px] tabular-nums" aria-label="Today's lessons">
+            {lessons.map((l) => {
+              const start = l.start as string;
+              const over = Boolean(clockNow) && (l.end ?? start) <= clockNow;
+              const on = Boolean(clockNow) && !over && start <= clockNow;
+              return (
+                <span key={l.key} className={cn("flex items-center gap-1.5", over ? "text-faint" : on ? "font-semibold text-ink" : "text-muted")} title={SUBJECT_META[l.subject].name}>
+                  <span className="h-[7px] w-[7px] rounded-full" style={{ background: SUBJECT_META[l.subject].color, opacity: over ? 0.35 : 1 }} aria-hidden="true" />
+                  {start}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </header>
 
-      <div className="-mx-5 flex flex-col" style={{ flex: "11 1 0" }}>
-        {SUBJECT_IDS.map((s, i) => {
-          const meta = SUBJECT_META[s];
-          const mine = lessons.filter((l) => l.subject === s && l.start);
-          // A lesson of this subject is happening right now.
-          const live = Boolean(clockNow) && mine.some((l) => (l.start as string) <= clockNow && clockNow < (l.end ?? (l.start as string)));
-          // This subject's exams (or, if it has none, the ones that belong to no subject), nearest first, grouped by
-          // day: three on the same day share one line.
-          const own = exams.filter((e) => e.subject === s);
-          const sat = own.length ? own : exams.filter((e) => !e.subject);
-          const dates = [...new Set(sat.map((e) => e.date))].slice(0, 3);
-          const [next, ...later] = dates.map((date) => ({ date, days: daysUntil(date, today), names: sat.filter((e) => e.date === date).map((e) => e.title) }));
-          const soft = live ? "opacity-70" : "text-muted";
-          return (
-            <section
-              key={s}
-              className="relative flex min-h-[150px] flex-col overflow-hidden px-5 transition-colors duration-300"
-              style={{ flex: "1 1 0", background: live ? meta.color : undefined, color: live ? meta.on : undefined }}
-              aria-label={meta.name}
-            >
-              {/* Hairlines drawn inside the page margin, as on Habits; a slab filled with colour needs none. */}
-              {!live && <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-line" aria-hidden="true" />}
-              {!live && i === SUBJECT_IDS.length - 1 && <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-line" aria-hidden="true" />}
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-[13px] text-muted">Upcoming</span>
+          {upcoming.length > 0 && <span className="font-mono text-[12px] tabular-nums text-muted">{upcoming.length}</span>}
+        </div>
+        {upcoming.length ? (
+          <ul className="divide-y divide-line border-y border-line">
+            {upcoming.map((e) => {
+              const left = daysUntil(e.date, today);
+              return (
+                <Row key={e.id} subject={e.subject} title={e.title} date={e.date} onClick={() => setOpen({ kind: "exam", id: e.id })}>
+                  <span className={cn("text-[14px] tabular-nums", left <= 3 ? "font-semibold text-ink" : "text-muted")}>{left <= 0 ? "Today" : left === 1 ? "Tomorrow" : `${left} days`}</span>
+                </Row>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="border-y border-line py-[13px] text-center text-[15px] text-faint">–</p>
+        )}
+      </section>
 
-              <button type="button" onClick={() => setGrades(s)} className={cn("absolute inset-0 transition-colors", !live && "active:bg-surface")} aria-label={`${meta.name} grades`} />
+      <section className="mt-9">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-[13px] text-muted">Results</span>
+          <span className="flex gap-3.5 text-[13px]" role="group" aria-label="Order results by">
+            {SORTS.map((s) => (
+              <button key={s.id} type="button" aria-pressed={sort === s.id} onClick={() => pick(s.id)} className={sort === s.id ? "text-ink" : "text-faint"}>
+                {s.name}
+              </button>
+            ))}
+          </span>
+        </div>
+        {waiting.length || results.length ? (
+          <ul className="divide-y divide-line border-y border-line">
+            {waiting.map((e) => (
+              <Row key={e.id} subject={e.subject} title={e.title} date={e.date} onClick={() => setOpen({ kind: "exam", id: e.id })}>
+                <span className="text-[13.5px] text-faint">Add result</span>
+              </Row>
+            ))}
+            {results.map((g) => (
+              <Row key={g.id} subject={g.subject} title={g.label || "Assessment"} date={g.date} onClick={() => setOpen({ kind: "result", id: g.id })}>
+                <span className="flex items-baseline gap-2.5">
+                  {g.score && <span className={cn("font-mono text-[13px] tabular-nums", g.grade ? "text-muted" : "text-ink")}>{g.score}</span>}
+                  {g.grade && <span className="text-[17px] font-bold tracking-[-0.02em]">{g.grade}</span>}
+                </span>
+              </Row>
+            ))}
+          </ul>
+        ) : (
+          <p className="border-y border-line py-[13px] text-center text-[15px] text-faint">–</p>
+        )}
+      </section>
 
-              <div className="pointer-events-none relative flex min-h-0 flex-1 flex-col py-5">
-                <div className="flex items-start gap-3.5">
-                  {!live && <span className="mt-[3px] h-[26px] w-[3px] shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden="true" />}
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-[30px] font-bold leading-none tracking-[-0.04em]">{meta.name}</h2>
-                    {mine.length > 0 && <div className={cn("mt-2.5 truncate font-mono text-[12px] tabular-nums", soft)}>{mine.map((l) => (live && l.end ? `${l.start}–${l.end}` : l.start)).join(" · ")}</div>}
-                  </div>
-                </div>
-
-                {/* The next exam: the days left, large, with what it is beside them; any after it underneath. */}
-                {next && (
-                  <div className={cn("mt-auto flex items-end justify-between gap-5 pt-3", !live && "pl-[17.5px]")}>
-                    <div className="flex shrink-0 items-baseline gap-2">
-                      <span className="text-[64px] font-bold leading-[0.82] tracking-[-0.055em] tabular-nums">{next.days <= 0 ? "Today" : next.days}</span>
-                      {next.days > 0 && <span className={cn("font-mono text-[12px]", soft)}>{next.days === 1 ? "day" : "days"}</span>}
-                    </div>
-                    <div className="min-w-0 text-right">
-                      <div className="line-clamp-2 text-[15px] font-medium leading-snug tracking-[-0.01em]">{next.names.join(" · ")}</div>
-                      {later.map((c) => (
-                        <div key={c.date} className={cn("mt-1 truncate text-[13px]", soft)}>
-                          <span className="font-semibold">{c.days <= 0 ? "Today" : c.days === 1 ? "1 day" : `${c.days} days`}</span> {c.names.join(" · ")}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      {grades && <GradeSheet subject={grades} onClose={() => setGrades(null)} />}
+      {open && <AssessmentSheet target={open} onClose={() => setOpen(null)} />}
       {stare && <StareOverlay onClose={() => setStare(false)} />}
-      {showExams && <ExamsSheet onClose={() => setShowExams(false)} />}
     </div>
   );
 }

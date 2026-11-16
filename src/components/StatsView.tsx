@@ -136,9 +136,9 @@ export default function StatsView() {
               <SubjectMark subject={s} height={16} />
               <span className="min-w-0 flex-1 truncate text-[16px]">{SUBJECT_META[s].name}</span>
               <span className="flex shrink-0 items-center gap-2 text-[16px] font-semibold tabular-nums">
-                {before && current && <span className="text-muted">{before.grade}</span>}
+                {before && current && <span className="text-muted">{before.grade || before.score}</span>}
                 {before && current && <ArrowIcon width={13} height={13} className="text-faint" />}
-                <span>{(current ?? before)?.grade}</span>
+                <span>{(current ?? before)?.grade || (current ?? before)?.score}</span>
               </span>
             </li>
           );

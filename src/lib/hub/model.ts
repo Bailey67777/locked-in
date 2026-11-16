@@ -115,7 +115,8 @@ export function normalizeData(raw: unknown): HubData {
   const grades: HubData["grades"] = {};
   for (const [k, v] of Object.entries(obj(r.grades))) {
     const g = obj(v);
-    if (!isSubject(g.subject) || !str(g.grade) || !isDateKey(g.date)) continue;
+    // A result is a grade, a mark ("18/25"), or both.
+    if (!isSubject(g.subject) || (!str(g.grade) && !str(g.score)) || !isDateKey(g.date)) continue;
     grades[k] = { subject: g.subject, grade: str(g.grade), date: g.date, label: str(g.label), at: num(g.at), ...(str(g.score) ? { score: str(g.score) } : {}) };
   }
   const t = obj(r.timer);

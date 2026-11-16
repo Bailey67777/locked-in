@@ -12,14 +12,12 @@ Database.
 - **To do** – only for ticking, like the habits: **Today** and **Miscellaneous**. To-dos are written in Settings
   (for today, tomorrow or miscellaneous) or on a day in the Calendar; one set for a later day appears under Today
   when that day comes, and anything not done stays there.
-- **Academics** – three slabs, one per subject, filling the screen the way the habits do:
-  - each slab shows the subject, today's lesson times, and the days until its next exam as one large number with
-    the exam beside it. While one of its lessons is on, the slab fills with the subject's colour. Nothing is timed;
-  - **tap a slab** for that subject's grades (kept out of sight);
-  - every upcoming exam for the subject sits under its name, grouped by day ("13 days Integration · Vectors");
-  - along the bottom, today's total and the week split into its seven days. No goal;
-  - the two buttons at the top: **Stare at Wall** (always ten minutes of a blank screen) and **…** for grades
-    before and after 15 November, and exams.
+- **Academics** – two lists in the same hand as the to-dos, nothing timed:
+  - **Upcoming**: every assessment still to come, nearest first, with the days left on the right;
+  - **Results**: every one that's been sat, with its grade, its mark ("18/25"), or both, ordered by date, subject
+    or grade. One whose date has passed waits at the top until its result is put in;
+  - **+** adds an assessment; tapping any line edits it, adds its result or deletes it (`AssessmentSheet.tsx`);
+  - under the title, today's lesson times, each with its subject's colour; the wall button is Stare at Wall.
 - **Health** – five photos a day: face front, face side, body front, body side, back. **Upload** takes all five at
   once and puts them in the order they were taken; tap one tile to add or replace a single photo. Under them:
   **Random day** (spins to a past day's five) and **Goy Eaten Today:** (one line).

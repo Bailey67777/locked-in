@@ -270,7 +270,7 @@ const quote = (s: string) => {
 };
 
 function gradeDetail(g: Grade): string {
-  return `${g.grade} (${[g.date, g.label, g.score].filter(Boolean).join(", ")})`;
+  return `${g.grade || g.score || "no result"} (${[g.date, g.label, g.grade ? g.score : ""].filter(Boolean).join(", ")})`;
 }
 
 function gradeSummary(data: HubData): string[] {
