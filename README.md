@@ -230,3 +230,17 @@ src/lib/            store (state, sync, outbox, one-time upgrades, journal uploa
 src/lib/server/     claude.ts: the nightly-task API (still there; nothing in the app shows its output now)
 public/             sw.js (offline shell), icons (regenerate with `node scripts/gen-icons.mjs`), photos, media
 ```
+
+## WHOOP
+
+Settings → WHOOP connects a WHOOP through its official API (`src/lib/server/whoop.ts`, routes under `/api/whoop`).
+WHOOP only gives data to an app registered in the owner's own WHOOP account (developer-dashboard.whoop.com): its
+Client ID and Client Secret are typed into Settings once and kept, encrypted, on the server side of the database
+(or set as `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET`). The redirect URL to register is `<site>/api/whoop/callback`.
+Recovery, sleep and strain land at `hub/whoop/<date>`; they show in Health, on the morning card, and to Claude in
+`get_day`.
+
+## Morning card
+
+The first time the app is opened each day (from 04:00) it shows yesterday's rating, last night's sleep and recovery,
+today's weather (Open-Meteo, asked for central Bristol only) and today's lessons (`src/components/Morning.tsx`).

@@ -1,4 +1,4 @@
-import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Rating, Sealed, Session, Stare, SubjectId, TimetableLesson, Todo, Vault } from "./types";
+import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Rating, Sealed, Session, Stare, SubjectId, TimetableLesson, Todo, Vault, Whoop } from "./types";
 import { POSE_IDS, SUBJECT_IDS, isSubject, subjectFromTitle } from "./subjects";
 import { dayBounds, weekday } from "./time";
 import { addDays, lastNDays } from "../dates";
@@ -6,7 +6,7 @@ import { addDays, lastNDays } from "../dates";
 /** Grades before this day are "before the shift", on or after it "now". */
 export const SHIFT_DATE = "2026-11-15";
 
-export const DEFAULT_SETTINGS: HubSettings = { targets: {}, stareMin: 10, timetable: {}, calendarUrl: "", shiftDate: SHIFT_DATE, exams: {} };
+export const DEFAULT_SETTINGS: HubSettings = { targets: {}, stareMin: 10, timetable: {}, calendarUrl: "", shiftDate: SHIFT_DATE, exams: {}, whoop: false };
 
 export function uid(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -54,6 +54,7 @@ export function normalizeSettings(raw: unknown): HubSettings {
     calendarUrl: str(r.calendarUrl),
     shiftDate: isDateKey(r.shiftDate) ? r.shiftDate : SHIFT_DATE,
     exams,
+    whoop: r.whoop === true,
   };
 }
 
@@ -146,7 +147,20 @@ export function normalizeData(raw: unknown): HubData {
     if (!DATE_RE.test(date) || score < 0 || score > 10) continue;
     ratings[date] = { score: Math.round(score * 100) / 100, at: num(g.at), ...(str(g.why).trim() ? { why: str(g.why).trim() } : {}), ...(num(g.seen) > 0 ? { seen: num(g.seen) } : {}) } satisfies Rating;
   }
-  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, goy, ratings, vault: normalizeVault(r.vault) };
+  const whoop: HubData["whoop"] = {};
+  for (const [date, v] of Object.entries(obj(r.whoop))) {
+    const w = normalizeWhoop(v);
+    if (DATE_RE.test(date) && w) whoop[date] = w;
+  }
+  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, goy, ratings, whoop, morning: isDateKey(r.morning) ? r.morning : "", vault: normalizeVault(r.vault) };
+}
+
+/** One day's WHOOP numbers, or null when there is nothing in it worth showing. */
+export function normalizeWhoop(raw: unknown): Whoop | null {
+  const w = obj(raw);
+  const out: Whoop = { at: num(w.at) };
+  for (const k of ["recovery", "sleep", "asleep", "hrv", "rhr", "strain"] as const) if (typeof w[k] === "number" && Number.isFinite(w[k]) && w[k] >= 0) out[k] = w[k];
+  return Object.keys(out).length > 1 ? out : null;
 }
 
 /* ---------- lessons ---------- */

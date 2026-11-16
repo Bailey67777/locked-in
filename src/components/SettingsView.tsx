@@ -20,6 +20,7 @@ import TimetableSheet from "./TimetableSheet";
 import ExamsSheet from "./ExamsSheet";
 import CodeSheet from "./CodeSheet";
 import TodoSettings from "./TodoSettings";
+import WhoopSettings from "./WhoopSettings";
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -137,6 +138,10 @@ export default function SettingsView() {
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Settings</h1>
       </header>
 
+      <Section title="To do">
+        <TodoSettings />
+      </Section>
+
       <Section title="Habits">
         <ul className="divide-y divide-line border-y border-line">
           {habits.map((h, i) => {
@@ -162,10 +167,6 @@ export default function SettingsView() {
             );
           })}
         </ul>
-      </Section>
-
-      <Section title="To do">
-        <TodoSettings />
       </Section>
 
       <Section title="Lessons">
@@ -246,6 +247,10 @@ export default function SettingsView() {
           <span className="text-[12.5px] text-muted">{claude ?? ""}</span>
         </button>
         {claudeLink && <input readOnly value={claudeLink} onFocus={(e) => e.currentTarget.select()} className="field mt-2 font-mono text-[12px]" aria-label="Connector link" />}
+      </Section>
+
+      <Section title="WHOOP">
+        <WhoopSettings />
       </Section>
 
       <Section title="Sound">

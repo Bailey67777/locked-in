@@ -9,7 +9,7 @@ import TodoView from "./TodoView";
 import HabitsView from "./HabitsView";
 import AcademicsView from "./AcademicsView";
 import HealthView from "./HealthView";
-import RatingReveal from "./RatingReveal";
+import Morning from "./Morning";
 import CalendarView from "./CalendarView";
 import StatsView from "./StatsView";
 import SettingsView from "./SettingsView";
@@ -35,6 +35,11 @@ export default function AppShell() {
     // Back to the tab you were on after a reload (deferred: no synchronous setState in the effect).
     const id = window.setTimeout(() => {
       try {
+        // Back from approving the WHOOP connection: land on Settings, where it says whether it worked.
+        if (new URLSearchParams(window.location.search).has("whoop")) {
+          window.history.replaceState(null, "", window.location.pathname);
+          return setTab("settings");
+        }
         const saved = sessionStorage.getItem("locked-in:tab") as Tab | null;
         if (saved && TABS.some((t) => t.id === saved)) setTab(saved);
       } catch {
@@ -73,7 +78,7 @@ export default function AppShell() {
         )}
       </main>
 
-      {ready && <RatingReveal />}
+      {ready && <Morning />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-xl" aria-label="Sections">
         <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-3">

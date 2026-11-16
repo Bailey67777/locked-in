@@ -8,6 +8,7 @@ import { photoDays } from "@/lib/hub/model";
 import { inCaptureOrder, preparePhoto, removePhoto, savePhoto, type Prepared } from "@/lib/hub/photos";
 import { POSES, POSE_IDS } from "@/lib/hub/subjects";
 import { dayTitle } from "@/lib/hub/time";
+import { sleepLength } from "@/lib/hub/whoop";
 import { addDays } from "@/lib/dates";
 import { haptic } from "@/lib/sounds";
 import type { PoseId } from "@/lib/hub/types";
@@ -60,6 +61,7 @@ export default function HealthView() {
   const day = data.photos[date] ?? {};
   const count = POSE_IDS.filter((p) => day[p]).length;
   const days = photoDays(data.photos);
+  const whoop = data.whoop[date];
 
   const [busy, setBusy] = useState<{ done: number; of: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +245,18 @@ export default function HealthView() {
         <li>
           <Goy key={date} date={date} today={today} />
         </li>
+        {data.settings.whoop && (
+          <>
+            <li className="flex items-center justify-between py-4">
+              <span className="text-[17px] font-medium tracking-[-0.015em]">Recovery</span>
+              <span className="font-mono text-[13px] tabular-nums text-ink-2">{whoop?.recovery !== undefined ? `${whoop.recovery}%` : "–"}</span>
+            </li>
+            <li className="flex items-center justify-between py-4">
+              <span className="text-[17px] font-medium tracking-[-0.015em]">Sleep</span>
+              <span className="font-mono text-[13px] tabular-nums text-ink-2">{whoop?.sleep !== undefined ? `${whoop.sleep}%${whoop.asleep ? ` · ${sleepLength(whoop.asleep)}` : ""}` : "–"}</span>
+            </li>
+          </>
+        )}
       </ul>
 
       {viewer && <PhotoViewer date={date} pose={viewer} onClose={() => setViewer(null)} onReplace={takeOne} />}

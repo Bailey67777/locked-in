@@ -23,6 +23,8 @@ export type HubSettings = {
   /** Grades dated before this day count as "before", on or after it as "now". */
   shiftDate: string;
   exams: Record<string, Exam>;
+  /** A WHOOP is connected. The keys for it stay on the server; this only says there is something to show. */
+  whoop: boolean;
 };
 
 /** What you said about one lesson. `conf`: 1 shaky, 2 okay, 3 solid. */
@@ -68,6 +70,12 @@ export type Vault = { v: 2; salt: string; iterations: number; wrapped: Sealed; a
 /** Claude's mark for a whole day, out of 10 to two decimals. `seen` is when it was shown on screen. */
 export type Rating = { score: number; at: number; why?: string; seen?: number };
 
+/**
+ * One morning's numbers from the WHOOP: recovery and sleep as percentages, minutes asleep, heart-rate variability
+ * (ms), resting heart rate, and the day's strain so far (0–21). Whatever it hasn't worked out yet is left off.
+ */
+export type Whoop = { recovery?: number; sleep?: number; asleep?: number; hrv?: number; rhr?: number; strain?: number; at: number };
+
 export type HubData = {
   settings: HubSettings;
   days: Record<string, HubDay>;
@@ -82,6 +90,10 @@ export type HubData = {
   goy: Record<string, string>;
   /** date → Claude's rating of that day. */
   ratings: Record<string, Rating>;
+  /** date (the morning woken up on) → that day's WHOOP numbers. */
+  whoop: Record<string, Whoop>;
+  /** The last day the morning card was put away, on any device. */
+  morning: string;
   vault: Vault | null;
 };
 

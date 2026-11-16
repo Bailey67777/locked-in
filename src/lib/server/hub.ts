@@ -1,9 +1,10 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { eventsBetween } from "@/lib/hub/ics";
-import { beforeAndNow, normalizeData, safeKey, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
+import { beforeAndNow, normalizeData, normalizeWhoop, safeKey, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
 import { GRADES, SUBJECT_IDS, SUBJECT_META, isSubject, subjectFromTitle } from "@/lib/hub/subjects";
-import type { DayLesson, Grade, HubData, HubSettings, Session, SubjectId, Todo } from "@/lib/hub/types";
+import type { DayLesson, Grade, HubData, HubSettings, Session, SubjectId, Todo, Whoop } from "@/lib/hub/types";
+import { sync as whoopSync } from "./whoop";
 
 /**
  * Server side of the Claude connector (the MCP server at /api/mcp/<token>). Talks to the Realtime Database over
@@ -125,7 +126,7 @@ const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ?? "").replace(/\/
 const DATA_KEY = process.env.NEXT_PUBLIC_DATA_KEY || "default";
 
 /** The only places the connector may read. */
-const READABLE = /^(hub\/(settings|days|sessions|stares|grades|timer|todos|ratings|goy)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
+const READABLE = /^(hub\/(settings|days|sessions|stares|grades|timer|todos|ratings|goy|whoop)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
 /** The only places it may write, each a specific child (never a whole parent). */
 const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|sessions\/[^/]+|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
 
@@ -349,10 +350,12 @@ export type DayInput = {
   habits: HabitTick[];
   /** How many of the day's five progress photos were taken (0–5). */
   photos: number;
+  /** That morning's WHOOP numbers, when a WHOOP is connected and it had any. */
+  whoop?: Whoop | null;
 };
 
 /** Everything `get_day` returns, as Markdown. */
-export function renderDay({ date, today, now, data, events, calendarFailed, habits, photos }: DayInput): string {
+export function renderDay({ date, today, now, data, events, calendarFailed, habits, photos, whoop }: DayInput): string {
   const rel = date === today ? " (today)" : date === addDays(today, -1) ? " (yesterday)" : date === addDays(today, 1) ? " (tomorrow)" : "";
   const out: string[] = [`# ${dayLabel(date)}${rel}`, ""];
   const day = data.days[date] ?? { logs: {} };
@@ -410,15 +413,27 @@ export function renderDay({ date, today, now, data, events, calendarFailed, habi
   if (left.length) out.push(`Not done: ${left.map((h) => h.name).join(", ")}`);
 
   out.push("", "## Health", `Progress photos taken: ${photos} of 5.`);
-  out.push(`"Goy" eaten (his own word for the one junk item a day he allows himself at most): ${data.goy[date] ? oneLine(data.goy[date]) : "nothing written down"}.`);
+  out.push(`"Goy" eaten (his own word for the one junk item a day he allows himself at most): ${data.goy[date] ? oneLine(data.goy[date]) : "nothing written down, which means he ate none. That is a win, never something to mark down"}.`);
+
+  if (whoop) {
+    const bits = [
+      whoop.recovery !== undefined ? `recovery ${whoop.recovery}%` : "",
+      whoop.sleep !== undefined ? `sleep ${whoop.sleep}%${whoop.asleep ? ` (${Math.floor(whoop.asleep / 60)}h ${whoop.asleep % 60}m asleep)` : ""}` : "",
+      whoop.hrv !== undefined ? `HRV ${whoop.hrv} ms` : "",
+      whoop.rhr !== undefined ? `resting heart rate ${whoop.rhr}` : "",
+      whoop.strain !== undefined ? `strain ${whoop.strain} of 21` : "",
+    ].filter(Boolean);
+    if (bits.length) out.push(`WHOOP (the night before and that morning): ${bits.join(", ")}.`);
+  } else if (data.settings.whoop) out.push("WHOOP: nothing recorded for this day.");
 
   const rating = data.ratings[date];
   out.push("", "## Your rating of this day", rating ? `${rating.score.toFixed(2)} out of 10${rating.why ? `: ${oneLine(rating.why)}` : ""}` : "Not rated yet.");
 
   out.push("", date === today ? "## To-dos" : "## To-dos (as they stand today)", ...renderTodos(londonTodoLists(data.todos, today), today));
 
-  const exams = examLines(data.settings, today, false);
-  out.push("", "## Upcoming exams", ...(exams.length ? exams : ["None set."]));
+  // Counted from the day being looked at: "tomorrow" on a past day has to mean that day's tomorrow, not today's.
+  const exams = examLines(data.settings, date < today ? date : today, false);
+  out.push("", date < today ? `## Upcoming exams (how far off they were on ${date}, not today)` : "## Upcoming exams", ...(exams.length ? exams : ["None set."]));
   out.push("", `## Grades (before = latest dated before ${data.settings.shiftDate}, now = latest since)`, ...gradeSummary(data));
   return out.join("\n");
 }
@@ -529,7 +544,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "rate_day",
     "Rate a day",
-    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), study time and how it was spread across subjects, lessons talked through and how they felt, to-dos finished, the photos, and the one-junk-item rule. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
+    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), his academics, to-dos finished, the photos, and the one-junk-item rule (nothing written under Goy means he ate none, which is a win). For academics, judge what the day needed rather than minutes alone: which exams are coming and how close they were on that day, his grades against his targets, schoolwork to-dos, lessons talked through and how they felt, and his timed study and how it was spread across subjects. If his WHOOP numbers are there, read the day in their light (a full day on a poor recovery counts for more) and never mark him down for a bad night itself. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
     {
       date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD, Europe/London. Defaults to yesterday. A day can only be rated once it is over." },
       score: { type: "number", minimum: 0, maximum: 10, description: "Out of 10, two decimal places." },
@@ -685,7 +700,14 @@ async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<st
       calendarFailed = true;
     }
   }
-  return renderDay({ date, today, now, data, events, calendarFailed, habits: habitsOn(date, today, habitDefs(defsRaw), habitRecord(ticksRaw)), photos });
+  // With a WHOOP connected, ask it first (so the night's numbers are in even if he hasn't opened the app), but
+  // never let a slow or broken WHOOP hold up the day.
+  let whoop: Whoop | null = null;
+  if (data.settings.whoop) {
+    const latest = await Promise.race([whoopSync(now), new Promise<null>((done) => setTimeout(() => done(null), 7000))]).catch(() => null);
+    whoop = latest?.[date] ?? normalizeWhoop(await db.get(`hub/whoop/${date}`).catch(() => null));
+  }
+  return renderDay({ date, today, now, data, events, calendarFailed, habits: habitsOn(date, today, habitDefs(defsRaw), habitRecord(ticksRaw)), photos, whoop });
 }
 
 async function rateDay(args: Args, { db, now, today }: Ctx): Promise<string> {

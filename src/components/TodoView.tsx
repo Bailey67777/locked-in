@@ -3,11 +3,12 @@
 import { useEffect, useRef } from "react";
 import { useHub } from "@/lib/hub/store";
 import { todoLists } from "@/lib/hub/model";
+import { dayBounds } from "@/lib/hub/time";
 import { useStore } from "@/lib/store";
 import { haptic, playTodo, playUntick } from "@/lib/sounds";
 import HabitList from "./HabitList";
 
-/** Ticked things older than this are cleared out for good. */
+/** Ticked things with a day are kept this long, so the Calendar can still show them; then cleared out for good. */
 const KEEP_DONE_MS = 30 * 86400000;
 
 const LISTS: { id: "today" | "later"; name: string }[] = [
@@ -25,14 +26,16 @@ export default function TodoView() {
   const soundsOn = useStore().data.settings.soundsOn;
   const lists = todoLists(data.todos, today);
 
-  // Clear out things ticked more than a month ago, once, when the list opens.
+  // Once, when the list opens: Miscellaneous things ticked on an earlier day are done with and go; things that had
+  // a day stay a month.
   const swept = useRef(false);
   useEffect(() => {
     if (swept.current) return;
     swept.current = true;
+    const [morning] = dayBounds(today);
     const cutoff = Date.now() - KEEP_DONE_MS;
-    for (const [id, t] of Object.entries(data.todos)) if (t.done && t.done < cutoff) write(`todos/${id}`, null);
-  }, [data.todos, write]);
+    for (const [id, t] of Object.entries(data.todos)) if (t.done && t.done < (t.when === "later" ? morning : cutoff)) write(`todos/${id}`, null);
+  }, [data.todos, today, write]);
 
   return (
     <div className="fade-up">
