@@ -55,7 +55,6 @@ export default function StatsView() {
   const [body, setBody] = useState(false);
   const hub = useHub();
   const study = hub.data;
-  const talked = lastNDays(today, 30).reduce((n, d) => n + Object.values(study.days[d]?.logs ?? {}).filter((l) => l.text.trim()).length, 0);
   const stares = lastNDays(today, 30).reduce((n, d) => n + staresOn(d, study.stares), 0);
   const photoCount = photoDays(study.photos).length;
   // Claude's day ratings, averaged. The habit percentage stays underneath, small.
@@ -130,26 +129,25 @@ export default function StatsView() {
       <ul className="mt-5 divide-y divide-line border-y border-line">
         {SUBJECT_IDS.map((s) => {
           const { before, now: current } = beforeAndNow(s, study.grades, study.settings.shiftDate);
-          const target = study.settings.targets[s];
+          // A subject is listed once it has a grade: three empty rows say nothing.
+          if (!before && !current) return null;
           return (
             <li key={s} className="flex items-center gap-3 py-3.5">
               <SubjectMark subject={s} height={16} />
               <span className="min-w-0 flex-1 truncate text-[16px]">{SUBJECT_META[s].name}</span>
-              {target && <span className="shrink-0 font-mono text-[12px] text-muted">target {target}</span>}
               <span className="flex shrink-0 items-center gap-2 text-[16px] font-semibold tabular-nums">
                 {before && current && <span className="text-muted">{before.grade}</span>}
                 {before && current && <ArrowIcon width={13} height={13} className="text-faint" />}
-                {current || before ? <span>{(current ?? before)?.grade}</span> : <span className="font-normal text-faint">–</span>}
+                <span>{(current ?? before)?.grade}</span>
               </span>
             </li>
           );
         })}
+        <li className="flex items-center justify-between gap-3 py-3.5">
+          <span className="text-[16px]">Wall stares, last 30 days</span>
+          <span className="font-mono text-[13px] tabular-nums text-ink-2">{stares}</span>
+        </li>
       </ul>
-
-      <div className="mt-6 grid grid-cols-2 gap-2">
-        <Big label="Lessons" value={talked} unit="" />
-        <Big label="Stares" value={stares} unit="" />
-      </div>
 
       {random && <RandomRecording onClose={() => setRandom(false)} />}
       {body && <RandomBody onClose={() => setBody(false)} />}

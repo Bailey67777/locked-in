@@ -13,11 +13,9 @@ Database.
   (for today, tomorrow or miscellaneous) or on a day in the Calendar; one set for a later day appears under Today
   when that day comes, and anything not done stays there.
 - **Academics** – three slabs, one per subject, filling the screen the way the habits do:
-  - each slab shows the subject, today's lesson times, the exams coming, and the grade, large. Nothing is timed;
-  - **tap a slab** for that subject's grades;
-  - the **round button on a slab** is where you say what you did in that lesson (one note per subject per day):
-    press and talk, it's written down, with Shaky / Okay / Solid. Where the browser won't transcribe (an iPhone
-    home-screen app), the keyboard's own microphone does it;
+  - each slab shows the subject, today's lesson times, and the days until its next exam as one large number with
+    the exam beside it. While one of its lessons is on, the slab fills with the subject's colour. Nothing is timed;
+  - **tap a slab** for that subject's grades (kept out of sight);
   - every upcoming exam for the subject sits under its name, grouped by day ("13 days Integration · Vectors");
   - along the bottom, today's total and the week split into its seven days. No goal;
   - the two buttons at the top: **Stare at Wall** (always ten minutes of a blank screen) and **…** for grades

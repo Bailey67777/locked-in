@@ -334,7 +334,7 @@ export function renderDay({ date, today, data, events, calendarFailed, habits, p
   const day = data.days[date] ?? { logs: {} };
   const lessons = lessonsForLondon(date, data.settings, events);
   const said = (log: { text: string; conf?: number } | undefined) => {
-    if (!log || (!log.text.trim() && !log.conf)) return ["Nothing said yet."];
+    if (!log || (!log.text.trim() && !log.conf)) return []; // the app no longer asks him about lessons, so silence means nothing
     return [...(log.conf ? [`Felt: ${CONF_WORD[log.conf]}`] : []), ...(log.text.trim() ? [quote(log.text)] : ["(no words, just the rating)"])];
   };
 
@@ -422,20 +422,17 @@ export type ProgressInput = {
 export function renderProgress({ today, days, data, records, defs }: ProgressInput): string {
   const dates = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)));
   const lines: string[] = [];
-  let talkedAll = 0;
   let quiet = 0;
   for (const date of dates) {
-    const talked = Object.values(data.days[date]?.logs ?? {}).filter((l) => l.text.trim()).length;
-    talkedAll += talked;
     const record = records[date] ?? null;
     const ticks = record ? habitsOn(date, today, defs, record) : null;
-    if (!talked && !ticks && !data.ratings[date]) {
+    if (!ticks && !data.ratings[date]) {
       quiet++;
       continue;
     }
     const habits = ticks?.length ? `habits ${Math.round((ticks.filter((h) => h.done).length / ticks.length) * 100)}%` : "habits not recorded";
     const rated = data.ratings[date] ? ` · rated ${data.ratings[date].score.toFixed(2)}` : "";
-    lines.push(`- ${shortDay(date)}: ${talked} lesson${talked === 1 ? "" : "s"} talked through · ${habits}${rated}`);
+    lines.push(`- ${shortDay(date)}: ${habits}${rated}`);
   }
   const [from] = londonDayBounds(dates[0]);
   const [, to] = londonDayBounds(today);
@@ -443,7 +440,7 @@ export function renderProgress({ today, days, data, records, defs }: ProgressInp
   const staresIn = stares.filter((s) => s.start >= from && s.start < to).length;
 
   const out = [`# Last ${days} day${days === 1 ? "" : "s"}: ${dates[0]} to ${today}`, "", "## Totals"];
-  out.push(`Lessons talked through: ${talkedAll} · Stare at Wall sessions: ${staresIn} (${stares.length} ever)`);
+  out.push(`Stare at Wall sessions: ${staresIn} (${stares.length} ever)`);
   const scores = dates.map((d) => data.ratings[d]?.score).filter((s): s is number => typeof s === "number");
   out.push(scores.length ? `Your day ratings: ${scores.length} in this window, average ${(scores.reduce((t, s) => t + s, 0) / scores.length).toFixed(2)} out of 10.` : "Your day ratings: none in this window yet.");
   out.push("", "## Day by day", ...(lines.length ? lines : ["Nothing recorded in this window."]));
@@ -487,7 +484,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "get_day",
     "Read Hugo's day",
-    "One day of Hugo's school life in a single read: his lessons in order with what he said about each (dictated, so read past transcription slips) and how each felt (shaky, okay or solid), notes you already saved, habits, to-dos, upcoming exams, grades and targets. Call it first when he runs /today or starts talking about his day.",
+    "One day of Hugo's school life in a single read: his lessons in order (the app no longer asks him to say what he did in each, so most have nothing under them), notes you already saved, habits, to-dos, upcoming exams, grades and targets. Call it first when he runs /today or starts talking about his day.",
     { date: DATE_SCHEMA },
     [],
     { readOnly: true },
@@ -509,7 +506,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "rate_day",
     "Rate a day",
-    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), his academics, to-dos finished, the photos, and the one-junk-item rule (nothing written under Goy means he ate none, which is a win). He does not time his studying, so there are no study minutes: never judge a day by time spent. For academics, look at which exams are coming and how close they were on that day, his grades against his targets, schoolwork to-dos, and on a school day the lessons he talked through and how they felt. His WHOOP numbers, if shown, are for context only and never move the mark up or down. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
+    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), his academics, to-dos finished, the photos, and the one-junk-item rule (nothing written under Goy means he ate none, which is a win). He does not time his studying, so there are no study minutes: never judge a day by time spent. For academics, look at which exams are coming and how close they were on that day, his grades against his targets, and schoolwork to-dos. The app does not ask him to log his lessons: never mark a day down because nothing is written under a lesson. His WHOOP numbers, if shown, are for context only and never move the mark up or down. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
     {
       date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD, Europe/London. Defaults to yesterday. A day can only be rated once it is over." },
       score: { type: "number", minimum: 0, maximum: 10, description: "Out of 10, two decimal places." },
@@ -521,7 +518,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "get_progress",
     "Read Hugo's progress",
-    "Trends over the last N days ending today: lessons talked through, habit completion, your day ratings, every grade with before/now per subject, exams, and Stare at Wall sessions.",
+    "Trends over the last N days ending today: habit completion, your day ratings, every grade with before/now per subject, exams, and Stare at Wall sessions.",
     { days: { type: "integer", minimum: 1, maximum: 120, description: "How many days back, counting today. Defaults to 14." } },
     [],
     { readOnly: true },
