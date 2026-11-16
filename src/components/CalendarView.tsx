@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
-import { formatLong, keyFromDate, monthGrid, monthLabel, parseKey } from "@/lib/dates";
+import { formatLong, monthGrid, monthLabel, parseKey } from "@/lib/dates";
 import { dayProgress } from "@/lib/model";
 import { pctOn, startOf, topMissed } from "@/lib/stats";
 import { haptic, playSound, playUntick } from "@/lib/sounds";
@@ -12,9 +12,8 @@ import { CloseIcon, MicIcon } from "./Icons";
 import HabitList from "./HabitList";
 import VoiceEntries, { useVoiceEntries } from "./VoiceEntries";
 import { useHub } from "@/lib/hub/store";
-import { minutesOn, total, uid } from "@/lib/hub/model";
-import { mins } from "@/lib/hub/time";
-import { POSES, SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
+import { uid } from "@/lib/hub/model";
+import { POSES, SUBJECT_META } from "@/lib/hub/subjects";
 import SubjectMark from "./SubjectMark";
 import type { PoseId } from "@/lib/hub/types";
 import PhotoTile from "./PhotoTile";
@@ -85,8 +84,6 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
   const hub = useHub();
   const photos = hub.data.photos[date] ?? {};
   const hasPhotos = Object.keys(photos).length > 0;
-  const bySubject = minutesOn(date, hub.data.sessions, hub.data.timer, hub.now);
-  const studied = total(bySubject);
   const rating = hub.data.ratings[date];
   const said = Object.values(hub.data.days[date]?.logs ?? {}).filter((l) => l.text.trim());
   const goy = hub.data.goy[date];
@@ -161,17 +158,6 @@ function DaySheet({ date, onClose }: { date: string; onClose: () => void }) {
               <VoiceEntries date={date} entries={entries} />
             </div>
           )}
-          {studied >= 1 && (
-            <div className="mt-6">
-              <div className="flex items-baseline justify-between">
-                <span className="label">Studied</span>
-                <span className="font-mono text-[13px] tabular-nums">{mins(studied)}</span>
-              </div>
-              <div className="mt-2 flex h-[4px] w-full overflow-hidden rounded-full bg-track" aria-hidden="true">
-                {SUBJECT_IDS.map((s) => (bySubject[s] > 0 ? <div key={s} className="h-full" style={{ width: `${(bySubject[s] / studied) * 100}%`, background: SUBJECT_META[s].color }} /> : null))}
-              </div>
-            </div>
-          )}
           {said.length > 0 && (
             <div className="mt-6">
               <div className="label mb-2">Lessons</div>
@@ -231,15 +217,7 @@ export default function CalendarView() {
   const [open, setOpen] = useState<string | null>(null);
   const top = settings.habits[0];
   const hub = useHub();
-  // Which days have photos, and which have any study on them (worked out once, not once per square).
-  const marks = useMemo(() => {
-    const studied = new Set<string>();
-    for (const s of Object.values(hub.data.sessions)) {
-      for (let t = s.start; t <= s.end; t += 12 * 3600_000) studied.add(keyFromDate(new Date(t)));
-      studied.add(keyFromDate(new Date(s.end)));
-    }
-    return { studied, photos: hub.data.photos };
-  }, [hub.data.sessions, hub.data.photos]);
+  const marks = { photos: hub.data.photos };
 
   return (
     <div className="fade-up flex flex-col gap-10">
@@ -270,7 +248,6 @@ export default function CalendarView() {
                 const future = key > today;
                 const hasVoice = Boolean(data.days[key]?.voice && Object.keys(data.days[key].voice!).length);
                 const hasPhotos = Boolean(marks.photos[key]);
-                const hasStudy = marks.studied.has(key);
                 const pct = pctOn(data.days, settings, key, today);
                 const a = shade(pct);
                 const missed = topMissed(data.days, settings, key, today);
@@ -285,10 +262,9 @@ export default function CalendarView() {
                     <span className="absolute inset-0 bg-ink" style={{ opacity: a }} aria-hidden="true" />
                     {missed && <Slash light={a > 0.55} />}
                     <span className={cn("relative", a > 0.55 ? "text-bg" : future ? "text-faint" : "text-ink")}>{parseKey(key).getDate()}</span>
-                    {/* Along the bottom: a dash for a day with study, a square for photos, a dot for a journal entry. */}
-                    {(hasStudy || hasPhotos || hasVoice) && (
+                    {/* Along the bottom: a square for photos, a dot for a journal entry. */}
+                    {(hasPhotos || hasVoice) && (
                       <span className="absolute bottom-[5px] flex items-center gap-[3px]" aria-hidden="true">
-                        {hasStudy && <span className={cn("h-[2px] w-[7px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} />}
                         {hasPhotos && <span className={cn("h-[3px] w-[3px]", a > 0.55 ? "bg-bg" : "bg-ink")} />}
                         {hasVoice && <span className={cn("h-[3px] w-[3px] rounded-full", a > 0.55 ? "bg-bg" : "bg-ink")} />}
                       </span>

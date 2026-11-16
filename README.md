@@ -2,7 +2,7 @@
 
 Hugo's own app (it was called Locked In): habits, academics and health in one place. Installable as a web app (PWA)
 on iPhone, iPad and laptop. One person, no login. Black, white and grey, plus one colour per subject (Maths red,
-Physics blue, Economics yellow): a thin marker at rest, the whole slab while that subject's timer is running. Next.js + React + Tailwind, synced through a Firebase Realtime
+Physics blue, Economics yellow): a thin marker beside each subject. Next.js + React + Tailwind, synced through a Firebase Realtime
 Database.
 
 **Seven icons at the bottom**
@@ -13,9 +13,8 @@ Database.
   (for today, tomorrow or miscellaneous) or on a day in the Calendar; one set for a later day appears under Today
   when that day comes, and anything not done stays there.
 - **Academics** – three slabs, one per subject, filling the screen the way the habits do:
-  - each slab shows the subject, today's lesson times and the next exam, and the time studied today, large;
-  - **tap a slab** to study that subject: it takes over the screen in the subject's colour with the clock running
-    (with seconds), and the other two fold to strips. Tap a strip to switch subject. **Hold to stop**. The timer lives in the database, so it survives closing the app;
+  - each slab shows the subject, today's lesson times, the exams coming, and the grade, large. Nothing is timed;
+  - **tap a slab** for that subject's grades;
   - the **round button on a slab** is where you say what you did in that lesson (one note per subject per day):
     press and talk, it's written down, with Shaky / Okay / Solid. Where the browser won't transcribe (an iPhone
     home-screen app), the keyboard's own microphone does it;

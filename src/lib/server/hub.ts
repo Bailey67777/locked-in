@@ -3,7 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { eventsBetween } from "@/lib/hub/ics";
 import { beforeAndNow, normalizeData, normalizeWhoop, safeKey, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
 import { GRADES, SUBJECT_IDS, SUBJECT_META, isSubject, subjectFromTitle } from "@/lib/hub/subjects";
-import type { DayLesson, Grade, HubData, HubSettings, Session, SubjectId, Todo, Whoop } from "@/lib/hub/types";
+import type { DayLesson, Grade, HubData, HubSettings, SubjectId, Todo, Whoop } from "@/lib/hub/types";
 import { sync as whoopSync } from "./whoop";
 
 /**
@@ -111,24 +111,15 @@ const DAY_LABEL = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "
 const dayLabel = (date: string) => DAY_LABEL.format(new Date(`${date}T12:00:00Z`)).replace(/,/g, "");
 const shortDay = (date: string) => dayLabel(date).replace(/ \d{4}$/, "");
 
-/** 95 → "1h 35m", 40 → "40m". */
-function mins(minutes: number): string {
-  const m = Math.max(0, Math.round(minutes));
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  if (!h) return `${r}m`;
-  return r ? `${h}h ${r}m` : `${h}h`;
-}
-
 /* ---------- the database, over REST ---------- */
 
 const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ?? "").replace(/\/$/, "");
 const DATA_KEY = process.env.NEXT_PUBLIC_DATA_KEY || "default";
 
 /** The only places the connector may read. */
-const READABLE = /^(hub\/(settings|days|sessions|stares|grades|timer|todos|ratings|goy|whoop)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
+const READABLE = /^(hub\/(settings|days|stares|grades|todos|ratings|goy|whoop)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
 /** The only places it may write, each a specific child (never a whole parent). */
-const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|sessions\/[^/]+|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
+const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
 
 export function allowed(method: "GET" | "PUT" | "PATCH" | "DELETE", path: string): boolean {
   if (path.split("/").some((part) => !part || part === "." || part === "..")) return false;
@@ -221,20 +212,6 @@ export function lessonsForLondon(date: string, settings: HubSettings, events: Ca
   return lessons;
 }
 
-export type SubjectMinutes = Record<SubjectId, number>;
-const noMinutes = (): SubjectMinutes => ({ maths: 0, physics: 0, econ: 0 });
-const sumMinutes = (m: SubjectMinutes) => m.maths + m.physics + m.econ;
-const overlap = (start: number, end: number, from: number, to: number) => Math.max(0, Math.min(end, to) - Math.max(start, from)) / 60000;
-
-/** Study minutes inside a London day by subject, counting a running timer up to `now`. */
-export function minutesOnLondon(date: string, sessions: Record<string, Session>, timer: HubData["timer"], now: number): SubjectMinutes {
-  const [from, to] = londonDayBounds(date);
-  const out = noMinutes();
-  for (const s of Object.values(sessions)) out[s.subject] += overlap(s.start, s.end, from, to);
-  if (timer) out[timer.subject] += overlap(timer.start, now, from, to);
-  return out;
-}
-
 export type TodoItem = Todo & { id: string };
 export type TodoLists = { today: TodoItem[]; tomorrow: TodoItem[]; later: TodoItem[] };
 
@@ -291,10 +268,6 @@ const quote = (s: string) => {
   const cut = text.length > MAX_LOG_CHARS ? `${text.slice(0, MAX_LOG_CHARS)} … (cut short)` : text;
   return cut.split(/\n+/).map((line) => `> ${line.trim()}`).join("\n");
 };
-
-function minutesLine(m: SubjectMinutes): string {
-  return `${SUBJECT_IDS.map((id) => `${subjectName(id)} ${mins(m[id])}`).join(" · ")} · total ${mins(sumMinutes(m))}`;
-}
 
 function gradeDetail(g: Grade): string {
   return `${g.grade} (${[g.date, g.label, g.score].filter(Boolean).join(", ")})`;
@@ -355,7 +328,7 @@ export type DayInput = {
 };
 
 /** Everything `get_day` returns, as Markdown. */
-export function renderDay({ date, today, now, data, events, calendarFailed, habits, photos, whoop }: DayInput): string {
+export function renderDay({ date, today, data, events, calendarFailed, habits, photos, whoop }: DayInput): string {
   const rel = date === today ? " (today)" : date === addDays(today, -1) ? " (yesterday)" : date === addDays(today, 1) ? " (tomorrow)" : "";
   const out: string[] = [`# ${dayLabel(date)}${rel}`, ""];
   const day = data.days[date] ?? { logs: {} };
@@ -389,10 +362,6 @@ export function renderDay({ date, today, now, data, events, calendarFailed, habi
     }
   }
 
-  const studied = minutesOnLondon(date, data.sessions, data.timer, now);
-  out.push("", "## Study time", minutesLine(studied));
-  if (data.timer && date === today) out.push(`A ${subjectName(data.timer.subject)} timer is running (started ${londonClock(data.timer.start)}).`);
-
   const notes = day.claude?.subjects ?? {};
   out.push("", "## Notes you already saved for this day");
   if (!Object.keys(notes).length) out.push("None yet.");
@@ -423,7 +392,7 @@ export function renderDay({ date, today, now, data, events, calendarFailed, habi
       whoop.rhr !== undefined ? `resting heart rate ${whoop.rhr}` : "",
       whoop.strain !== undefined ? `strain ${whoop.strain} of 21` : "",
     ].filter(Boolean);
-    if (bits.length) out.push(`WHOOP (the night before and that morning): ${bits.join(", ")}.`);
+    if (bits.length) out.push(`WHOOP (the night before and that morning; for context only, it never changes the day's rating): ${bits.join(", ")}.`);
   } else if (data.settings.whoop) out.push("WHOOP: nothing recorded for this day.");
 
   const rating = data.ratings[date];
@@ -450,34 +419,30 @@ export type ProgressInput = {
 };
 
 /** Everything `get_progress` returns, as Markdown. */
-export function renderProgress({ today, now, days, data, records, defs }: ProgressInput): string {
+export function renderProgress({ today, days, data, records, defs }: ProgressInput): string {
   const dates = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)));
-  const totals = noMinutes();
   const lines: string[] = [];
   let talkedAll = 0;
   let quiet = 0;
   for (const date of dates) {
-    const m = minutesOnLondon(date, data.sessions, data.timer, now);
-    for (const id of SUBJECT_IDS) totals[id] += m[id];
     const talked = Object.values(data.days[date]?.logs ?? {}).filter((l) => l.text.trim()).length;
     talkedAll += talked;
     const record = records[date] ?? null;
     const ticks = record ? habitsOn(date, today, defs, record) : null;
-    if (sumMinutes(m) < 0.5 && !talked && !ticks && !data.ratings[date]) {
+    if (!talked && !ticks && !data.ratings[date]) {
       quiet++;
       continue;
     }
-    const study = SUBJECT_IDS.filter((id) => m[id] >= 0.5).map((id) => `${subjectName(id).toLowerCase()} ${mins(m[id])}`);
     const habits = ticks?.length ? `habits ${Math.round((ticks.filter((h) => h.done).length / ticks.length) * 100)}%` : "habits not recorded";
     const rated = data.ratings[date] ? ` · rated ${data.ratings[date].score.toFixed(2)}` : "";
-    lines.push(`- ${shortDay(date)}: ${study.length ? `studied ${study.join(", ")}` : "no study"} · ${talked} lesson${talked === 1 ? "" : "s"} talked through · ${habits}${rated}`);
+    lines.push(`- ${shortDay(date)}: ${talked} lesson${talked === 1 ? "" : "s"} talked through · ${habits}${rated}`);
   }
   const [from] = londonDayBounds(dates[0]);
   const [, to] = londonDayBounds(today);
   const stares = Object.values(data.stares);
   const staresIn = stares.filter((s) => s.start >= from && s.start < to).length;
 
-  const out = [`# Last ${days} day${days === 1 ? "" : "s"}: ${dates[0]} to ${today}`, "", "## Totals", `Study: ${minutesLine(totals)}`];
+  const out = [`# Last ${days} day${days === 1 ? "" : "s"}: ${dates[0]} to ${today}`, "", "## Totals"];
   out.push(`Lessons talked through: ${talkedAll} · Stare at Wall sessions: ${staresIn} (${stares.length} ever)`);
   const scores = dates.map((d) => data.ratings[d]?.score).filter((s): s is number => typeof s === "number");
   out.push(scores.length ? `Your day ratings: ${scores.length} in this window, average ${(scores.reduce((t, s) => t + s, 0) / scores.length).toFixed(2)} out of 10.` : "Your day ratings: none in this window yet.");
@@ -522,7 +487,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "get_day",
     "Read Hugo's day",
-    "One day of Hugo's school life in a single read: his lessons in order with what he said about each (dictated, so read past transcription slips) and how each felt (shaky, okay or solid), study minutes per subject, notes you already saved, habits, to-dos, upcoming exams, grades and targets. Call it first when he runs /today or starts talking about his day.",
+    "One day of Hugo's school life in a single read: his lessons in order with what he said about each (dictated, so read past transcription slips) and how each felt (shaky, okay or solid), notes you already saved, habits, to-dos, upcoming exams, grades and targets. Call it first when he runs /today or starts talking about his day.",
     { date: DATE_SCHEMA },
     [],
     { readOnly: true },
@@ -544,7 +509,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "rate_day",
     "Rate a day",
-    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), his academics, to-dos finished, the photos, and the one-junk-item rule (nothing written under Goy means he ate none, which is a win). For academics, judge what the day needed rather than minutes alone: which exams are coming and how close they were on that day, his grades against his targets, schoolwork to-dos, lessons talked through and how they felt, and his timed study and how it was spread across subjects. If his WHOOP numbers are there, read the day in their light (a full day on a poor recovery counts for more) and never mark him down for a bad night itself. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
+    "Give one finished day a single mark out of 10, to two decimal places (for example 6.85). The app shows him just the number the next time he opens it, so the number has to carry your whole judgement. Read get_day for that date first, and get_progress for your earlier marks so you stay consistent. Judge the day against what it asked of him: a school day with lessons on the timetable is held to more than a Sunday. Weigh his habits (the first one is his must-do, and missing it should cost a lot), his academics, to-dos finished, the photos, and the one-junk-item rule (nothing written under Goy means he ate none, which is a win). He does not time his studying, so there are no study minutes: never judge a day by time spent. For academics, look at which exams are coming and how close they were on that day, his grades against his targets, schoolwork to-dos, and on a school day the lessons he talked through and how they felt. His WHOOP numbers, if shown, are for context only and never move the mark up or down. Be honest and exact: an ordinary day is around 5 to 6, 8 and above is rare and earned, and never round to a whole or half number out of politeness. Rating the same day again replaces the mark and shows it to him again.",
     {
       date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD, Europe/London. Defaults to yesterday. A day can only be rated once it is over." },
       score: { type: "number", minimum: 0, maximum: 10, description: "Out of 10, two decimal places." },
@@ -556,7 +521,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "get_progress",
     "Read Hugo's progress",
-    "Trends over the last N days ending today: study minutes per subject each day, lessons talked through, habit completion, totals per subject, every grade with before/now per subject, exams, and Stare at Wall sessions.",
+    "Trends over the last N days ending today: lessons talked through, habit completion, your day ratings, every grade with before/now per subject, exams, and Stare at Wall sessions.",
     { days: { type: "integer", minimum: 1, maximum: 120, description: "How many days back, counting today. Defaults to 14." } },
     [],
     { readOnly: true },
@@ -573,17 +538,6 @@ export const TOOLS: ToolDef[] = [
       score: { type: "string", maxLength: 40, description: "The raw mark if he gave one, e.g. \"34/50\"." },
     },
     ["subject", "grade"],
-  ),
-  tool(
-    "log_study",
-    "Log study time",
-    "Add study time Hugo did without the app's timer. Adds a new session each time. For today the session ends now; for an earlier date it ends at 18:00.",
-    {
-      subject: SUBJECT_SCHEMA,
-      minutes: { type: "integer", minimum: 1, maximum: 600, description: "Whole minutes studied." },
-      date: { ...DATE_SCHEMA, description: "YYYY-MM-DD. Defaults to today. Not in the future." },
-    },
-    ["subject", "minutes"],
   ),
   tool(
     "set_exam",
@@ -675,11 +629,9 @@ function notFuture(date: string, today: string) {
 async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<string> {
   only(args, ["date"]);
   const date = dateArg(args, today);
-  const [settings, day, sessions, timer, grades, todos, defsRaw, ticksRaw, rating, goy, poses] = await Promise.all([
+  const [settings, day, grades, todos, defsRaw, ticksRaw, rating, goy, poses] = await Promise.all([
     db.get("hub/settings"),
     db.get(`hub/days/${date}`),
-    db.get("hub/sessions"),
-    db.get("hub/timer"),
     db.get("hub/grades"),
     db.get("hub/todos"),
     db.get("settings/habits"),
@@ -689,7 +641,7 @@ async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<st
     // Names of the poses taken that day and nothing else ("shallow"): enough to count them.
     db.get(`hub/photos/${date}`, { shallow: "true" }),
   ]);
-  const data = normalizeData({ settings, days: { [date]: day }, sessions, timer, grades, todos, ratings: { [date]: rating }, goy: { [date]: goy } });
+  const data = normalizeData({ settings, days: { [date]: day }, grades, todos, ratings: { [date]: rating }, goy: { [date]: goy } });
   const photos = poses && typeof poses === "object" ? Math.min(5, Object.keys(poses).length) : 0;
   let events: CalendarEvent[] | null = null;
   let calendarFailed = false;
@@ -739,11 +691,9 @@ async function getProgress(args: Args, { db, now, today }: Ctx): Promise<string>
   const days = args.days === undefined || args.days === null ? 14 : args.days;
   if (typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 120) throw new ToolError("days must be a whole number from 1 to 120.");
   const dates = Array.from({ length: days }, (_, i) => addDays(today, i - (days - 1)));
-  const [settings, hubDays, sessions, timer, stares, grades, defsRaw, ticks, ratings] = await Promise.all([
+  const [settings, hubDays, stares, grades, defsRaw, ticks, ratings] = await Promise.all([
     db.get("hub/settings"),
     db.get("hub/days", { orderBy: JSON.stringify("$key"), startAt: JSON.stringify(dates[0]), endAt: JSON.stringify(today) }),
-    db.get("hub/sessions"),
-    db.get("hub/timer"),
     db.get("hub/stares"),
     db.get("hub/grades"),
     db.get("settings/habits"),
@@ -752,7 +702,7 @@ async function getProgress(args: Args, { db, now, today }: Ctx): Promise<string>
   ]);
   const records: Record<string, HabitTick[] | null> = {};
   dates.forEach((d, i) => (records[d] = habitRecord(ticks[i])));
-  const data = normalizeData({ settings, days: hubDays, sessions, timer, stares, grades, ratings });
+  const data = normalizeData({ settings, days: hubDays, stares, grades, ratings });
   return renderProgress({ today, now, days, data, records, defs: habitDefs(defsRaw) });
 }
 
@@ -767,18 +717,6 @@ async function addGrade(args: Args, { db, now, today }: Ctx): Promise<string> {
   const score = optionalText(args, "score", 40);
   await db.put(`hub/grades/${uid()}`, { subject, grade, date, label, ...(score ? { score } : {}), at: now });
   return `Recorded ${subjectName(subject)} grade ${grade} for ${date}${label ? `: ${label}` : ""}${score ? ` (${score})` : ""}.`;
-}
-
-async function logStudy(args: Args, { db, now, today }: Ctx): Promise<string> {
-  only(args, ["subject", "minutes", "date"]);
-  const subject = subjectArg(args);
-  const minutes = args.minutes;
-  if (typeof minutes !== "number" || !Number.isInteger(minutes) || minutes < 1 || minutes > 600) throw new ToolError("minutes must be a whole number from 1 to 600.");
-  const date = dateArg(args, today);
-  notFuture(date, today);
-  const end = date === today ? now : londonMs(date, "18:00");
-  await db.put(`hub/sessions/${uid()}`, { subject, start: end - minutes * 60000, end });
-  return `Logged ${mins(minutes)} of ${subjectName(subject)} on ${date}.`;
 }
 
 async function setExam(args: Args, { db, today }: Ctx): Promise<string> {
@@ -841,7 +779,6 @@ const HANDLERS = new Map<string, (args: Args, ctx: Ctx) => Promise<string>>([
   ["rate_day", rateDay],
   ["get_progress", getProgress],
   ["add_grade", addGrade],
-  ["log_study", logStudy],
   ["set_exam", setExam],
   ["list_todos", listTodos],
   ["add_todo", addTodo],

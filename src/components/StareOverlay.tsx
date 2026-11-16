@@ -3,12 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useHub } from "@/lib/hub/store";
-import { useTimer } from "@/lib/hub/timer";
 import { uid } from "@/lib/hub/model";
 import { stopwatch } from "@/lib/hub/time";
-import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
 import { haptic, playChime, unlockAudio } from "@/lib/hub/chimes";
-import SubjectMark from "./SubjectMark";
 import { CloseIcon } from "./Icons";
 import { lockScroll } from "@/lib/scrollLock";
 
@@ -23,7 +20,6 @@ type WakeLock = { release: () => Promise<void> };
  */
 export default function StareOverlay({ onClose }: { onClose: () => void }) {
   const { write } = useHub();
-  const { start: startStudy } = useTimer();
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
   const [done, setDone] = useState(false);
@@ -105,24 +101,8 @@ export default function StareOverlay({ onClose }: { onClose: () => void }) {
       {done && (
         <div className="fade-up mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6">
           <h2 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Done.</h2>
-          <div className="mt-8 space-y-2">
-            {SUBJECT_IDS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  startStudy(s);
-                  onClose();
-                }}
-                className="tap flex h-[62px] w-full items-center gap-3.5 rounded-2xl bg-surface px-5 text-left"
-              >
-                <SubjectMark subject={s} height={22} />
-                <span className="text-[17px] font-medium tracking-[-0.015em]">{SUBJECT_META[s].name}</span>
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={onClose} className="btn-quiet mx-auto mt-4 text-muted">
-            Not now
+          <button type="button" onClick={onClose} className="btn mt-8 w-full">
+            Close
           </button>
         </div>
       )}

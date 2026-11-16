@@ -5,11 +5,11 @@ import { useStore } from "@/lib/store";
 import { average, chartDays, habitRates } from "@/lib/stats";
 import { formatShort, lastNDays } from "@/lib/dates";
 import { useHub } from "@/lib/hub/store";
-import { allMinutes, averageRating, dailyMinutes, photoDays, staresOn, studyStreak, total } from "@/lib/hub/model";
-import { hours, mins } from "@/lib/hub/time";
+import { averageRating, beforeAndNow, photoDays, staresOn } from "@/lib/hub/model";
 import { SUBJECT_IDS, SUBJECT_META } from "@/lib/hub/subjects";
 import RandomRecording from "./RandomRecording";
 import RandomBody from "./RandomBody";
+import { ArrowIcon } from "./Icons";
 import SubjectMark from "./SubjectMark";
 
 function Big({ label, value, unit = "%", sub }: { label: string; value: number | string | null; unit?: string; sub?: string }) {
@@ -55,13 +55,6 @@ export default function StatsView() {
   const [body, setBody] = useState(false);
   const hub = useHub();
   const study = hub.data;
-  const month = dailyMinutes(today, 30, study.sessions, study.timer, hub.now);
-  const sumOver = (n: number) => month.slice(-n).reduce((t, d) => t + total(d.mins), 0);
-  const monthBySubject = SUBJECT_IDS.map((s) => ({ s, mins: month.reduce((t, d) => t + d.mins[s], 0) }));
-  const monthMax = Math.max(60, ...month.map((d) => total(d.mins)));
-  const subjectMax = Math.max(1, ...monthBySubject.map((x) => x.mins));
-  const ever = total(allMinutes(study.sessions, study.timer, hub.now));
-  const streak = studyStreak(today, study.sessions, study.timer, hub.now);
   const talked = lastNDays(today, 30).reduce((n, d) => n + Object.values(study.days[d]?.logs ?? {}).filter((l) => l.text.trim()).length, 0);
   const stares = lastNDays(today, 30).reduce((n, d) => n + staresOn(d, study.stares), 0);
   const photoCount = photoDays(study.photos).length;
@@ -132,58 +125,28 @@ export default function StatsView() {
       {best.length > 0 && <HabitRows title="Best three, last 30 days" rows={best} />}
       {worst.length > 0 && <HabitRows title="Worst three" rows={worst} />}
 
-      <h2 className="mt-14 text-[28px] font-bold leading-none tracking-[-0.035em]">Study</h2>
+      <h2 className="mt-14 text-[28px] font-bold leading-none tracking-[-0.035em]">Academics</h2>
 
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        <Big label="7 days" value={hours(sumOver(7))} unit="h" />
-        <Big label="30 days" value={hours(sumOver(30))} unit="h" />
-        <Big label="All time" value={hours(ever)} unit="h" />
-      </div>
-
-      <section className="mt-9">
-        <div className="text-[13px] text-muted">Every day</div>
-        <div className="mt-3 flex h-28 items-end gap-[3px]" role="img" aria-label="Time studied each day">
-          {month.map((d) => {
-            const t = total(d.mins);
-            return (
-              <div key={d.date} className="flex h-full flex-1 flex-col justify-end" title={`${formatShort(d.date)}: ${mins(t)}`}>
-                {t >= 1 ? (
-                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-[2px]" style={{ height: `${Math.max(3, (t / monthMax) * 100)}%` }}>
-                    {SUBJECT_IDS.map((s) => (d.mins[s] > 0 ? <div key={s} style={{ flexGrow: d.mins[s], background: SUBJECT_META[s].color }} /> : null))}
-                  </div>
-                ) : (
-                  <div className="mx-auto h-[3px] w-[3px] rounded-full bg-faint" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-2 flex justify-between font-mono text-[10.5px] text-muted">
-          <span>{formatShort(month[0].date)}</span>
-          <span>{formatShort(month[month.length - 1].date)}</span>
-        </div>
-      </section>
-
-      <section className="mt-9">
-        <div className="text-[13px] text-muted">Subjects, last 30 days</div>
-        <ul className="mt-2 divide-y divide-line border-y border-line">
-          {monthBySubject.map(({ s, mins: m }) => (
-            <li key={s} className="py-3.5">
-              <div className="flex items-center gap-3">
-                <SubjectMark subject={s} height={16} />
-                <span className="min-w-0 flex-1 truncate text-[16px]">{SUBJECT_META[s].name}</span>
-                <span className="shrink-0 text-[14px] tabular-nums text-ink-2">{mins(m)}</span>
-              </div>
-              <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-track">
-                <div className="h-full rounded-full" style={{ width: `${(m / subjectMax) * 100}%`, background: SUBJECT_META[s].color }} />
-              </div>
+      <ul className="mt-5 divide-y divide-line border-y border-line">
+        {SUBJECT_IDS.map((s) => {
+          const { before, now: current } = beforeAndNow(s, study.grades, study.settings.shiftDate);
+          const target = study.settings.targets[s];
+          return (
+            <li key={s} className="flex items-center gap-3 py-3.5">
+              <SubjectMark subject={s} height={16} />
+              <span className="min-w-0 flex-1 truncate text-[16px]">{SUBJECT_META[s].name}</span>
+              {target && <span className="shrink-0 font-mono text-[12px] text-muted">target {target}</span>}
+              <span className="flex shrink-0 items-center gap-2 text-[16px] font-semibold tabular-nums">
+                {before && current && <span className="text-muted">{before.grade}</span>}
+                {before && current && <ArrowIcon width={13} height={13} className="text-faint" />}
+                {current || before ? <span>{(current ?? before)?.grade}</span> : <span className="font-normal text-faint">–</span>}
+              </span>
             </li>
-          ))}
-        </ul>
-      </section>
+          );
+        })}
+      </ul>
 
-      <div className="mt-6 grid grid-cols-3 gap-2">
-        <Big label="Streak" value={streak} unit={streak === 1 ? "day" : "days"} />
+      <div className="mt-6 grid grid-cols-2 gap-2">
         <Big label="Lessons" value={talked} unit="" />
         <Big label="Stares" value={stares} unit="" />
       </div>

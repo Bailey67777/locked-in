@@ -11,9 +11,9 @@ write back into the app, so you can talk a lesson through with Claude without ty
   solid and what is still open. The app shows these under the lesson.
 - **Rate your day.** A mark out of 10, to two decimals, for a day that has finished. The app shows you just the
   number the next time you open it.
-- **Look at your progress.** Study time, lessons talked through, habits, grades and its earlier ratings over the
+- **Look at your progress.** Lessons talked through, habits, grades and its earlier ratings over the
   last few weeks.
-- **Keep small things up to date.** Add a grade, log study time you did away from the timer, set or remove an
+- **Keep small things up to date.** Add a grade, set or remove an
   exam date, and add or tick off to-dos ("remind me to...").
 
 It cannot see your journal, voice notes, photos, vlogs or edits. Those are never read by the connector. (It can tell
@@ -38,12 +38,11 @@ Dates are `YYYY-MM-DD` and "today" is the date in London. Subjects are `maths` (
 
 | Tool | What it does |
 | --- | --- |
-| `get_day` | Reads one day: lessons with what you said and how each felt, study minutes, saved notes, habits, to-dos, exams, grades. |
+| `get_day` | Reads one day: lessons with what you said and how each felt, saved notes, habits, to-dos, exams, grades. |
 | `save_lesson_notes` | Saves Claude's notes for one subject on one day: a summary, the points you now have, the points still open. |
 | `rate_day` | Gives a finished day one mark out of 10, to two decimals (yesterday unless told otherwise). |
 | `get_progress` | Reads the last N days (14 unless asked, up to 120): study time, lessons talked through, habits, grades, exams, Stare at Wall sessions. |
 | `add_grade` | Records a grade (A* to U) for a subject, with an optional label and mark. |
-| `log_study` | Adds study time for a subject (1 to 600 minutes) on a day. |
 | `set_exam` | Adds an exam or changes its date, matched by title. Leaving the date out removes it. |
 | `list_todos` | Reads the three to-do lists: today, tomorrow, for a while. |
 | `add_todo` | Adds a to-do for today, tomorrow or later. |

@@ -85,12 +85,8 @@ function Card({ rated, onClose }: { rated: { date: string; rating: Rating } | nu
         )}
 
         <ul className="mt-10 divide-y divide-line border-y border-line">
-          {settings.whoop && (
-            <>
-              <Row name="Sleep">{whoop?.sleep !== undefined ? `${whoop.sleep}%${whoop.asleep ? ` · ${sleepLength(whoop.asleep)}` : ""}` : "–"}</Row>
-              <Row name="Recovery">{whoop?.recovery !== undefined ? `${whoop.recovery}%` : "–"}</Row>
-            </>
-          )}
+          {whoop?.sleep !== undefined && <Row name="Sleep">{`${whoop.sleep}%${whoop.asleep ? ` · ${sleepLength(whoop.asleep)}` : ""}`}</Row>}
+          {whoop?.recovery !== undefined && <Row name="Recovery">{`${whoop.recovery}%`}</Row>}
           <Row name="Weather">{weather ? `${weatherWord(weather.code)} · ${weather.high}° / ${weather.low}°${weather.code < 51 && weather.rain >= 40 ? ` · ${weather.rain}% rain` : ""}` : "–"}</Row>
         </ul>
 

@@ -245,17 +245,17 @@ export default function HealthView() {
         <li>
           <Goy key={date} date={date} today={today} />
         </li>
-        {data.settings.whoop && (
-          <>
-            <li className="flex items-center justify-between py-4">
-              <span className="text-[17px] font-medium tracking-[-0.015em]">Recovery</span>
-              <span className="font-mono text-[13px] tabular-nums text-ink-2">{whoop?.recovery !== undefined ? `${whoop.recovery}%` : "–"}</span>
-            </li>
-            <li className="flex items-center justify-between py-4">
-              <span className="text-[17px] font-medium tracking-[-0.015em]">Sleep</span>
-              <span className="font-mono text-[13px] tabular-nums text-ink-2">{whoop?.sleep !== undefined ? `${whoop.sleep}%${whoop.asleep ? ` · ${sleepLength(whoop.asleep)}` : ""}` : "–"}</span>
-            </li>
-          </>
+        {whoop?.recovery !== undefined && (
+          <li className="flex items-center justify-between py-4">
+            <span className="text-[17px] font-medium tracking-[-0.015em]">Recovery</span>
+            <span className="font-mono text-[13px] tabular-nums text-ink-2">{whoop.recovery}%</span>
+          </li>
+        )}
+        {whoop?.sleep !== undefined && (
+          <li className="flex items-center justify-between py-4">
+            <span className="text-[17px] font-medium tracking-[-0.015em]">Sleep</span>
+            <span className="font-mono text-[13px] tabular-nums text-ink-2">{`${whoop.sleep}%${whoop.asleep ? ` · ${sleepLength(whoop.asleep)}` : ""}`}</span>
+          </li>
         )}
       </ul>
 
