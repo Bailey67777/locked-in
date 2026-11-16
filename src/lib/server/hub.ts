@@ -280,7 +280,7 @@ function gradeSummary(data: HubData): string[] {
     const target = data.settings.targets[id];
     const path = [before ? `before ${gradeDetail(before)}` : "", now ? `now ${gradeDetail(now)}` : ""].filter(Boolean).join(" → ");
     const parts = [path || "no grades yet", target ? `target ${target}` : "no target set"];
-    lines.push(`- ${subjectName(id)} (${SUBJECT_META[id].board}): ${parts.join(" · ")}`);
+    lines.push(`- ${subjectName(id)} (${SUBJECT_META[id].board}; his tests are marked up to ${SUBJECT_META[id].top}, so ${SUBJECT_META[id].top} is full marks): ${parts.join(" · ")}`);
   }
   return lines;
 }

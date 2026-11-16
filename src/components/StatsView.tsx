@@ -138,7 +138,10 @@ export default function StatsView() {
               <span className="flex shrink-0 items-center gap-2 text-[16px] font-semibold tabular-nums">
                 {before && current && <span className="text-muted">{before.grade || before.score}</span>}
                 {before && current && <ArrowIcon width={13} height={13} className="text-faint" />}
-                <span>{(current ?? before)?.grade || (current ?? before)?.score}</span>
+                <span>
+                  {(current ?? before)?.grade || (current ?? before)?.score}
+                  {(current ?? before)?.grade && <span className="font-normal text-muted"> / {SUBJECT_META[s].top}</span>}
+                </span>
               </span>
             </li>
           );

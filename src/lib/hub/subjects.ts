@@ -3,10 +3,14 @@ import type { PoseId, SubjectId } from "./types";
 export const SUBJECT_IDS: SubjectId[] = ["maths", "physics", "econ"];
 
 /** Each subject's colour is a CSS variable (globals.css), tuned for light and dark. */
-export const SUBJECT_META: Record<SubjectId, { name: string; board: string; color: string; on: string }> = {
-  maths: { name: "Maths", board: "Edexcel", color: "var(--maths)", on: "var(--on-maths)" },
-  physics: { name: "Physics", board: "AQA", color: "var(--physics)", on: "var(--on-physics)" },
-  econ: { name: "Economics", board: "AQA", color: "var(--econ)", on: "var(--on-econ)" },
+/**
+ * `top` is the best grade a test in that subject is marked out of: his Maths and Physics tests go up to A, his
+ * Economics ones up to A*. A result is shown against it ("B / A").
+ */
+export const SUBJECT_META: Record<SubjectId, { name: string; board: string; color: string; on: string; top: string }> = {
+  maths: { name: "Maths", board: "Edexcel", color: "var(--maths)", on: "var(--on-maths)", top: "A" },
+  physics: { name: "Physics", board: "AQA", color: "var(--physics)", on: "var(--on-physics)", top: "A" },
+  econ: { name: "Economics", board: "AQA", color: "var(--econ)", on: "var(--on-econ)", top: "A*" },
 };
 
 export const isSubject = (v: unknown): v is SubjectId => typeof v === "string" && (SUBJECT_IDS as string[]).includes(v);

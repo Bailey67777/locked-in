@@ -24,6 +24,12 @@ export default function AssessmentSheet({ target, onClose }: { target: Assessmen
   const [grade, setGrade] = useState(result?.grade ?? "");
   const [score, setScore] = useState(result?.score ?? "");
   const valid = title.trim() !== "" && date !== "" && subject !== null;
+  // The grades a test in this subject can give: from its top grade down.
+  const scale = subject ? GRADES.slice(GRADES.indexOf(SUBJECT_META[subject].top)) : GRADES;
+  const choose = (s: SubjectId) => {
+    setSubject(s);
+    if (grade && GRADES.indexOf(grade) < GRADES.indexOf(SUBJECT_META[s].top)) setGrade("");
+  };
   const marked = Boolean(grade || score.trim());
 
   const save = () => {
@@ -55,7 +61,7 @@ export default function AssessmentSheet({ target, onClose }: { target: Assessmen
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Name" maxLength={120} enterKeyHint="done" className="field mt-3" aria-label="Name" />
         <div className="mt-2 grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
           {SUBJECT_IDS.map((s) => (
-            <button key={s} type="button" aria-pressed={subject === s} onClick={() => setSubject(s)} className={cn("h-10 rounded-xl text-[13.5px] transition-colors", subject === s ? "bg-ink text-bg" : "text-ink-2")}>
+            <button key={s} type="button" aria-pressed={subject === s} onClick={() => choose(s)} className={cn("h-10 rounded-xl text-[13.5px] transition-colors", subject === s ? "bg-ink text-bg" : "text-ink-2")}>
               {SUBJECT_META[s].name}
             </button>
           ))}
@@ -66,8 +72,8 @@ export default function AssessmentSheet({ target, onClose }: { target: Assessmen
         </label>
 
         <div className="mt-6 text-[13px] text-muted">Result</div>
-        <div className="mt-2 grid grid-cols-7 gap-1 rounded-2xl bg-surface p-1">
-          {GRADES.map((g) => (
+        <div className="mt-2 grid gap-1 rounded-2xl bg-surface p-1" style={{ gridTemplateColumns: `repeat(${scale.length}, minmax(0, 1fr))` }}>
+          {scale.map((g) => (
             <button key={g} type="button" aria-pressed={grade === g} onClick={() => setGrade(grade === g ? "" : g)} className={cn("h-11 rounded-xl text-[15px] font-semibold transition-colors", grade === g ? "bg-ink text-bg" : "text-ink-2")}>
               {g}
             </button>

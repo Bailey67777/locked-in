@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useHub } from "@/lib/hub/store";
 import { useCalendarDay } from "@/lib/hub/calendar";
 import { lessonsFor } from "@/lib/hub/model";
 import { daysUntil } from "@/lib/hub/time";
-import { formatShort } from "@/lib/dates";
+import { formatDayMonth, formatShort } from "@/lib/dates";
 import { SUBJECT_IDS, SUBJECT_META, gradeRank } from "@/lib/hub/subjects";
 import type { SubjectId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
-import { PlusIcon, WallIcon } from "./Icons";
+import { ChevronIcon, PlusIcon, WallIcon } from "./Icons";
 import AssessmentSheet, { type AssessmentTarget } from "./AssessmentSheet";
 import StareOverlay from "./StareOverlay";
 
@@ -48,10 +48,30 @@ function Row({ subject, title, date, onClick, children }: { subject: SubjectId |
   );
 }
 
+/** A result: smaller than what's still to come, with a dot of the subject's colour in place of the bar. */
+function ResultRow({ subject, title, date, onClick, children }: { subject: SubjectId | undefined; title: string; date: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <li>
+      <button type="button" onClick={onClick} className="tap flex w-full items-center gap-3 py-2.5 text-left">
+        <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: subject ? SUBJECT_META[subject].color : "var(--faint)" }} aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] tracking-[-0.01em]">{title}</span>
+          <span className="block truncate font-mono text-[11.5px] tabular-nums text-muted">
+            {subject ? `${SUBJECT_META[subject].name} · ` : ""}
+            {formatDayMonth(date)}
+          </span>
+        </span>
+        <span className="shrink-0 text-right">{children}</span>
+      </button>
+    </li>
+  );
+}
+
 /**
  * School as two lists in the same hand as the to-dos. Upcoming: every assessment still to come, nearest first, with
- * the days left. Results: every one that's been sat, with its grade or mark, in the order you choose (date, subject
- * or grade); one whose date has passed waits there until its result is put in. Under the title, today's lessons as
+ * the days left. Results: every one that's been sat, kept shut behind one line until it's opened, each with its grade
+ * (against the best that subject's tests give) or mark, in the order you choose (date, subject or grade); one whose
+ * date has passed waits there until its result is put in. Under the title, today's lessons as
  * a row of times, each with its subject's colour. Nothing is timed.
  */
 export default function AcademicsView() {
@@ -64,6 +84,13 @@ export default function AcademicsView() {
 
   const [open, setOpen] = useState<AssessmentTarget | null>(null);
   const [stare, setStare] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const resultsRef = useRef<HTMLElement>(null);
+  const toggleResults = () => {
+    setShowResults((v) => !v);
+    // Opened from the bottom of the page, the results would land below the bar: bring them up.
+    if (!showResults) window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
   const [sort, setSort] = useState<Sort>(() => {
     try {
       const saved = localStorage.getItem(SORT_KEY);
@@ -146,35 +173,49 @@ export default function AcademicsView() {
         )}
       </section>
 
-      <section className="mt-9">
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[13px] text-muted">Results</span>
-          <span className="flex gap-3.5 text-[13px]" role="group" aria-label="Order results by">
-            {SORTS.map((s) => (
-              <button key={s.id} type="button" aria-pressed={sort === s.id} onClick={() => pick(s.id)} className={sort === s.id ? "text-ink" : "text-faint"}>
-                {s.name}
-              </button>
-            ))}
+      {/* What's been sat is kept shut until asked for: a line that opens, in a smaller hand than what's still to come. */}
+      <section className="mt-9" ref={resultsRef}>
+        <button type="button" onClick={toggleResults} aria-expanded={showResults} className="tap flex w-full items-center justify-between border-y border-line py-4 text-left">
+          <span className="text-[17px] font-medium tracking-[-0.015em]">Results</span>
+          <span className="flex items-center gap-2.5">
+            {waiting.length > 0 ? <span className="text-[13px] text-ink">{waiting.length} to add</span> : <span className="font-mono text-[12px] tabular-nums text-muted">{results.length || "–"}</span>}
+            <ChevronIcon dir={showResults ? "up" : "down"} width={16} height={16} className="text-muted" />
           </span>
-        </div>
-        {waiting.length || results.length ? (
-          <ul className="divide-y divide-line border-y border-line">
-            {waiting.map((e) => (
-              <Row key={e.id} subject={e.subject} title={e.title} date={e.date} onClick={() => setOpen({ kind: "exam", id: e.id })}>
-                <span className="text-[13.5px] text-faint">Add result</span>
-              </Row>
-            ))}
-            {results.map((g) => (
-              <Row key={g.id} subject={g.subject} title={g.label || "Assessment"} date={g.date} onClick={() => setOpen({ kind: "result", id: g.id })}>
-                <span className="flex items-baseline gap-2.5">
-                  {g.score && <span className={cn("font-mono text-[13px] tabular-nums", g.grade ? "text-muted" : "text-ink")}>{g.score}</span>}
-                  {g.grade && <span className="text-[17px] font-bold tracking-[-0.02em]">{g.grade}</span>}
-                </span>
-              </Row>
-            ))}
-          </ul>
-        ) : (
-          <p className="border-y border-line py-[13px] text-center text-[15px] text-faint">–</p>
+        </button>
+        {showResults && (
+          <div className="fade-in rounded-b-2xl bg-surface px-4 pb-1">
+            <div className="flex justify-end gap-3.5 pt-3 text-[13px]" role="group" aria-label="Order results by">
+              {SORTS.map((o) => (
+                <button key={o.id} type="button" aria-pressed={sort === o.id} onClick={() => pick(o.id)} className={sort === o.id ? "text-ink" : "text-faint"}>
+                  {o.name}
+                </button>
+              ))}
+            </div>
+            {waiting.length || results.length ? (
+              <ul className="mt-1 divide-y divide-line">
+                {waiting.map((e) => (
+                  <ResultRow key={e.id} subject={e.subject} title={e.title} date={e.date} onClick={() => setOpen({ kind: "exam", id: e.id })}>
+                    <span className="text-[13px] text-muted">Add result</span>
+                  </ResultRow>
+                ))}
+                {results.map((g) => (
+                  <ResultRow key={g.id} subject={g.subject} title={g.label || "Assessment"} date={g.date} onClick={() => setOpen({ kind: "result", id: g.id })}>
+                    <span className="flex items-baseline gap-2.5">
+                      {g.score && <span className={cn("font-mono text-[12.5px] tabular-nums", g.grade ? "text-muted" : "text-ink")}>{g.score}</span>}
+                      {g.grade && (
+                        <span className="text-[15px] font-semibold tracking-[-0.01em]">
+                          {g.grade}
+                          <span className="font-normal text-muted"> / {SUBJECT_META[g.subject].top}</span>
+                        </span>
+                      )}
+                    </span>
+                  </ResultRow>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-4 text-center text-[15px] text-faint">–</p>
+            )}
+          </div>
         )}
       </section>
 
