@@ -1,5 +1,5 @@
 /* Hugo (was Locked In) service worker: app shell offline + cache-first static assets. */
-const VERSION = "hugo-v1";
+const VERSION = "hugo-v2"; // bumped when a file kept under the same address changes (the icons), so the old copies are dropped
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

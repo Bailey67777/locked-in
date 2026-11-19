@@ -1,4 +1,4 @@
-// The Hugo mark: a sun, white on near-black. Used by gen-icons.mjs for every app icon.
+// The Hugo mark: a sun, orange on near-black with a soft glow (the Autumn look). Used by gen-icons.mjs for every app icon.
 // A disc with a fine inner ring, twelve long rays and twelve short ones between them, each tapering to a point.
 export function logoSvg({ size = 512, padding = 0, rounded = true } = {}) {
   const s = size;
@@ -18,9 +18,21 @@ export function logoSvg({ size = 512, padding = 0, rounded = true } = {}) {
   }
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="${(rx * 512) / s}" fill="#0b0b0b"/>
-  <g fill="#f2f2f2" stroke="#f2f2f2" stroke-width="5" stroke-linejoin="round">${rays.join("")}</g>
-  <circle cx="${c}" cy="${c}" r="100" fill="#f2f2f2"/>
-  <circle cx="${c}" cy="${c}" r="82" fill="none" stroke="#0b0b0b" stroke-width="4"/>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff7a38" stop-opacity="0.5"/>
+      <stop offset="55%" stop-color="#ff7a38" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#ff7a38" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="disc" cx="42%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#ffb46b"/>
+      <stop offset="100%" stop-color="#ff6f2c"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="${(rx * 512) / s}" fill="#0d0704"/>
+  <circle cx="${c}" cy="${c}" r="250" fill="url(#glow)"/>
+  <g fill="#ff7a38" stroke="#ff7a38" stroke-width="5" stroke-linejoin="round">${rays.join("")}</g>
+  <circle cx="${c}" cy="${c}" r="100" fill="url(#disc)"/>
+  <circle cx="${c}" cy="${c}" r="82" fill="none" stroke="#0d0704" stroke-opacity="0.85" stroke-width="4"/>
 </svg>`;
 }
