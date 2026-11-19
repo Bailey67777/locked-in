@@ -292,7 +292,6 @@ export default function SettingsView() {
             </button>
           ))}
         </div>
-        {look === "classic" && (
         <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
           {(["system", "light", "dark"] as const).map((c) => (
             <button
@@ -309,8 +308,7 @@ export default function SettingsView() {
             </button>
           ))}
         </div>
-        )}
-        <p className="mt-2 px-1 text-[12px] text-muted">Set separately on each device.</p>
+        <p className="mt-2 px-1 text-[12px] text-muted">Auto follows your phone. Set separately on each device.</p>
       </Section>
 
       <Section title="Sync">

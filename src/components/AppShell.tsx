@@ -89,7 +89,7 @@ export default function AppShell() {
               onClick={() => go(id)}
               aria-label={label}
               aria-current={tab === id ? "page" : undefined}
-              className={cn("tap flex h-11 w-11 items-center justify-center rounded-full transition-colors", tab === id ? "text-[var(--accent)]" : "text-faint hover:text-muted")}
+              className={cn("tap flex h-11 w-11 items-center justify-center rounded-full transition-colors", tab === id ? "lit text-[var(--accent)]" : "text-faint hover:text-muted")}
             >
               <Icon width={id === "settings" ? 20 : 22} height={id === "settings" ? 20 : 22} strokeWidth={tab === id ? 1.9 : 1.6} />
             </button>

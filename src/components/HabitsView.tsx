@@ -108,7 +108,7 @@ export default function HabitsView() {
           <span className="text-ink">{pct}%</span>
         </div>
         <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
-          <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+          <div className="lit-bar h-full rounded-full bg-[var(--accent)] transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
       </div>
 

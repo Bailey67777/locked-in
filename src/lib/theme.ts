@@ -25,20 +25,21 @@ export function applyTheme(choice: ThemeChoice) {
 }
 
 /**
- * The app's look: its colours and typefaces. "classic" is the original black and white, which follows light/dark;
- * the others each have one palette of their own. Kept per device, like the theme.
+ * The app's look: "classic" is the original black and white; the four seasons share one style and differ in colour.
+ * Every look has a light and a dark side and follows the theme above. Kept per device, like the theme.
  */
-export type Look = "classic" | "autumn" | "winter" | "scholar" | "sunset";
+export type Look = "classic" | "spring" | "summer" | "autumn" | "winter";
+/** Background, accent and text of each look's dark side, for the swatch in Settings. */
 export const LOOKS: { id: Look; name: string; colours: [string, string, string] }[] = [
-  { id: "autumn", name: "Autumn", colours: ["#f6ebd9", "#c8551b", "#3b2414"] },
+  { id: "spring", name: "Spring", colours: ["#06120c", "#5fe6a2", "#eafff2"] },
+  { id: "summer", name: "Summer", colours: ["#120f05", "#ffd23f", "#fff8e0"] },
+  { id: "autumn", name: "Autumn", colours: ["#140b06", "#ff7a38", "#feeede"] },
   { id: "winter", name: "Winter", colours: ["#070b14", "#7cc0ff", "#eaf4ff"] },
-  { id: "scholar", name: "Scholar", colours: ["#17120d", "#c2a26b", "#e8dcc4"] },
-  { id: "sunset", name: "Sunset", colours: ["#fff3e6", "#ff5fa2", "#1b1030"] },
   { id: "classic", name: "Classic", colours: ["#f4f4f3", "#000000", "#7a7a7a"] },
 ];
 const LOOK_KEY = "locked-in:look";
 /** What a device shows until a look is chosen on it. */
-const FIRST_LOOK: Look = "autumn";
+const FIRST_LOOK: Look = "winter";
 
 export function readLook(): Look {
   try {
@@ -61,4 +62,4 @@ export function applyLook(look: Look) {
 }
 
 /** Runs before the first paint so the chosen look and theme never flash the wrong colours. */
-export const THEME_BOOT_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem("${KEY}");if(t==="light"||t==="dark")d.setAttribute("data-theme",t);var l=localStorage.getItem("${LOOK_KEY}")||"${FIRST_LOOK}";if(/^(autumn|winter|scholar|sunset)$/.test(l))d.setAttribute("data-look",l)}catch(e){}`;
+export const THEME_BOOT_SCRIPT = `try{var d=document.documentElement,t=localStorage.getItem("${KEY}");if(t==="light"||t==="dark")d.setAttribute("data-theme",t);var l=localStorage.getItem("${LOOK_KEY}");if(!/^(spring|summer|autumn|winter|classic)$/.test(l))l="${FIRST_LOOK}";if(l!=="classic")d.setAttribute("data-look",l)}catch(e){}`;

@@ -66,31 +66,162 @@
 }
 
 /*
- * Looks (Settings → Appearance): a palette and a pair of typefaces each, set on html[data-look]. They come after the
- * light/dark rules above so they win over them; each look is one tone and ignores the phone's light/dark setting.
+ * Looks (Settings → Appearance): the four seasons. They share one style (square ticks that glow when done, Space
+ * Grotesk) and differ only in colour. Each has a light and a dark palette and follows the phone, or the Light/Dark
+ * choice in Settings, exactly as the classic look does. These rules come after the classic ones so they win.
  */
-:root[data-look="autumn"] {
-  --bg: #f6ebd9;
-  --surface: #fffaf0;
-  --ink: #3b2414;
-  --ink-2: #4f3320;
-  --muted: #94775a;
-  --faint: #cdb596;
-  --line: #e2d0b3;
-  --track: #e6d6bb;
-  --accent: #c8551b;
-  --on-accent: #fffaf0;
-  --maths: #d2453f;
-  --physics: #3f62c9;
-  --econ: #d99a2b;
-  --on-maths: #fffaf0;
-  --on-physics: #fffaf0;
-  --on-econ: #3b2414;
-  --font-sans-face: var(--font-dm-sans);
-  --font-display: var(--font-fraunces);
+:root[data-look="spring"] {
+  --bg: #eff8f1;
+  --surface: #ffffff;
+  --ink: #0d2a1a;
+  --ink-2: #204531;
+  --muted: #6b8c78;
+  --faint: #b7d3c1;
+  --line: #d5e8dc;
+  --track: #daeadf;
+  --accent: #18a862;
+  --on-accent: #ffffff;
   color-scheme: light;
 }
+@media (prefers-color-scheme: dark) {
+  :root[data-look="spring"]:not([data-theme="light"]) {
+    --bg: #06120c;
+    --surface: #0d2016;
+    --ink: #eafff2;
+    --ink-2: #c8ecd6;
+    --muted: #7ea68f;
+    --faint: #294a37;
+    --line: #13291d;
+    --track: #173022;
+    --accent: #5fe6a2;
+    --on-accent: #04140b;
+    color-scheme: dark;
+  }
+}
+:root[data-look="spring"][data-theme="dark"] {
+  --bg: #06120c;
+  --surface: #0d2016;
+  --ink: #eafff2;
+  --ink-2: #c8ecd6;
+  --muted: #7ea68f;
+  --faint: #294a37;
+  --line: #13291d;
+  --track: #173022;
+  --accent: #5fe6a2;
+  --on-accent: #04140b;
+  color-scheme: dark;
+}
+:root[data-look="summer"] {
+  --bg: #fff8e4;
+  --surface: #ffffff;
+  --ink: #2a2004;
+  --ink-2: #463910;
+  --muted: #938257;
+  --faint: #dccf9d;
+  --line: #efe3bb;
+  --track: #f2e8c5;
+  --accent: #eda200;
+  --on-accent: #2a2004;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look="summer"]:not([data-theme="light"]) {
+    --bg: #120f05;
+    --surface: #201a0a;
+    --ink: #fff8e0;
+    --ink-2: #f1e3b7;
+    --muted: #a89879;
+    --faint: #4b4022;
+    --line: #29220f;
+    --track: #312913;
+    --accent: #ffd23f;
+    --on-accent: #1a1400;
+    color-scheme: dark;
+  }
+}
+:root[data-look="summer"][data-theme="dark"] {
+  --bg: #120f05;
+  --surface: #201a0a;
+  --ink: #fff8e0;
+  --ink-2: #f1e3b7;
+  --muted: #a89879;
+  --faint: #4b4022;
+  --line: #29220f;
+  --track: #312913;
+  --accent: #ffd23f;
+  --on-accent: #1a1400;
+  color-scheme: dark;
+}
+:root[data-look="autumn"] {
+  --bg: #f9efe3;
+  --surface: #fffaf3;
+  --ink: #2e190c;
+  --ink-2: #4a2d1a;
+  --muted: #957659;
+  --faint: #d3b99b;
+  --line: #e7d5bb;
+  --track: #ebdac0;
+  --accent: #d4541a;
+  --on-accent: #fffaf3;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look="autumn"]:not([data-theme="light"]) {
+    --bg: #140b06;
+    --surface: #22140b;
+    --ink: #feeede;
+    --ink-2: #edd4bc;
+    --muted: #aa8a70;
+    --faint: #4f3524;
+    --line: #2b1a0f;
+    --track: #342013;
+    --accent: #ff7a38;
+    --on-accent: #1a0c04;
+    color-scheme: dark;
+  }
+}
+:root[data-look="autumn"][data-theme="dark"] {
+  --bg: #140b06;
+  --surface: #22140b;
+  --ink: #feeede;
+  --ink-2: #edd4bc;
+  --muted: #aa8a70;
+  --faint: #4f3524;
+  --line: #2b1a0f;
+  --track: #342013;
+  --accent: #ff7a38;
+  --on-accent: #1a0c04;
+  color-scheme: dark;
+}
 :root[data-look="winter"] {
+  --bg: #edf3fb;
+  --surface: #ffffff;
+  --ink: #0a1a32;
+  --ink-2: #1e3251;
+  --muted: #6c7e99;
+  --faint: #b8c7dc;
+  --line: #d6e1f0;
+  --track: #dae4f2;
+  --accent: #2a86ee;
+  --on-accent: #ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-look="winter"]:not([data-theme="light"]) {
+    --bg: #070b14;
+    --surface: #0f1728;
+    --ink: #eaf4ff;
+    --ink-2: #c9dcf2;
+    --muted: #8195b0;
+    --faint: #2e3d57;
+    --line: #18233a;
+    --track: #1b2740;
+    --accent: #7cc0ff;
+    --on-accent: #06101f;
+    color-scheme: dark;
+  }
+}
+:root[data-look="winter"][data-theme="dark"] {
   --bg: #070b14;
   --surface: #0f1728;
   --ink: #eaf4ff;
@@ -101,131 +232,25 @@
   --track: #1b2740;
   --accent: #7cc0ff;
   --on-accent: #06101f;
-  --maths: #ff6b70;
-  --physics: #7d9bff;
-  --econ: #ffd04a;
-  --on-maths: #0a0a0a;
-  --on-physics: #0a0a0a;
-  --on-econ: #0a0a0a;
+  color-scheme: dark;
+}
+
+:root[data-look] {
   --font-sans-face: var(--font-space-grotesk);
-  --font-display: var(--font-bebas);
-  color-scheme: dark;
+  --glow: color-mix(in srgb, var(--accent) 70%, transparent);
 }
-:root[data-look="scholar"] {
-  --bg: #17120d;
-  --surface: #221a13;
-  --ink: #e8dcc4;
-  --ink-2: #d4c6a8;
-  --muted: #9a8a6e;
-  --faint: #4d402e;
-  --line: #2e251a;
-  --track: #352b1f;
-  --accent: #c2a26b;
-  --on-accent: #17120d;
-  --maths: #c9605a;
-  --physics: #7f93c9;
-  --econ: #d2ad54;
-  --on-maths: #17120d;
-  --on-physics: #17120d;
-  --on-econ: #17120d;
-  --font-sans-face: var(--font-eb-garamond);
-  --font-display: var(--font-cormorant);
-  color-scheme: dark;
-}
-:root[data-look="sunset"] {
-  --bg: #fff3e6;
-  --surface: #ffffff;
-  --ink: #1b1030;
-  --ink-2: #2e2147;
-  --muted: #8b7a9e;
-  --faint: #d8cbe5;
-  --line: #f1dccd;
-  --track: #f4e2d4;
-  --accent: #ff5fa2;
-  --on-accent: #ffffff;
-  --maths: #ff5c62;
-  --physics: #7b5cff;
-  --econ: #ffb21f;
-  --on-maths: #ffffff;
-  --on-physics: #ffffff;
-  --on-econ: #1b1030;
-  --font-sans-face: var(--font-outfit);
-  --font-display: var(--font-unbounded);
-  color-scheme: light;
-}
-
-/* Titles take the look's display face. Each face needs its own weight, slant and size to sit right. */
-:root[data-look] :is(h1, h2) {
-  font-family: var(--font-display), var(--font-sans-face), sans-serif;
-}
-:root[data-look="autumn"] :is(h1, h2) {
-  font-style: italic;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
-:root[data-look="autumn"] h1 {
-  font-size: 42px;
-}
-:root[data-look="winter"] :is(h1, h2) {
-  font-weight: 400;
-  letter-spacing: 0.015em;
-  text-transform: uppercase;
-}
-:root[data-look="winter"] h1 {
-  font-size: 56px;
-  line-height: 0.86;
-}
-:root[data-look="winter"] h2 {
-  font-size: 34px;
-}
-:root[data-look="scholar"] :is(h1, h2) {
-  font-style: italic;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-:root[data-look="scholar"] h1 {
-  font-size: 48px;
-}
-:root[data-look="scholar"] h2 {
-  font-size: 34px;
-}
-:root[data-look="sunset"] :is(h1, h2) {
-  font-weight: 800;
-  letter-spacing: -0.045em;
-}
-:root[data-look="sunset"] h1 {
-  font-size: 29px;
-}
-:root[data-look="sunset"] h2 {
-  font-size: 22px;
-}
-
-/* The tick: each look draws it its own way (round, square with a glow, a gilt diamond, a sticker). */
-:root[data-look="winter"] .tick {
+/* The glow: a done tick, the progress bar and the tab you're on are lit in the season's colour. */
+:root[data-look] .tick {
   border-radius: 6px;
 }
-:root[data-look="winter"] .tick[data-done] {
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 75%, transparent);
+:root[data-look] .tick[data-done] {
+  box-shadow: 0 0 14px var(--glow);
 }
-:root[data-look="scholar"] .tick {
-  width: 13px;
-  height: 13px;
-  margin: 0 4.500px;
-  border-width: 1px;
-  border-radius: 1px;
-  border-color: var(--accent);
-  transform: rotate(45deg);
+:root[data-look] .lit-bar {
+  box-shadow: 0 0 12px var(--glow);
 }
-:root[data-look="scholar"] .tick svg {
-  display: none;
-}
-:root[data-look="sunset"] .tick {
-  border-width: 2.5px;
-  border-radius: 8px;
-  border-color: var(--ink);
-}
-:root[data-look="sunset"] .tick[data-done] {
-  box-shadow: 2px 2px 0 var(--ink);
+:root[data-look] .lit svg {
+  filter: drop-shadow(0 0 6px var(--glow));
 }
 
 @theme inline {

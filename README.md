@@ -242,9 +242,10 @@ today's weather (Open-Meteo, asked for central Bristol only) and today's lessons
 
 ## Looks
 
-Settings → Appearance: four looks besides the classic black and white (Autumn, Winter, Scholar, Sunset), each a
-palette, a display face for titles and a body face, set on `html[data-look]` (`src/lib/theme.ts`, the look blocks in
-`globals.css`). Per device; a device that hasn't chosen starts on Autumn. Ticks and the current tab use `--accent`.
+Settings → Appearance: the four seasons (Spring, Summer, Autumn, Winter) beside the classic black and white. The
+seasons share one style (Space Grotesk, square ticks that glow when done) and differ only in colour; each has a light
+and a dark palette and follows the phone or the Light/Dark choice, like the classic look. Set on `html[data-look]`
+(`src/lib/theme.ts`, the look blocks in `globals.css`). Per device; a device that hasn't chosen starts on Winter.
 
 ## Replan
 
