@@ -212,3 +212,13 @@ export function FlipIcon(p: P) {
     </svg>
   );
 }
+
+export function ReplanIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" {...base} {...p}>
+      <path d="M20 12a8 8 0 1 1-2.500-5.800" />
+      <path d="M20 3.500V8h-4.500" />
+      <path d="M12 8.500V12l2.500 1.750" />
+    </svg>
+  );
+}

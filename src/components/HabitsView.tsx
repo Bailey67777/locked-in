@@ -5,7 +5,9 @@ import { useStore } from "@/lib/store";
 import { dayProgress } from "@/lib/model";
 import { haptic, playAllDone, playSound, playUntick } from "@/lib/sounds";
 import { prewarmEdits, useEditBank } from "@/lib/edits";
-import { MicIcon, PlayIcon } from "./Icons";
+import { MicIcon, PlayIcon, ReplanIcon } from "./Icons";
+import { REPLAN_URL } from "@/lib/replan";
+import { useHub } from "@/lib/hub/store";
 import HabitList from "./HabitList";
 import EditPlayer from "./EditPlayer";
 import JournalSheet from "./JournalSheet";
@@ -14,6 +16,8 @@ import { useVoiceEntries } from "./VoiceEntries";
 /** Today: ten habits, a bar, and the journal. */
 export default function HabitsView() {
   const { today, data, getDay, updateDay } = useStore();
+  // His own Claude chat for changing the plan, when its link is set; otherwise a new chat with the request written.
+  const replan = useHub().data.settings.quickChat || REPLAN_URL;
   const settings = data.settings;
   const bank = useEditBank();
   const day = getDay(today);
@@ -79,9 +83,15 @@ export default function HabitsView() {
         <div style={{ flex: "3 1 0" }} />
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Habits</h1>
-          <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
-            <MicIcon />
-          </button>
+          <div className="flex shrink-0 items-center gap-2.5">
+            {/* Replan: opens Claude with the request already written; say what changed and it moves the day in Structured. */}
+            <a href={replan} target="_blank" rel="noopener noreferrer" className="tap flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Replan today with Claude">
+              <ReplanIcon />
+            </a>
+            <button type="button" onClick={() => setJournal(true)} className="tap relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label={`Journal${recordings ? `, ${recordings} today` : ""}`}>
+              <MicIcon />
+            </button>
+          </div>
         </div>
         <div style={{ flex: "1 1 0" }} />
       </header>
@@ -98,7 +108,7 @@ export default function HabitsView() {
           <span className="text-ink">{pct}%</span>
         </div>
         <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's progress">
-          <div className="h-full rounded-full bg-ink transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
       </div>
 

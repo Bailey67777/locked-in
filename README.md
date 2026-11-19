@@ -239,3 +239,15 @@ Recovery, sleep and strain land at `hub/whoop/<date>`; they show in Health, on t
 
 The first time the app is opened each day (from 04:00) it shows yesterday's rating, last night's sleep and recovery,
 today's weather (Open-Meteo, asked for central Bristol only) and today's lessons (`src/components/Morning.tsx`).
+
+## Looks
+
+Settings → Appearance: four looks besides the classic black and white (Autumn, Winter, Scholar, Sunset), each a
+palette, a display face for titles and a body face, set on `html[data-look]` (`src/lib/theme.ts`, the look blocks in
+`globals.css`). Per device; a device that hasn't chosen starts on Autumn. Ticks and the current tab use `--accent`.
+
+## Replan
+
+The round arrow button on Habits opens his own Claude chat for changing the day's plan in Structured
+(`hub/settings/quickChat`, set in Settings → Claude); without one it opens a new chat with the request written
+(`src/lib/replan.ts`). Claude does the rescheduling through his Structured and Hugo connectors.

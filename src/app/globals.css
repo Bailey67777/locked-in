@@ -7,6 +7,9 @@
  * overrides the phone's own setting.
  */
 :root {
+  /* The one colour that isn't grey: ticks and the tab you're on. Black and white in the classic look. */
+  --accent: var(--ink);
+  --on-accent: var(--bg);
   --bg: #f4f4f3;
   --surface: #ffffff;
   --ink: #000000;
@@ -60,6 +63,169 @@
   --on-physics: #0a0a0a;
   --on-econ: #0a0a0a;
   color-scheme: dark;
+}
+
+/*
+ * Looks (Settings → Appearance): a palette and a pair of typefaces each, set on html[data-look]. They come after the
+ * light/dark rules above so they win over them; each look is one tone and ignores the phone's light/dark setting.
+ */
+:root[data-look="autumn"] {
+  --bg: #f6ebd9;
+  --surface: #fffaf0;
+  --ink: #3b2414;
+  --ink-2: #4f3320;
+  --muted: #94775a;
+  --faint: #cdb596;
+  --line: #e2d0b3;
+  --track: #e6d6bb;
+  --accent: #c8551b;
+  --on-accent: #fffaf0;
+  --maths: #d2453f;
+  --physics: #3f62c9;
+  --econ: #d99a2b;
+  --on-maths: #fffaf0;
+  --on-physics: #fffaf0;
+  --on-econ: #3b2414;
+  --font-sans-face: var(--font-dm-sans);
+  --font-display: var(--font-fraunces);
+  color-scheme: light;
+}
+:root[data-look="winter"] {
+  --bg: #070b14;
+  --surface: #0f1728;
+  --ink: #eaf4ff;
+  --ink-2: #c9dcf2;
+  --muted: #8195b0;
+  --faint: #2e3d57;
+  --line: #18233a;
+  --track: #1b2740;
+  --accent: #7cc0ff;
+  --on-accent: #06101f;
+  --maths: #ff6b70;
+  --physics: #7d9bff;
+  --econ: #ffd04a;
+  --on-maths: #0a0a0a;
+  --on-physics: #0a0a0a;
+  --on-econ: #0a0a0a;
+  --font-sans-face: var(--font-space-grotesk);
+  --font-display: var(--font-bebas);
+  color-scheme: dark;
+}
+:root[data-look="scholar"] {
+  --bg: #17120d;
+  --surface: #221a13;
+  --ink: #e8dcc4;
+  --ink-2: #d4c6a8;
+  --muted: #9a8a6e;
+  --faint: #4d402e;
+  --line: #2e251a;
+  --track: #352b1f;
+  --accent: #c2a26b;
+  --on-accent: #17120d;
+  --maths: #c9605a;
+  --physics: #7f93c9;
+  --econ: #d2ad54;
+  --on-maths: #17120d;
+  --on-physics: #17120d;
+  --on-econ: #17120d;
+  --font-sans-face: var(--font-eb-garamond);
+  --font-display: var(--font-cormorant);
+  color-scheme: dark;
+}
+:root[data-look="sunset"] {
+  --bg: #fff3e6;
+  --surface: #ffffff;
+  --ink: #1b1030;
+  --ink-2: #2e2147;
+  --muted: #8b7a9e;
+  --faint: #d8cbe5;
+  --line: #f1dccd;
+  --track: #f4e2d4;
+  --accent: #ff5fa2;
+  --on-accent: #ffffff;
+  --maths: #ff5c62;
+  --physics: #7b5cff;
+  --econ: #ffb21f;
+  --on-maths: #ffffff;
+  --on-physics: #ffffff;
+  --on-econ: #1b1030;
+  --font-sans-face: var(--font-outfit);
+  --font-display: var(--font-unbounded);
+  color-scheme: light;
+}
+
+/* Titles take the look's display face. Each face needs its own weight, slant and size to sit right. */
+:root[data-look] :is(h1, h2) {
+  font-family: var(--font-display), var(--font-sans-face), sans-serif;
+}
+:root[data-look="autumn"] :is(h1, h2) {
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+:root[data-look="autumn"] h1 {
+  font-size: 42px;
+}
+:root[data-look="winter"] :is(h1, h2) {
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+:root[data-look="winter"] h1 {
+  font-size: 56px;
+  line-height: 0.86;
+}
+:root[data-look="winter"] h2 {
+  font-size: 34px;
+}
+:root[data-look="scholar"] :is(h1, h2) {
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+:root[data-look="scholar"] h1 {
+  font-size: 48px;
+}
+:root[data-look="scholar"] h2 {
+  font-size: 34px;
+}
+:root[data-look="sunset"] :is(h1, h2) {
+  font-weight: 800;
+  letter-spacing: -0.045em;
+}
+:root[data-look="sunset"] h1 {
+  font-size: 29px;
+}
+:root[data-look="sunset"] h2 {
+  font-size: 22px;
+}
+
+/* The tick: each look draws it its own way (round, square with a glow, a gilt diamond, a sticker). */
+:root[data-look="winter"] .tick {
+  border-radius: 6px;
+}
+:root[data-look="winter"] .tick[data-done] {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+:root[data-look="scholar"] .tick {
+  width: 13px;
+  height: 13px;
+  margin: 0 4.500px;
+  border-width: 1px;
+  border-radius: 1px;
+  border-color: var(--accent);
+  transform: rotate(45deg);
+}
+:root[data-look="scholar"] .tick svg {
+  display: none;
+}
+:root[data-look="sunset"] .tick {
+  border-width: 2.5px;
+  border-radius: 8px;
+  border-color: var(--ink);
+}
+:root[data-look="sunset"] .tick[data-done] {
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
 @theme inline {

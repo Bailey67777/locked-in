@@ -6,7 +6,7 @@ import { addDays, lastNDays } from "../dates";
 /** Grades before this day are "before the shift", on or after it "now". */
 export const SHIFT_DATE = "2026-11-15";
 
-export const DEFAULT_SETTINGS: HubSettings = { targets: {}, stareMin: 10, timetable: {}, calendarUrl: "", shiftDate: SHIFT_DATE, exams: {}, whoop: false };
+export const DEFAULT_SETTINGS: HubSettings = { targets: {}, stareMin: 10, timetable: {}, calendarUrl: "", shiftDate: SHIFT_DATE, exams: {}, whoop: false, quickChat: "" };
 
 export function uid(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -55,6 +55,7 @@ export function normalizeSettings(raw: unknown): HubSettings {
     shiftDate: isDateKey(r.shiftDate) ? r.shiftDate : SHIFT_DATE,
     exams,
     whoop: r.whoop === true,
+    quickChat: /^https:\/\/claude\.ai\/[\w\-/?=&%.]+$/.test(str(r.quickChat).trim()) ? str(r.quickChat).trim() : "",
   };
 }
 

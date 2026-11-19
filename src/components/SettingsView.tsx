@@ -11,7 +11,7 @@ import { addDays } from "@/lib/dates";
 import { DATA_KEY } from "@/lib/firebase";
 import { soundName } from "@/lib/sounds";
 import { useEditBank } from "@/lib/edits";
-import { applyTheme, readTheme, type ThemeChoice } from "@/lib/theme";
+import { LOOKS, applyLook, applyTheme, readLook, readTheme, type Look, type ThemeChoice } from "@/lib/theme";
 import { cloudConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/cn";
 import { ChevronIcon } from "./Icons";
@@ -51,6 +51,7 @@ export default function SettingsView() {
   const habits = settings.habits;
   const [editing, setEditing] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeChoice>(() => (typeof window === "undefined" ? "system" : readTheme()));
+  const [look, setLook] = useState<Look>(() => (typeof window === "undefined" ? "classic" : readLook()));
   const hub = useHub();
   const vault = useVault();
   const school = hub.data.settings;
@@ -62,6 +63,8 @@ export default function SettingsView() {
   const cal = calDraft ?? school.calendarUrl;
   const [calStatus, setCalStatus] = useState<string | null>(null);
   const [claude, setClaude] = useState<string | null>(null);
+  // null = not being edited (the box shows the saved link, and leaving it changes nothing).
+  const [chatDraft, setChat] = useState<string | null>(null);
   const [claudeLink, setClaudeLink] = useState<string | null>(null);
 
   const saveCalendar = async () => {
@@ -233,6 +236,25 @@ export default function SettingsView() {
           <span className="text-[12.5px] text-muted">{claude ?? ""}</span>
         </button>
         {claudeLink && <input readOnly value={claudeLink} onFocus={(e) => e.currentTarget.select()} className="field mt-2 font-mono text-[12px]" aria-label="Connector link" />}
+        <input
+          value={chatDraft ?? school.quickChat}
+          onChange={(e) => setChat(e.target.value)}
+          onBlur={() => {
+            if (chatDraft === null) return;
+            const url = chatDraft.trim();
+            setChat(null);
+            if (url !== school.quickChat) hub.write("settings/quickChat", url || null);
+          }}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          placeholder="Link to your replan chat"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          className="field mt-2 text-[14px]"
+          aria-label="Link to your Claude chat for replanning the day"
+        />
       </Section>
 
       <Section title="WHOOP">
@@ -250,7 +272,28 @@ export default function SettingsView() {
       </Section>
 
       <Section title="Appearance">
-        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
+        <div className="grid grid-cols-5 gap-1.5">
+          {LOOKS.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => {
+                setLook(l.id);
+                applyLook(l.id);
+              }}
+              aria-pressed={look === l.id}
+              className={cn("tap flex flex-col items-center gap-2 rounded-2xl px-1 pb-2.5 pt-3 transition-colors", look === l.id ? "bg-surface" : "")}
+            >
+              <span className="flex h-9 w-9 overflow-hidden rounded-full border border-line" style={{ background: l.colours[0] }} aria-hidden="true">
+                <span className="mt-auto h-1/2 w-1/2" style={{ background: l.colours[1] }} />
+                <span className="mt-auto h-1/2 w-1/2" style={{ background: l.colours[2] }} />
+              </span>
+              <span className={cn("text-[11.5px]", look === l.id ? "text-ink" : "text-muted")}>{l.name}</span>
+            </button>
+          ))}
+        </div>
+        {look === "classic" && (
+        <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
           {(["system", "light", "dark"] as const).map((c) => (
             <button
               key={c}
@@ -266,7 +309,8 @@ export default function SettingsView() {
             </button>
           ))}
         </div>
-        <p className="mt-2 px-1 text-[12px] text-muted">Auto follows your phone. Set separately on each device.</p>
+        )}
+        <p className="mt-2 px-1 text-[12px] text-muted">Set separately on each device.</p>
       </Section>
 
       <Section title="Sync">

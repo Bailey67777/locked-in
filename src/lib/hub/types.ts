@@ -23,6 +23,8 @@ export type HubSettings = {
   /** Grades dated before this day count as "before", on or after it as "now". */
   shiftDate: string;
   exams: Record<string, Exam>;
+  /** The link to his own Claude chat for changing the day's plan (his "quick structured" chat). The replan button opens it. */
+  quickChat: string;
   /** A WHOOP is connected. The keys for it stay on the server; this only says there is something to show. */
   whoop: boolean;
 };

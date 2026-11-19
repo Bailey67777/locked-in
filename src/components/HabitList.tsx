@@ -31,9 +31,10 @@ export default function HabitList({ habits, locked = false, fill = false, onTogg
             className={cn("tap flex w-full items-center gap-3.5 text-left disabled:active:scale-100", fill ? "py-1" : "py-[13px]")}
           >
             <span
+              data-done={h.done || undefined}
               className={cn(
-                "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.75px] transition-colors duration-200",
-                h.done ? "border-ink bg-ink text-bg" : "border-muted",
+                "tick flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.75px] transition-colors duration-200",
+                h.done ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-muted",
               )}
             >
               {h.done && <CheckIcon width={12} height={12} />}
