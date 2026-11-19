@@ -252,3 +252,9 @@ and a dark palette and follows the phone or the Light/Dark choice, like the clas
 The round arrow button on Habits opens his own Claude chat for changing the day's plan in Structured
 (`hub/settings/quickChat`, set in Settings → Claude); without one it opens a new chat with the request written
 (`src/lib/replan.ts`). Claude does the rescheduling through his Structured and Hugo connectors.
+
+## Mac app
+
+`mac/` holds a small native wrapper (Swift, AppKit + WKWebView): the site in a window of its own with no browser
+around it and no title strip, only the window's buttons over the page. `mac/build.sh` compiles it with the Command
+Line Tools, makes the icon from `scripts/logo.mjs`, signs it locally and installs `/Applications/Hugo.app`.
