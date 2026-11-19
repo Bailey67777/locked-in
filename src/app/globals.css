@@ -310,6 +310,12 @@ body {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* The window's own title-bar area, when the installed app draws into it (0 everywhere else). */
+.titlebar {
+  height: env(titlebar-area-height, 0px);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }

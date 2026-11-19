@@ -64,6 +64,8 @@ export default function AppShell() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
       <div className="pt-safe" />
+      {/* In the installed computer app with the title bar hidden: room for the window's buttons, and a place to drag it by. */}
+      <div className="titlebar" />
       <main className={cn("flex flex-1 flex-col px-5", tab === "habits" ? "pb-[calc(58px+env(safe-area-inset-bottom,0px))]" : "pb-[calc(110px+env(safe-area-inset-bottom,0px))] pt-7")}>
         {ready && (
           <>
