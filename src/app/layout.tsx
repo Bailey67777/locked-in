@@ -6,6 +6,7 @@ import { HubProvider } from "@/lib/hub/store";
 import { VaultProvider } from "@/lib/hub/useVault";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import ThemeColor from "@/components/ThemeColor";
 
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans-face", display: "swap" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <VaultProvider>{children}</VaultProvider>
           </HubProvider>
         </AppProviders>
+        <ThemeColor />
         <ServiceWorkerRegister />
       </body>
     </html>
