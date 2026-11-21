@@ -152,6 +152,44 @@ export default function AcademicsView() {
         )}
       </header>
 
+      {/* Where each subject stands: its latest result, and how long until its next assessment. */}
+      <div className="mb-9 grid grid-cols-3 gap-2">
+        {SUBJECT_IDS.map((sub) => {
+          const meta = SUBJECT_META[sub];
+          const latest = Object.values(data.grades)
+            .filter((g) => g.subject === sub)
+            .sort(newest)[0];
+          const coming = upcoming.find((e) => e.subject === sub);
+          const days = coming ? daysUntil(coming.date, today) : -1;
+          return (
+            <button
+              key={sub}
+              type="button"
+              onClick={() => {
+                pick("subject");
+                if (!showResults) toggleResults();
+              }}
+              className="tap flex min-h-[104px] flex-col rounded-2xl bg-surface p-3 text-left"
+              aria-label={`${meta.name} results`}
+            >
+              <span className="flex items-center gap-1.5 text-[12.5px] text-muted">
+                <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden="true" />
+                <span className="truncate">{meta.name}</span>
+              </span>
+              {latest ? (
+                <span className="mt-2 text-[26px] font-bold leading-none tracking-[-0.03em]">
+                  {latest.grade || latest.score}
+                  {latest.grade && <span className="text-[13px] font-normal tracking-normal text-muted"> / {meta.top}</span>}
+                </span>
+              ) : (
+                <span className="mt-2 text-[13px] leading-snug text-faint">No results yet</span>
+              )}
+              <span className="mt-auto pt-2 text-[12px] tabular-nums text-muted">{coming ? (days <= 0 ? "Assessment today" : days === 1 ? "Next one tomorrow" : `Next in ${days} days`) : latest?.grade && latest.score ? latest.score : ""}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <section>
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-[13px] text-muted">Upcoming</span>

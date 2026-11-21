@@ -369,6 +369,8 @@ export function photoCount(photos: HubData["photos"], date: string): number {
 
 export const PLAN_COLORS: PlanColor[] = ["accent", "red", "blue", "yellow", "green", "violet"];
 const planColor = (v: unknown): PlanColor | undefined => (PLAN_COLORS.includes(v as PlanColor) && v !== "accent" ? (v as PlanColor) : undefined);
+/** A chosen picture for the bubble: an emoji, so a handful of characters at most. */
+const planIcon = (v: unknown): string => (typeof v === "string" && v.trim() && [...v.trim()].length <= 4 ? v.trim() : "");
 const minute = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1439, Math.max(0, Math.round(v))) : -1);
 const length = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1439, Math.max(1, Math.round(v))) : 0);
 
@@ -385,7 +387,8 @@ export function normalizePlan(raw: unknown): Plan {
     if (!title || start < 0 || !dur || !days.length) continue;
     const color = planColor(x.color);
     const habit = /^[\w-]{1,64}$/.test(str(x.habit)) ? str(x.habit) : "";
-    rules[id] = { title, start, dur, days, from: isDateKey(x.from) ? x.from : "2000-01-01", ...(color ? { color } : {}), ...(habit ? { habit } : {}) };
+    const icon = planIcon(x.icon);
+    rules[id] = { title, start, dur, days, from: isDateKey(x.from) ? x.from : "2000-01-01", ...(color ? { color } : {}), ...(habit ? { habit } : {}), ...(icon ? { icon } : {}) };
   }
   const days: Plan["days"] = {};
   for (const [date, v] of Object.entries(obj(r.days))) {
@@ -399,6 +402,7 @@ export function normalizePlan(raw: unknown): Plan {
       if (length(x.dur)) entry.dur = length(x.dur);
       const color = planColor(x.color);
       if (color) entry.color = color;
+      if (planIcon(x.icon)) entry.icon = planIcon(x.icon);
       if (num(x.done) > 0) entry.done = num(x.done);
       if (x.skip === true) entry.skip = true;
       // A one-off needs its own name, time and length; a change to a rule can be any part.
@@ -418,11 +422,11 @@ export function planFor(date: string, plan: Plan): PlanTask[] {
     if (!rule.days.includes(dow) || rule.from > date) continue;
     const o = day[id] ?? {};
     if (o.skip) continue;
-    out.push({ id, title: o.title ?? rule.title, start: o.start ?? rule.start, dur: o.dur ?? rule.dur, color: o.color ?? rule.color ?? "accent", done: o.done ?? 0, repeats: true, ...(rule.habit ? { habit: rule.habit } : {}) });
+    out.push({ id, title: o.title ?? rule.title, start: o.start ?? rule.start, dur: o.dur ?? rule.dur, color: o.color ?? rule.color ?? "accent", done: o.done ?? 0, repeats: true, ...(rule.habit ? { habit: rule.habit } : {}), ...((o.icon ?? rule.icon) ? { icon: o.icon ?? rule.icon } : {}) });
   }
   for (const [id, e] of Object.entries(day)) {
     if (plan.rules[id] || e.skip || !e.title || e.start === undefined || !e.dur) continue;
-    out.push({ id, title: e.title, start: e.start, dur: e.dur, color: e.color ?? "accent", done: e.done ?? 0, repeats: false });
+    out.push({ id, title: e.title, start: e.start, dur: e.dur, color: e.color ?? "accent", done: e.done ?? 0, repeats: false, ...(e.icon ? { icon: e.icon } : {}) });
   }
   return out.sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
 }

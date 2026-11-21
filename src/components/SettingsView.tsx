@@ -24,14 +24,19 @@ import WhoopSettings from "./WhoopSettings";
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function Section({ title, aside, children }: { title: string; aside?: string; children: React.ReactNode }) {
+/** One group of settings: a line that opens. Everything is shut until it's wanted, so the page is a short list. */
+function Section({ title, aside, open: startOpen = false, children }: { title: string; aside?: string; open?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(startOpen);
   return (
-    <section className="mt-9 first:mt-0">
-      <div className="mb-3 flex items-baseline justify-between">
-        <div className="label">{title}</div>
-        {aside && <div className="font-mono text-[11px] tabular-nums text-muted">{aside}</div>}
-      </div>
-      {children}
+    <section className="border-b border-line">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="tap flex w-full items-center justify-between gap-4 py-4 text-left">
+        <span className="text-[17px] font-medium tracking-[-0.015em]">{title}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {aside && <span className="truncate text-[13px] tabular-nums text-muted">{aside}</span>}
+          <ChevronIcon dir={open ? "up" : "down"} width={16} height={16} className="shrink-0 text-muted" />
+        </span>
+      </button>
+      {open && <div className="fade-in pb-6 pt-1">{children}</div>}
     </section>
   );
 }
@@ -138,11 +143,12 @@ export default function SettingsView() {
         <h1 className="text-[36px] font-bold leading-none tracking-[-0.04em]">Settings</h1>
       </header>
 
-      <Section title="To do">
+<div className="border-t border-line">
+      <Section title="To do" open>
         <TodoSettings />
       </Section>
 
-      <Section title="Habits">
+      <Section title="Habits" aside={String(habits.length)}>
         <ul className="divide-y divide-line border-y border-line">
           {habits.map((h, i) => {
             const edit = h.editId ? bank.byId[h.editId] : undefined;
@@ -183,7 +189,7 @@ export default function SettingsView() {
         </label>
       </Section>
 
-      <Section title="Lessons">
+      <Section title="Lessons" aside={school.calendarUrl ? "From your calendar" : undefined}>
         <ul className="divide-y divide-line border-y border-line">
           {DAY_ORDER.map((d) => {
             const lessons = school.timetable[String(d)] ?? [];
@@ -244,48 +250,7 @@ export default function SettingsView() {
         </ul>
       </Section>
 
-      <Section title="Claude">
-        <button type="button" onClick={() => void copyClaudeLink()} className="tap flex h-14 w-full items-center justify-between rounded-2xl bg-surface px-4 text-left">
-          <span className="text-[16px] font-medium">Copy connector link</span>
-          <span className="text-[12.5px] text-muted">{claude ?? ""}</span>
-        </button>
-        {claudeLink && <input readOnly value={claudeLink} onFocus={(e) => e.currentTarget.select()} className="field mt-2 font-mono text-[12px]" aria-label="Connector link" />}
-        <input
-          value={chatDraft ?? school.quickChat}
-          onChange={(e) => setChat(e.target.value)}
-          onBlur={() => {
-            if (chatDraft === null) return;
-            const url = chatDraft.trim();
-            setChat(null);
-            if (url !== school.quickChat) hub.write("settings/quickChat", url || null);
-          }}
-          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          placeholder="Link to your replan chat"
-          inputMode="url"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="done"
-          className="field mt-2 text-[14px]"
-          aria-label="Link to your Claude chat for replanning the day"
-        />
-      </Section>
-
-      <Section title="WHOOP">
-        <WhoopSettings />
-      </Section>
-
-      <Section title="Sound">
-        <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-4 py-3.5">
-          <div className="min-w-0">
-            <div className="text-[15px]">Tick sounds</div>
-            <div className="text-[12px] text-muted">Each habit&apos;s own sound, a chime when they&apos;re all done.</div>
-          </div>
-          <Switch on={settings.soundsOn} onClick={() => updateSettings((s) => ({ ...s, soundsOn: !s.soundsOn }))} label="Tick sounds" />
-        </div>
-      </Section>
-
-      <Section title="Appearance">
+      <Section title="Look" aside={LOOKS.find((l) => l.id === look)?.name}>
         <div className="grid grid-cols-4 gap-1.5">
           {LOOKS.map((l) => (
             <button
@@ -325,12 +290,54 @@ export default function SettingsView() {
         <p className="mt-2 px-1 text-[12px] text-muted">Auto follows your phone. Set separately on each device.</p>
       </Section>
 
+      <Section title="Sound">
+        <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-4 py-3.5">
+          <div className="min-w-0">
+            <div className="text-[15px]">Tick sounds</div>
+            <div className="text-[12px] text-muted">Each habit&apos;s own sound, a chime when they&apos;re all done.</div>
+          </div>
+          <Switch on={settings.soundsOn} onClick={() => updateSettings((s) => ({ ...s, soundsOn: !s.soundsOn }))} label="Tick sounds" />
+        </div>
+      </Section>
+
+      <Section title="Claude">
+        <button type="button" onClick={() => void copyClaudeLink()} className="tap flex h-14 w-full items-center justify-between rounded-2xl bg-surface px-4 text-left">
+          <span className="text-[16px] font-medium">Copy connector link</span>
+          <span className="text-[12.5px] text-muted">{claude ?? ""}</span>
+        </button>
+        {claudeLink && <input readOnly value={claudeLink} onFocus={(e) => e.currentTarget.select()} className="field mt-2 font-mono text-[12px]" aria-label="Connector link" />}
+        <input
+          value={chatDraft ?? school.quickChat}
+          onChange={(e) => setChat(e.target.value)}
+          onBlur={() => {
+            if (chatDraft === null) return;
+            const url = chatDraft.trim();
+            setChat(null);
+            if (url !== school.quickChat) hub.write("settings/quickChat", url || null);
+          }}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          placeholder="Link to your replan chat"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          className="field mt-2 text-[14px]"
+          aria-label="Link to your Claude chat for replanning the day"
+        />
+      </Section>
+
+      <Section title="WHOOP" aside={school.whoop ? "Connected" : undefined}>
+        <WhoopSettings />
+      </Section>
+
       <Section title="Sync">
         <div className="flex items-center gap-2.5 px-1 text-[14px] text-ink-2">
           <span className={cn("h-2 w-2 rounded-full", sync === "online" && !pending ? "bg-ink" : "bg-faint")} />
           {syncLine}
         </div>
       </Section>
+      </div>
 
       <p className="mt-12 text-center font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">Hugo</p>
 

@@ -43,8 +43,11 @@ const OUTLINES: Record<PoseId, { lines: string[]; faint?: string[]; mirrored?: s
   },
 };
 
-/** The outline for one photo, to stand inside. White with a dark edge, so it shows over any room. */
-export default function PoseOutline({ pose, className }: { pose: PoseId; className?: string }) {
+/**
+ * The outline for one photo, to stand inside. Over the camera it is white with a dark edge, so it shows over any
+ * room; `quiet` draws it once in the text colour, for an empty tile waiting for its photo.
+ */
+export default function PoseOutline({ pose, className, quiet = false }: { pose: PoseId; className?: string; quiet?: boolean }) {
   const o = OUTLINES[pose];
   const draw = (width: number, colour: string) => (
     <g fill="none" stroke={colour} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round">
@@ -55,6 +58,12 @@ export default function PoseOutline({ pose, className }: { pose: PoseId; classNa
       {o.mirrored && <path d={o.mirrored} vectorEffect="non-scaling-stroke" transform="translate(300 0) scale(-1 1)" />}
     </g>
   );
+  if (quiet)
+    return (
+      <svg viewBox="0 0 300 400" className={className} aria-hidden="true">
+        {draw(1.5, "currentColor")}
+      </svg>
+    );
   return (
     <svg viewBox="0 0 300 400" className={className} aria-hidden="true">
       {draw(5, "rgba(0,0,0,.28)")}

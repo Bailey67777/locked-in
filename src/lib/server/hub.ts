@@ -568,6 +568,7 @@ export const TOOLS: ToolDef[] = [
       title: { type: "string", maxLength: 80, description: "Short, in his words." },
       start: { type: "string", pattern: "^\\d{1,2}:\\d{2}$", description: "24-hour start time, e.g. 16:30." },
       minutes: { type: "integer", minimum: 1, maximum: 1439, description: "How long it takes." },
+      icon: { type: "string", maxLength: 8, description: "One emoji for its bubble. Leave out and the app picks one from the title." },
       repeat: { type: "string", enum: ["once", "daily", "weekdays", "weekly"], description: "For a new thing only. Defaults to once." },
       every_day: { type: "boolean", description: "For something that repeats: change it every time, not just on this date." },
       done: { type: "boolean", description: "Tick it off (true) or untick it (false) on this date." },
@@ -840,7 +841,8 @@ const planId = (args: Args): string => {
 const REPEAT_DAYS: Record<string, number[] | null> = { once: null, daily: [0, 1, 2, 3, 4, 5, 6], weekdays: [1, 2, 3, 4, 5], weekly: [] };
 
 async function setPlanTask(args: Args, { db, now, today }: Ctx): Promise<string> {
-  only(args, ["id", "date", "title", "start", "minutes", "repeat", "every_day", "done"]);
+  only(args, ["id", "date", "title", "start", "minutes", "icon", "repeat", "every_day", "done"]);
+  const icon = optionalText(args, "icon", 8);
   const date = dateArg(args, today);
   const id = planId(args);
   const title = optionalText(args, "title", 80);
@@ -864,9 +866,9 @@ async function setPlanTask(args: Args, { db, now, today }: Ctx): Promise<string>
     if (typeof repeat !== "string" || !(repeat in REPEAT_DAYS)) throw new ToolError("repeat must be one of: once, daily, weekdays, weekly.");
     const fresh = uid();
     const days = REPEAT_DAYS[repeat];
-    if (!days) await db.put(`hub/plan/days/${date}/${fresh}`, { title, start, dur, ...(done ? { done: now } : {}) });
+    if (!days) await db.put(`hub/plan/days/${date}/${fresh}`, { title, start, dur, ...(icon ? { icon } : {}), ...(done ? { done: now } : {}) });
     else {
-      await db.put(`hub/plan/rules/${fresh}`, { title, start, dur, days: days.length ? days : [new Date(`${date}T12:00:00Z`).getUTCDay()], from: date });
+      await db.put(`hub/plan/rules/${fresh}`, { title, start, dur, days: days.length ? days : [new Date(`${date}T12:00:00Z`).getUTCDay()], from: date, ...(icon ? { icon } : {}) });
       if (done) await db.put(`hub/plan/days/${date}/${fresh}`, { done: now });
     }
     return `Added to the plan for ${date}: ${clockOf(start)} ${title}, ${spanOf(dur)}${days ? `, repeating (${repeat})` : ""} (id ${fresh}).`;
@@ -875,7 +877,7 @@ async function setPlanTask(args: Args, { db, now, today }: Ctx): Promise<string>
   const rule = plan.rules[id];
   const entry = plan.days[date]?.[id];
   if (!rule && !entry) throw new ToolError(`Nothing on ${date} has the id ${id}. Call get_plan for that date.`);
-  const changes = { ...(title ? { title } : {}), ...(start !== undefined ? { start } : {}), ...(dur !== undefined ? { dur } : {}) };
+  const changes = { ...(title ? { title } : {}), ...(start !== undefined ? { start } : {}), ...(dur !== undefined ? { dur } : {}), ...(icon ? { icon } : {}) };
   if (rule && args.every_day === true && Object.keys(changes).length) await db.put(`hub/plan/rules/${id}`, { ...rule, ...changes });
   const next: Record<string, unknown> = { ...(entry ?? {}), ...(rule && args.every_day === true ? {} : changes) };
   if (done !== undefined && rule?.habit) throw new ToolError(`"${oneLine(rule.title)}" is one of his habits: it is ticked on the Habits page, which you can't do for him. Change its time or length instead.`);

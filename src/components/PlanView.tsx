@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useHub } from "@/lib/hub/store";
 import { useStore } from "@/lib/store";
 import { useCalendarDay } from "@/lib/hub/calendar";
-import { clockOf, lessonsFor, minutesOf, planFor, spanOf } from "@/lib/hub/model";
+import { clockOf, lessonsFor, minutesOf, planFor } from "@/lib/hub/model";
+import { autoIcon } from "@/lib/hub/planIcons";
 import { SUBJECT_META } from "@/lib/hub/subjects";
 import { addDays, formatLong, parseKey, weekStartOf } from "@/lib/dates";
 import { haptic, playTodo, playUntick } from "@/lib/sounds";
@@ -15,20 +16,21 @@ import { CheckIcon, ChevronIcon, PlusIcon, ReplanIcon } from "./Icons";
 import PlanSheet, { PLAN_PAINT, type PlanTarget } from "./PlanSheet";
 
 const LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
-/** A gap this long between two things is worth saying out loud. */
-const GAP_MIN = 20;
-
-/** The bar's height says how long the thing takes: a quarter of an hour is a square, two hours a tall bar. */
-const barHeight = (dur: number) => Math.round(Math.min(118, Math.max(22, 22 + (dur - 15) * 0.7)));
+/** The bubble's height says how long the thing takes: up to a quarter of an hour is a square, two hours a tall one. */
+const bubbleHeight = (dur: number) => Math.round(Math.min(132, Math.max(44, 44 + (dur - 15) * 0.6)));
+/** Free time shows as space, a little for half an hour and more for an afternoon, never as words. */
+const gapSpace = (minutes: number) => Math.round(Math.min(44, Math.max(0, minutes) / 5));
+const LESSON_ICON: Record<string, string> = { maths: "📐", physics: "⚛️", econ: "📈" };
 
 type Item =
-  | { kind: "task"; key: string; start: number; dur: number; paint: string; title: string; task: PlanTask }
-  | { kind: "lesson"; key: string; start: number; dur: number; paint: string; title: string };
+  | { kind: "task"; key: string; start: number; dur: number; paint: string; icon: string; title: string; task: PlanTask }
+  | { kind: "lesson"; key: string; start: number; dur: number; paint: string; icon: string; title: string };
 
 /**
- * The day as one line down the page. Everything planned sits on it at its time, as a bar whose height is how long
- * it takes; lessons from the calendar are on it too, in their subject's colour. Tap a bar to tick it off, tap its
- * name to change it. Today, a lit line marks the time now. The week runs along the top.
+ * The day as one line down the page. Everything planned sits on it in order, as a bubble with its picture, as tall
+ * as the thing is long, with its time above its name; lessons from the calendar are on it too. The box on the right
+ * ticks it off; the bubble or the name opens it. Free time is simply space. Today, a lit line marks the time now.
+ * The week runs along the top.
  */
 export default function PlanView() {
   const { data, today, now, write } = useHub();
@@ -49,11 +51,11 @@ export default function PlanView() {
   });
 
   const items: Item[] = [
-    ...tasks.map((t): Item => ({ kind: "task", key: t.id, start: t.start, dur: t.dur, paint: PLAN_PAINT[t.color], title: t.title, task: t })),
+    ...tasks.map((t): Item => ({ kind: "task", key: t.id, start: t.start, dur: t.dur, paint: PLAN_PAINT[t.color], icon: t.icon || autoIcon(t.title), title: t.title, task: t })),
     ...lessons.map((l): Item => {
       const start = minutesOf(l.start as string);
       const end = l.end ? minutesOf(l.end) : -1;
-      return { kind: "lesson", key: `lesson-${l.key}`, start, dur: end > start ? end - start : 45, paint: SUBJECT_META[l.subject].color, title: l.title?.trim() || SUBJECT_META[l.subject].name };
+      return { kind: "lesson", key: `lesson-${l.key}`, start, dur: end > start ? end - start : 45, paint: SUBJECT_META[l.subject].color, icon: LESSON_ICON[l.subject] ?? "🎓", title: l.title?.trim() || SUBJECT_META[l.subject].name };
     }),
   ].sort((a, b) => a.start - b.start);
 
@@ -84,8 +86,8 @@ export default function PlanView() {
 
   const monday = weekStartOf(date);
   const NowLine = (
-    <li className="flex items-center gap-3 py-2" aria-label={`Now, ${clockOf(Math.max(0, nowMin))}`}>
-      <span className="w-[46px] shrink-0 text-right text-[13px] font-semibold tabular-nums text-[var(--accent)]">{clockOf(Math.max(0, nowMin))}</span>
+    <li className="flex items-center gap-3.5 py-2.5" aria-label={`Now, ${clockOf(Math.max(0, nowMin))}`}>
+      <span className="w-11 shrink-0 text-center text-[13px] font-semibold tabular-nums text-[var(--accent)]">{clockOf(Math.max(0, nowMin))}</span>
       <span className="lit-bar h-[2px] flex-1 rounded-full bg-[var(--accent)]" />
     </li>
   );
@@ -140,64 +142,47 @@ export default function PlanView() {
           {items.map((item, i) => {
             const end = item.start + item.dur;
             const next = items[i + 1];
-            const gap = next ? next.start - end : 0;
             const done = item.kind === "task" && item.task.done > 0;
             const current = isToday && nowMin >= item.start && nowMin < end && !done;
             const over = isToday && nowMin >= end;
-            const h = barHeight(item.dur);
+            const edit = item.kind === "task" ? () => setOpen({ kind: "task", date, task: item.task }) : undefined;
+            const bubble = {
+              height: bubbleHeight(item.dur),
+              background: `color-mix(in srgb, ${item.paint} ${current ? 30 : 17}%, var(--surface))`,
+              boxShadow: current ? `0 0 0 1.5px ${item.paint}, 0 0 18px color-mix(in srgb, ${item.paint} 55%, transparent)` : undefined,
+              opacity: done || (over && item.kind === "lesson") ? 0.45 : 1,
+            };
+            const Bubble = edit ? "button" : "span";
             return (
               <div key={item.key} className="contents">
                 {nowBefore === i && NowLine}
-                <li className="flex gap-3">
-                  <span className={cn("w-[46px] shrink-0 pt-[2px] text-right text-[13px] tabular-nums", current ? "font-semibold text-ink" : "text-muted")}>{clockOf(item.start)}</span>
-                  <span className="flex w-[22px] shrink-0 flex-col items-center">
-                    {item.kind === "task" ? (
-                      <button
-                        type="button"
-                        onClick={() => toggle(item.task, Date.now())}
-                        aria-pressed={done}
-                        aria-label={`${item.title}, ${done ? "done" : "not done"}`}
-                        data-done={done || current || undefined}
-                        className="tick tap flex w-[22px] shrink-0 items-start justify-center rounded-full border-[1.75px] pt-[3px] transition-colors duration-200"
-                        style={{
-                          height: h,
-                          borderColor: done || current ? item.paint : `color-mix(in srgb, ${item.paint} 55%, var(--muted))`,
-                          background: done ? item.paint : `color-mix(in srgb, ${item.paint} ${current ? 30 : 12}%, transparent)`,
-                          color: "var(--on-accent)",
-                          ["--glow" as string]: `color-mix(in srgb, ${item.paint} 70%, transparent)`,
-                        }}
-                      >
-                        {done && <CheckIcon width={12} height={12} />}
-                      </button>
-                    ) : (
-                      <span className="tick w-[22px] shrink-0 rounded-full" style={{ height: h, background: item.paint, opacity: over ? 0.45 : 1 }} aria-hidden="true" />
-                    )}
-                    <span className={cn("w-px flex-1", next ? "min-h-[14px] bg-line" : "")} />
+                <li className="flex gap-3.5">
+                  <span className="flex w-11 shrink-0 flex-col items-center">
+                    <Bubble {...(edit ? { type: "button" as const, onClick: edit, "aria-label": `Change ${item.title}` } : {})} className="flex w-11 shrink-0 items-center justify-center rounded-[14px] text-[21px] leading-none transition-[box-shadow,opacity] duration-300" style={bubble}>
+                      <span aria-hidden="true">{item.icon}</span>
+                    </Bubble>
+                    {next && <span className="w-px flex-1 bg-line" style={{ minHeight: 12 + gapSpace(next.start - end) }} />}
                   </span>
-                  {item.kind === "task" ? (
-                    <button type="button" onClick={() => setOpen({ kind: "task", date, task: item.task })} className="min-w-0 flex-1 pb-4 text-left">
-                      <span className={cn("block truncate text-[17px] tracking-[-0.015em] transition-colors", current ? "font-semibold" : "font-medium", done ? "text-muted" : "text-ink")}>{item.title}</span>
-                      <span className="mt-0.5 block text-[12.5px] tabular-nums text-muted">
-                        {item.dur > 1 ? `${spanOf(item.dur)}, until ${clockOf(end)}` : "A moment"}
-                        {item.task.repeats ? " (repeats)" : ""}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="min-w-0 flex-1 pb-4">
-                      <span className={cn("block truncate text-[17px] font-medium tracking-[-0.015em]", over ? "text-muted" : "text-ink")}>{item.title}</span>
-                      <span className="mt-0.5 block text-[12.5px] tabular-nums text-muted">Lesson, until {clockOf(end)}</span>
+                  <Bubble {...(edit ? { type: "button" as const, onClick: edit } : {})} className="min-w-0 flex-1 self-start pt-[3px] text-left">
+                    <span className={cn("block text-[12.5px] tabular-nums", current ? "font-semibold text-[var(--accent)]" : "text-muted")}>
+                      {clockOf(item.start)}
+                      {item.dur > 5 ? ` to ${clockOf(end)}` : ""}
                     </span>
+                    <span className={cn("block truncate text-[17px] tracking-[-0.015em] transition-colors", current ? "font-semibold" : "font-medium", done || (over && item.kind === "lesson") ? "text-muted" : "text-ink")}>{item.title}</span>
+                  </Bubble>
+                  {item.kind === "task" && (
+                    <button
+                      type="button"
+                      onClick={() => toggle(item.task, Date.now())}
+                      aria-pressed={done}
+                      aria-label={`${item.title}, ${done ? "done" : "not done"}`}
+                      data-done={done || undefined}
+                      className={cn("tick tap mt-[9px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.75px] transition-colors duration-200", done ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-muted")}
+                    >
+                      {done && <CheckIcon width={13} height={13} />}
+                    </button>
                   )}
                 </li>
-                {gap >= GAP_MIN && (
-                  <li className="flex gap-3" aria-hidden="true">
-                    <span className="w-[46px] shrink-0" />
-                    <span className="flex w-[22px] shrink-0 justify-center">
-                      <span className="h-8 w-px" style={{ backgroundImage: "linear-gradient(var(--line) 50%, transparent 50%)", backgroundSize: "1px 7px" }} />
-                    </span>
-                    <span className="flex items-center text-[12.5px] text-faint">{spanOf(gap)} free</span>
-                  </li>
-                )}
               </div>
             );
           })}

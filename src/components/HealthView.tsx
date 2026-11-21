@@ -218,7 +218,7 @@ export default function HealthView() {
 
         <div className="mt-1 grid grid-cols-3 gap-2">
           {POSES.map((p) => (
-            <PhotoTile key={p.id} meta={day[p.id]} label={p.name} onClick={() => (day[p.id] ? (ready() ? setViewer(p.id) : undefined) : takeOne(p.id))} />
+            <PhotoTile key={p.id} meta={day[p.id]} label={p.name} pose={p.id} onClick={() => (day[p.id] ? (ready() ? setViewer(p.id) : undefined) : takeOne(p.id))} />
           ))}
           <button
             type="button"
@@ -233,6 +233,17 @@ export default function HealthView() {
           </button>
         </div>
         {error && <p className="mt-3 text-[13px] text-ink-2">{error}</p>}
+
+        {/* The last two weeks at a glance: lit when all five were taken, outlined when some were. */}
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <span className="shrink-0 whitespace-nowrap text-[13px] text-muted">Last 14 days</span>
+          <span className="flex gap-1" role="img" aria-label="Which of the last 14 days have photos">
+            {Array.from({ length: 14 }, (_, i) => addDays(today, i - 13)).map((d) => {
+              const n = POSE_IDS.filter((p) => data.photos[d]?.[p]).length;
+              return <span key={d} className={cn("h-3 w-3 rounded-[3.5px]", n === POSE_IDS.length ? "lit-bar bg-[var(--accent)]" : n ? "border-[1.5px] border-[var(--accent)]" : "bg-track", d === date && "ring-1 ring-ink ring-offset-2 ring-offset-bg")} />;
+            })}
+          </span>
+        </div>
       </section>
 
       <ul className="mt-8 divide-y divide-line border-y border-line">

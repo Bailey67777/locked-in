@@ -5,6 +5,7 @@ import { useHub } from "@/lib/hub/store";
 import { useStore } from "@/lib/store";
 import { PLAN_COLORS, clockOf, minutesOf, spanOf, uid } from "@/lib/hub/model";
 import { weekday } from "@/lib/hub/time";
+import { PLAN_ICONS, autoIcon } from "@/lib/hub/planIcons";
 import type { PlanColor, PlanEntry, PlanTask } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
 import Sheet from "./Sheet";
@@ -49,12 +50,14 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
   const [color, setColor] = useState<PlanColor>(task?.color ?? "accent");
   const habitList = useStore().data.settings.habits;
   const [habit, setHabit] = useState(rule?.habit ?? "");
+  // "" = picked from the name.
+  const [icon, setIcon] = useState(task?.icon ?? "");
   const [repeat, setRepeat] = useState<Repeat>(rule ? (same(rule.days, EVERY_DAY) ? "daily" : same(rule.days, WEEKDAYS) ? "weekdays" : "weekly") : "once");
   const at = minutesOf(start);
   const valid = title.trim() !== "" && at >= 0 && dur >= 1;
 
   const daysFor = (r: Repeat) => (r === "daily" ? EVERY_DAY : r === "weekdays" ? WEEKDAYS : rule && repeat === "weekly" && r === "weekly" ? rule.days : [weekday(date)]);
-  const paint = color === "accent" ? {} : { color };
+  const paint = { ...(color === "accent" ? {} : { color }), ...(icon ? { icon } : {}) };
 
   /** Keep it: as a one-off, or as something that repeats from this day on (or, for a rule, every time). */
   const save = () => {
@@ -86,6 +89,7 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
     if (at !== rule.start) entry.start = at;
     if (dur !== rule.dur) entry.dur = dur;
     if (color !== (rule.color ?? "accent") && color !== "accent") entry.color = color;
+    if (icon && icon !== rule.icon) entry.icon = icon;
     write(`plan/days/${date}/${task.id}`, Object.keys(entry).length ? entry : null);
     onClose();
   };
@@ -156,6 +160,20 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
             </select>
           </label>
         )}
+
+        <div className="mt-5 flex items-baseline justify-between">
+          <span className="text-[13px] text-muted">Picture</span>
+          <button type="button" onClick={() => setIcon("")} className={cn("text-[13px]", icon ? "text-muted" : "text-ink")}>
+            Chosen from the name: {autoIcon(title)}
+          </button>
+        </div>
+        <div className="mt-2 grid grid-cols-8 gap-1 rounded-2xl bg-surface p-1.5" role="group" aria-label="Picture">
+          {PLAN_ICONS.map((e) => (
+            <button key={e} type="button" aria-pressed={icon === e} onClick={() => setIcon(icon === e ? "" : e)} className={cn("flex h-9 items-center justify-center rounded-lg text-[19px] transition-colors", icon === e && "bg-ink/10 ring-1 ring-ink")}>
+              {e}
+            </button>
+          ))}
+        </div>
 
         <div className="mt-5 flex items-center gap-3" role="group" aria-label="Colour">
           {PLAN_COLORS.map((c) => (

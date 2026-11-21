@@ -268,3 +268,8 @@ a day; a day's entry under a rule's id holds what differs that day: done, moved,
 (`hub/plan/days/<date>/<id>`). Claude reads and reschedules it with `get_plan`, `set_plan_task` and
 `remove_plan_task`; the replan button opens his chat for that. Ten more looks sit beside the seasons in
 Settings → Appearance; their greys are generated in OKLCH and tinted towards each look's colour.
+
+Plan items carry a picture in a bubble (`src/lib/hub/planIcons.ts`: chosen from a set, or picked from the name), show
+their time above their name and a tick on the right; free time is space, not words. Settings is a list of groups that
+open. To do has a progress bar, an add button and tomorrow's list. Academics opens with a tile per subject (latest
+result, next assessment); Health shows each pose's outline in its empty tile and the last 14 days.
