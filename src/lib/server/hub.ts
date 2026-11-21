@@ -374,7 +374,7 @@ export function renderDay({ date, today, data, events, calendarFailed, habits, p
     if (n.open.length) out.push(`Open: ${n.open.join("; ")}`);
   }
 
-  out.push("", "## Plan (his day timeline; change it with set_plan_task)", ...planLines(date, data));
+  out.push("", "## Plan (his day timeline; change it with set_plan_task)", ...planLines(date, data, habits));
 
   const done = habits.filter((h) => h.done);
   const left = habits.filter((h) => !h.done);
@@ -805,24 +805,27 @@ async function completeTodo(args: Args, { db, now }: Ctx): Promise<string> {
 }
 
 /** A day's plan as lines: "- 16:00–16:45 Exercise (45m, repeats, done) [id abc]". */
-export function planLines(date: string, data: HubData): string[] {
-  const tasks = planFor(date, data.plan);
+export function planLines(date: string, data: HubData, ticks: HabitTick[] = []): string[] {
+  // Something on the plan that is also a habit is done when the habit is ticked.
+  const ticked = new Map(ticks.map((h) => [h.id, h.done] as const));
+  const tasks = planFor(date, data.plan).map((t) => (t.habit && ticked.has(t.habit) ? { ...t, done: ticked.get(t.habit) ? 1 : 0 } : t));
   if (!tasks.length) return ["Nothing on the plan."];
-  return tasks.map((t) => `- ${clockOf(t.start)}–${clockOf(t.start + t.dur)} ${oneLine(t.title)} (${[spanOf(t.dur), t.repeats ? "repeats" : "", t.done ? "done" : "not done"].filter(Boolean).join(", ")}) [id ${t.id}]`);
+  return tasks.map((t) => `- ${clockOf(t.start)}–${clockOf(t.start + t.dur)} ${oneLine(t.title)} (${[spanOf(t.dur), t.repeats ? "repeats" : "", t.done ? "done" : "not done", t.habit ? "ticked on the Habits page, not with done" : ""].filter(Boolean).join(", ")}) [id ${t.id}]`);
 }
 
 async function getPlan(args: Args, { db, today, calendar }: Ctx): Promise<string> {
   only(args, ["date"]);
   const date = dateArg(args, today);
-  const [settings, plan] = await Promise.all([db.get("hub/settings"), db.get("hub/plan")]);
+  const [settings, plan, defsRaw, ticksRaw] = await Promise.all([db.get("hub/settings"), db.get("hub/plan"), db.get("settings/habits"), db.get(`days/${date}/habits`)]);
   const data = normalizeData({ settings, plan });
+  const ticks = habitsOn(date, today, habitDefs(defsRaw), habitRecord(ticksRaw));
   let events: CalendarEvent[] | null = null;
   if (data.settings.calendarUrl) events = await calendar(data.settings.calendarUrl, ...londonDayBounds(date)).catch(() => null);
   const lessons = lessonsForLondon(date, data.settings, events).filter((l) => l.start);
   return [
     `# Plan for ${dayLabel(date)}${date === today ? " (today)" : ""}`,
     "",
-    ...planLines(date, data),
+    ...planLines(date, data, ticks),
     "",
     "## Lessons (fixed: plan around them)",
     ...(lessons.length ? lessons.map((l) => `- ${l.start}${l.end ? `–${l.end}` : ""} ${subjectName(l.subject)}`) : ["None."]),
@@ -875,6 +878,7 @@ async function setPlanTask(args: Args, { db, now, today }: Ctx): Promise<string>
   const changes = { ...(title ? { title } : {}), ...(start !== undefined ? { start } : {}), ...(dur !== undefined ? { dur } : {}) };
   if (rule && args.every_day === true && Object.keys(changes).length) await db.put(`hub/plan/rules/${id}`, { ...rule, ...changes });
   const next: Record<string, unknown> = { ...(entry ?? {}), ...(rule && args.every_day === true ? {} : changes) };
+  if (done !== undefined && rule?.habit) throw new ToolError(`"${oneLine(rule.title)}" is one of his habits: it is ticked on the Habits page, which you can't do for him. Change its time or length instead.`);
   if (done === true) next.done = now;
   if (done === false) delete next.done;
   delete next.skip;

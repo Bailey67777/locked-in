@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useHub } from "@/lib/hub/store";
+import { useStore } from "@/lib/store";
 import { PLAN_COLORS, clockOf, minutesOf, spanOf, uid } from "@/lib/hub/model";
 import { weekday } from "@/lib/hub/time";
 import type { PlanColor, PlanEntry, PlanTask } from "@/lib/hub/types";
@@ -46,6 +47,8 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
   const [start, setStart] = useState(clockOf(task ? task.start : target.kind === "new" ? target.start : 540));
   const [dur, setDur] = useState(task?.dur ?? 30);
   const [color, setColor] = useState<PlanColor>(task?.color ?? "accent");
+  const habitList = useStore().data.settings.habits;
+  const [habit, setHabit] = useState(rule?.habit ?? "");
   const [repeat, setRepeat] = useState<Repeat>(rule ? (same(rule.days, EVERY_DAY) ? "daily" : same(rule.days, WEEKDAYS) ? "weekdays" : "weekly") : "once");
   const at = minutesOf(start);
   const valid = title.trim() !== "" && at >= 0 && dur >= 1;
@@ -67,7 +70,7 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
     } else {
       const id = rule && task ? task.id : uid();
       if (task && !rule) write(`plan/days/${date}/${task.id}`, null);
-      write(`plan/rules/${id}`, { title: title.trim(), start: at, dur, days: daysFor(repeat), from: rule?.from ?? date, ...paint });
+      write(`plan/rules/${id}`, { title: title.trim(), start: at, dur, days: daysFor(repeat), from: rule?.from ?? date, ...paint, ...(habit ? { habit } : {}) });
       // What was different about this one day goes back to the rule, apart from having been done.
       if (rule && task) write(`plan/days/${date}/${id}`, task.done ? { done: task.done } : null);
       else if (task?.done) write(`plan/days/${date}/${id}`, { done: task.done });
@@ -139,6 +142,20 @@ export default function PlanSheet({ target, onClose }: { target: PlanTarget; onC
             </button>
           ))}
         </div>
+
+        {repeat !== "once" && habitList.length > 0 && (
+          <label className="mt-2 flex h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3.5">
+            <span className="shrink-0 text-[15px] text-muted">Ticks the habit</span>
+            <select value={habit} onChange={(e) => setHabit(e.target.value)} className="min-w-0 max-w-[60%] truncate bg-transparent text-right text-[15px] text-ink focus:outline-none" aria-label="The habit this ticks">
+              <option value="">None</option>
+              {habitList.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <div className="mt-5 flex items-center gap-3" role="group" aria-label="Colour">
           {PLAN_COLORS.map((c) => (

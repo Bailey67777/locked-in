@@ -84,11 +84,12 @@ export type Whoop = { recovery?: number; sleep?: number; asleep?: number; hrv?: 
  * day: done, moved, shortened or skipped. Times are minutes from midnight.
  */
 export type PlanColor = "accent" | "red" | "blue" | "yellow" | "green" | "violet";
-export type PlanRule = { title: string; start: number; dur: number; days: number[]; from: string; color?: PlanColor };
+/** `habit`: the id of the habit this is. Ticking either one ticks the other, so nothing is ticked twice. */
+export type PlanRule = { title: string; start: number; dur: number; days: number[]; from: string; color?: PlanColor; habit?: string };
 export type PlanEntry = { title?: string; start?: number; dur?: number; color?: PlanColor; done?: number; skip?: boolean };
 export type Plan = { rules: Record<string, PlanRule>; days: Record<string, Record<string, PlanEntry>> };
 /** One thing on a day's timeline, rule and that day's changes already merged. */
-export type PlanTask = { id: string; title: string; start: number; dur: number; color: PlanColor; done: number; repeats: boolean };
+export type PlanTask = { id: string; title: string; start: number; dur: number; color: PlanColor; done: number; repeats: boolean; habit?: string };
 
 export type HubData = {
   settings: HubSettings;

@@ -383,7 +383,8 @@ export function normalizePlan(raw: unknown): Plan {
     const days = [...new Set(list(x.days).filter((d): d is number => typeof d === "number" && d >= 0 && d <= 6))].sort();
     if (!title || start < 0 || !dur || !days.length) continue;
     const color = planColor(x.color);
-    rules[id] = { title, start, dur, days, from: isDateKey(x.from) ? x.from : "2000-01-01", ...(color ? { color } : {}) };
+    const habit = /^[\w-]{1,64}$/.test(str(x.habit)) ? str(x.habit) : "";
+    rules[id] = { title, start, dur, days, from: isDateKey(x.from) ? x.from : "2000-01-01", ...(color ? { color } : {}), ...(habit ? { habit } : {}) };
   }
   const days: Plan["days"] = {};
   for (const [date, v] of Object.entries(obj(r.days))) {
@@ -416,7 +417,7 @@ export function planFor(date: string, plan: Plan): PlanTask[] {
     if (!rule.days.includes(dow) || rule.from > date) continue;
     const o = day[id] ?? {};
     if (o.skip) continue;
-    out.push({ id, title: o.title ?? rule.title, start: o.start ?? rule.start, dur: o.dur ?? rule.dur, color: o.color ?? rule.color ?? "accent", done: o.done ?? 0, repeats: true });
+    out.push({ id, title: o.title ?? rule.title, start: o.start ?? rule.start, dur: o.dur ?? rule.dur, color: o.color ?? rule.color ?? "accent", done: o.done ?? 0, repeats: true, ...(rule.habit ? { habit: rule.habit } : {}) });
   }
   for (const [id, e] of Object.entries(day)) {
     if (plan.rules[id] || e.skip || !e.title || e.start === undefined || !e.dur) continue;

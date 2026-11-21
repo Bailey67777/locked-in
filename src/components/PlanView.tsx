@@ -32,7 +32,8 @@ type Item =
  */
 export default function PlanView() {
   const { data, today, now, write } = useHub();
-  const soundsOn = useStore().data.settings.soundsOn;
+  const habits = useStore();
+  const soundsOn = habits.data.settings.soundsOn;
   const [picked, setPicked] = useState<string | null>(null);
   const date = picked ?? today;
   const [open, setOpen] = useState<PlanTarget | null>(null);
@@ -40,7 +41,12 @@ export default function PlanView() {
   const settings = data.settings;
   const { events, error } = useCalendarDay(settings.calendarUrl, date);
   const lessons = lessonsFor(date, settings.calendarUrl && events === null && error ? { ...settings, calendarUrl: "" } : settings, events).filter((l) => l.start);
-  const tasks = planFor(date, data.plan);
+  // Something that is also a habit takes its tick from the Habits page, and gives it back: one tick, not two.
+  const habitDay = habits.getDay(date);
+  const tasks = planFor(date, data.plan).map((t) => {
+    const habit = t.habit ? habitDay.habits.find((h) => h.id === t.habit) : undefined;
+    return habit ? { ...t, done: habit.done ? 1 : 0 } : { ...t, habit: undefined };
+  });
 
   const items: Item[] = [
     ...tasks.map((t): Item => ({ kind: "task", key: t.id, start: t.start, dur: t.dur, paint: PLAN_PAINT[t.color], title: t.title, task: t })),
@@ -58,6 +64,13 @@ export default function PlanView() {
   const left = tasks.filter((t) => !t.done).length;
 
   const toggle = (t: PlanTask, at: number) => {
+    if (t.habit) {
+      if (date > today) return; // a habit can't be ticked for a day that hasn't come
+      habits.updateDay(date, (d) => ({ ...d, habits: d.habits.map((h) => (h.id === t.habit ? { ...h, done: !h.done } : h)) }));
+      haptic(t.done ? 6 : 10);
+      if (soundsOn) (t.done ? playUntick : playTodo)();
+      return;
+    }
     const entry = data.plan.days[date]?.[t.id] ?? {};
     const next = { ...entry, done: t.done ? undefined : at };
     const rest = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined));
