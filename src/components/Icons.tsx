@@ -222,3 +222,14 @@ export function ReplanIcon(p: P) {
     </svg>
   );
 }
+
+export function PlanIcon(p: P) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" {...base} {...p}>
+      <path d="M7 3.500v17" />
+      <rect x="4.500" y="5.500" width="5" height="5" rx="1.500" fill="var(--bg)" />
+      <rect x="4.500" y="14" width="5" height="5" rx="1.500" fill="var(--bg)" />
+      <path d="M13 8h7M13 16.500h5" />
+    </svg>
+  );
+}

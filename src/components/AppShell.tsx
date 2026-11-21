@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 import { useHub } from "@/lib/hub/store";
-import { AcademicsIcon, CalendarIcon, HabitsIcon, HealthIcon, SettingsIcon, StatsIcon, TodoIcon } from "./Icons";
+import { AcademicsIcon, CalendarIcon, HabitsIcon, HealthIcon, PlanIcon, SettingsIcon, StatsIcon, TodoIcon } from "./Icons";
+import PlanView from "./PlanView";
 import TodoView from "./TodoView";
 import HabitsView from "./HabitsView";
 import AcademicsView from "./AcademicsView";
@@ -14,10 +15,11 @@ import CalendarView from "./CalendarView";
 import StatsView from "./StatsView";
 import SettingsView from "./SettingsView";
 
-type Tab = "habits" | "todo" | "academics" | "health" | "calendar" | "stats" | "settings";
+type Tab = "habits" | "plan" | "todo" | "academics" | "health" | "calendar" | "stats" | "settings";
 
 const TABS: { id: Tab; label: string; Icon: typeof HabitsIcon }[] = [
   { id: "habits", label: "Habits", Icon: HabitsIcon },
+  { id: "plan", label: "Plan", Icon: PlanIcon },
   { id: "todo", label: "To do", Icon: TodoIcon },
   { id: "academics", label: "Academics", Icon: AcademicsIcon },
   { id: "health", label: "Health", Icon: HealthIcon },
@@ -70,6 +72,7 @@ export default function AppShell() {
         {ready && (
           <>
             {tab === "habits" && <HabitsView />}
+            {tab === "plan" && <PlanView />}
             {tab === "todo" && <TodoView />}
             {tab === "academics" && <AcademicsView />}
             {tab === "health" && <HealthView />}
@@ -83,7 +86,7 @@ export default function AppShell() {
       {ready && <Morning />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-xl" aria-label="Sections">
-        <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-3">
+        <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-1.5">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -91,7 +94,7 @@ export default function AppShell() {
               onClick={() => go(id)}
               aria-label={label}
               aria-current={tab === id ? "page" : undefined}
-              className={cn("tap flex h-11 w-11 items-center justify-center rounded-full transition-colors", tab === id ? "lit text-[var(--accent)]" : "text-faint hover:text-muted")}
+              className={cn("tap flex h-11 w-10 items-center justify-center rounded-full transition-colors", tab === id ? "lit text-[var(--accent)]" : "text-faint hover:text-muted")}
             >
               <Icon width={id === "settings" ? 20 : 22} height={id === "settings" ? 20 : 22} strokeWidth={tab === id ? 1.9 : 1.6} />
             </button>

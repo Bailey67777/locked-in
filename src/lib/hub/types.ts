@@ -78,6 +78,18 @@ export type Rating = { score: number; at: number; why?: string; seen?: number };
  */
 export type Whoop = { recovery?: number; sleep?: number; asleep?: number; hrv?: number; rhr?: number; strain?: number; at: number };
 
+/**
+ * The day plan. A rule is something that happens at the same time on set weekdays (wake up, read, train). A day's
+ * entries are either one-off things for that day, or, under a rule's id, what's different about that rule on that
+ * day: done, moved, shortened or skipped. Times are minutes from midnight.
+ */
+export type PlanColor = "accent" | "red" | "blue" | "yellow" | "green" | "violet";
+export type PlanRule = { title: string; start: number; dur: number; days: number[]; from: string; color?: PlanColor };
+export type PlanEntry = { title?: string; start?: number; dur?: number; color?: PlanColor; done?: number; skip?: boolean };
+export type Plan = { rules: Record<string, PlanRule>; days: Record<string, Record<string, PlanEntry>> };
+/** One thing on a day's timeline, rule and that day's changes already merged. */
+export type PlanTask = { id: string; title: string; start: number; dur: number; color: PlanColor; done: number; repeats: boolean };
+
 export type HubData = {
   settings: HubSettings;
   days: Record<string, HubDay>;
@@ -94,6 +106,7 @@ export type HubData = {
   ratings: Record<string, Rating>;
   /** date (the morning woken up on) → that day's WHOOP numbers. */
   whoop: Record<string, Whoop>;
+  plan: Plan;
   /** The last day the morning card was put away, on any device. */
   morning: string;
   vault: Vault | null;

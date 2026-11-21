@@ -272,7 +272,7 @@ export default function SettingsView() {
       </Section>
 
       <Section title="Appearance">
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {LOOKS.map((l) => (
             <button
               key={l.id}

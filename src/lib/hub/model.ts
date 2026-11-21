@@ -1,4 +1,4 @@
-import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Rating, Sealed, Session, Stare, SubjectId, TimetableLesson, Todo, Vault, Whoop } from "./types";
+import type { ClaudeNote, DayLesson, Exam, Grade, HubData, HubDay, HubSettings, LessonLog, PhotoMeta, PoseId, Rating, Sealed, Session, Stare, SubjectId, Plan, PlanColor, PlanEntry, PlanTask, TimetableLesson, Todo, Vault, Whoop } from "./types";
 import { POSE_IDS, SUBJECT_IDS, isSubject, subjectFromTitle } from "./subjects";
 import { dayBounds, weekday } from "./time";
 import { addDays, lastNDays } from "../dates";
@@ -154,7 +154,7 @@ export function normalizeData(raw: unknown): HubData {
     const w = normalizeWhoop(v);
     if (DATE_RE.test(date) && w) whoop[date] = w;
   }
-  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, goy, ratings, whoop, morning: isDateKey(r.morning) ? r.morning : "", vault: normalizeVault(r.vault) };
+  return { settings: normalizeSettings(r.settings), days, sessions, stares, grades, timer, todos, photos, goy, ratings, whoop, plan: normalizePlan(r.plan), morning: isDateKey(r.morning) ? r.morning : "", vault: normalizeVault(r.vault) };
 }
 
 /** One day's WHOOP numbers, or null when there is nothing in it worth showing. */
@@ -362,4 +362,79 @@ export function photoDays(photos: HubData["photos"]): string[] {
 
 export function photoCount(photos: HubData["photos"], date: string): number {
   return Object.keys(photos[date] ?? {}).length;
+}
+
+/* ---------- the day plan ---------- */
+
+export const PLAN_COLORS: PlanColor[] = ["accent", "red", "blue", "yellow", "green", "violet"];
+const planColor = (v: unknown): PlanColor | undefined => (PLAN_COLORS.includes(v as PlanColor) && v !== "accent" ? (v as PlanColor) : undefined);
+const minute = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1439, Math.max(0, Math.round(v))) : -1);
+const length = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1439, Math.max(1, Math.round(v))) : 0);
+
+export function normalizePlan(raw: unknown): Plan {
+  const r = obj(raw);
+  const rules: Plan["rules"] = {};
+  for (const [id, v] of Object.entries(obj(r.rules))) {
+    const x = obj(v);
+    const title = str(x.title).trim();
+    const start = minute(x.start);
+    const dur = length(x.dur);
+    // Firebase hands a list back as an array or as an object keyed 0, 1, 2…
+    const days = [...new Set(list(x.days).filter((d): d is number => typeof d === "number" && d >= 0 && d <= 6))].sort();
+    if (!title || start < 0 || !dur || !days.length) continue;
+    const color = planColor(x.color);
+    rules[id] = { title, start, dur, days, from: isDateKey(x.from) ? x.from : "2000-01-01", ...(color ? { color } : {}) };
+  }
+  const days: Plan["days"] = {};
+  for (const [date, v] of Object.entries(obj(r.days))) {
+    if (!DATE_RE.test(date)) continue;
+    const day: Record<string, PlanEntry> = {};
+    for (const [id, e] of Object.entries(obj(v))) {
+      const x = obj(e);
+      const entry: PlanEntry = {};
+      if (str(x.title).trim()) entry.title = str(x.title).trim();
+      if (minute(x.start) >= 0) entry.start = minute(x.start);
+      if (length(x.dur)) entry.dur = length(x.dur);
+      const color = planColor(x.color);
+      if (color) entry.color = color;
+      if (num(x.done) > 0) entry.done = num(x.done);
+      if (x.skip === true) entry.skip = true;
+      // A one-off needs its own name, time and length; a change to a rule can be any part.
+      if (rules[id] ? Object.keys(entry).length : entry.title && entry.start !== undefined && entry.dur) day[id] = entry;
+    }
+    if (Object.keys(day).length) days[date] = day;
+  }
+  return { rules, days };
+}
+
+/** Everything planned for a day, earliest first: the rules that fall on its weekday, as changed that day, and its one-offs. */
+export function planFor(date: string, plan: Plan): PlanTask[] {
+  const dow = weekday(date);
+  const day = plan.days[date] ?? {};
+  const out: PlanTask[] = [];
+  for (const [id, rule] of Object.entries(plan.rules)) {
+    if (!rule.days.includes(dow) || rule.from > date) continue;
+    const o = day[id] ?? {};
+    if (o.skip) continue;
+    out.push({ id, title: o.title ?? rule.title, start: o.start ?? rule.start, dur: o.dur ?? rule.dur, color: o.color ?? rule.color ?? "accent", done: o.done ?? 0, repeats: true });
+  }
+  for (const [id, e] of Object.entries(day)) {
+    if (plan.rules[id] || e.skip || !e.title || e.start === undefined || !e.dur) continue;
+    out.push({ id, title: e.title, start: e.start, dur: e.dur, color: e.color ?? "accent", done: e.done ?? 0, repeats: false });
+  }
+  return out.sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
+}
+
+/** 450 → "07:30". */
+export const clockOf = (minutes: number) => `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+/** "07:30" → 450, or -1. */
+export function minutesOf(clock: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(clock.trim());
+  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? Number(m[1]) * 60 + Number(m[2]) : -1;
+}
+/** 95 → "1h 35m", 40 → "40m". */
+export function spanOf(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }

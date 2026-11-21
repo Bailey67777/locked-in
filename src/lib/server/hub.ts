@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { eventsBetween } from "@/lib/hub/ics";
-import { beforeAndNow, normalizeData, normalizeWhoop, safeKey, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
+import { beforeAndNow, clockOf, minutesOf, normalizeData, normalizePlan, normalizeWhoop, planFor, safeKey, spanOf, uid, upcomingExams, type CalendarEvent } from "@/lib/hub/model";
 import { GRADES, SUBJECT_IDS, SUBJECT_META, isSubject, subjectFromTitle } from "@/lib/hub/subjects";
 import type { DayLesson, Grade, HubData, HubSettings, SubjectId, Todo, Whoop } from "@/lib/hub/types";
 import { sync as whoopSync } from "./whoop";
@@ -117,9 +117,9 @@ const DB_URL = (process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ?? "").replace(/\/
 const DATA_KEY = process.env.NEXT_PUBLIC_DATA_KEY || "default";
 
 /** The only places the connector may read. */
-const READABLE = /^(hub\/(settings|days|stares|grades|todos|ratings|goy|whoop)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
+const READABLE = /^(hub\/(settings|days|stares|grades|todos|ratings|goy|whoop|plan)(\/|$)|hub\/photos\/\d{4}-\d{2}-\d{2}$|settings\/habits$|days\/\d{4}-\d{2}-\d{2}\/habits$)/;
 /** The only places it may write, each a specific child (never a whole parent). */
-const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
+const WRITABLE = /^hub\/(days\/\d{4}-\d{2}-\d{2}\/claude|plan\/rules\/[^/]+|plan\/days\/\d{4}-\d{2}-\d{2}\/[^/]+|grades\/[^/]+|todos\/[^/]+(\/done)?|settings\/exams\/[^/]+|ratings\/\d{4}-\d{2}-\d{2})$/;
 
 export function allowed(method: "GET" | "PUT" | "PATCH" | "DELETE", path: string): boolean {
   if (path.split("/").some((part) => !part || part === "." || part === "..")) return false;
@@ -374,6 +374,8 @@ export function renderDay({ date, today, data, events, calendarFailed, habits, p
     if (n.open.length) out.push(`Open: ${n.open.join("; ")}`);
   }
 
+  out.push("", "## Plan (his day timeline; change it with set_plan_task)", ...planLines(date, data));
+
   const done = habits.filter((h) => h.done);
   const left = habits.filter((h) => !h.done);
   out.push("", `## Habits: ${done.length}/${habits.length} done`);
@@ -548,6 +550,37 @@ export const TOOLS: ToolDef[] = [
     ["title"],
     { idempotent: true },
   ),
+  tool(
+    "get_plan",
+    "Read the day plan",
+    "One day of the Plan tab, Hugo's timeline: each thing with its start time, how long it takes, whether it repeats, whether it's ticked, and the id needed to change it; then that day's lessons, which are fixed and can't be moved. Call it before rescheduling anything.",
+    { date: DATE_SCHEMA },
+    [],
+    { readOnly: true },
+  ),
+  tool(
+    "set_plan_task",
+    "Add or change something on the plan",
+    "Add something to the day plan, or change one that's already there (pass its id from get_plan). A new thing needs title, start and minutes. A change needs only what changes. Changing something that repeats affects that one day unless every_day is true. `repeat` makes a new thing repeat from that date on. `done` ticks it off or unticks it. Use this to reschedule his day when he says something has changed: move things, shorten them, never overlap a lesson.",
+    {
+      id: { type: "string", description: "The id of an existing thing, from get_plan. Leave out to add a new one." },
+      date: DATE_SCHEMA,
+      title: { type: "string", maxLength: 80, description: "Short, in his words." },
+      start: { type: "string", pattern: "^\\d{1,2}:\\d{2}$", description: "24-hour start time, e.g. 16:30." },
+      minutes: { type: "integer", minimum: 1, maximum: 1439, description: "How long it takes." },
+      repeat: { type: "string", enum: ["once", "daily", "weekdays", "weekly"], description: "For a new thing only. Defaults to once." },
+      every_day: { type: "boolean", description: "For something that repeats: change it every time, not just on this date." },
+      done: { type: "boolean", description: "Tick it off (true) or untick it (false) on this date." },
+    },
+    [],
+  ),
+  tool(
+    "remove_plan_task",
+    "Take something off the plan",
+    "Remove something from the day plan by its id. Something that repeats is only skipped on that date, unless every_day is true, which deletes it for good.",
+    { id: { type: "string", description: "The id from get_plan." }, date: DATE_SCHEMA, every_day: { type: "boolean", description: "Delete a repeating thing entirely." } },
+    ["id"],
+  ),
   tool("list_todos", "Read to-dos", "Hugo's three to-do lists (today, tomorrow, for a while) with the id each item needs for complete_todo.", {}, [], { readOnly: true }),
   tool(
     "add_todo",
@@ -626,7 +659,7 @@ function notFuture(date: string, today: string) {
 async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<string> {
   only(args, ["date"]);
   const date = dateArg(args, today);
-  const [settings, day, grades, todos, defsRaw, ticksRaw, rating, goy, poses] = await Promise.all([
+  const [settings, day, grades, todos, defsRaw, ticksRaw, rating, goy, poses, plan] = await Promise.all([
     db.get("hub/settings"),
     db.get(`hub/days/${date}`),
     db.get("hub/grades"),
@@ -637,8 +670,9 @@ async function getDay(args: Args, { db, now, today, calendar }: Ctx): Promise<st
     db.get(`hub/goy/${date}`),
     // Names of the poses taken that day and nothing else ("shallow"): enough to count them.
     db.get(`hub/photos/${date}`, { shallow: "true" }),
+    db.get("hub/plan"),
   ]);
-  const data = normalizeData({ settings, days: { [date]: day }, grades, todos, ratings: { [date]: rating }, goy: { [date]: goy } });
+  const data = normalizeData({ settings, days: { [date]: day }, grades, todos, ratings: { [date]: rating }, goy: { [date]: goy }, plan });
   const photos = poses && typeof poses === "object" ? Math.min(5, Object.keys(poses).length) : 0;
   let events: CalendarEvent[] | null = null;
   let calendarFailed = false;
@@ -770,6 +804,108 @@ async function completeTodo(args: Args, { db, now }: Ctx): Promise<string> {
   return `${done ? "Ticked" : "Unticked"}: "${oneLine(todo.text)}".`;
 }
 
+/** A day's plan as lines: "- 16:00–16:45 Exercise (45m, repeats, done) [id abc]". */
+export function planLines(date: string, data: HubData): string[] {
+  const tasks = planFor(date, data.plan);
+  if (!tasks.length) return ["Nothing on the plan."];
+  return tasks.map((t) => `- ${clockOf(t.start)}–${clockOf(t.start + t.dur)} ${oneLine(t.title)} (${[spanOf(t.dur), t.repeats ? "repeats" : "", t.done ? "done" : "not done"].filter(Boolean).join(", ")}) [id ${t.id}]`);
+}
+
+async function getPlan(args: Args, { db, today, calendar }: Ctx): Promise<string> {
+  only(args, ["date"]);
+  const date = dateArg(args, today);
+  const [settings, plan] = await Promise.all([db.get("hub/settings"), db.get("hub/plan")]);
+  const data = normalizeData({ settings, plan });
+  let events: CalendarEvent[] | null = null;
+  if (data.settings.calendarUrl) events = await calendar(data.settings.calendarUrl, ...londonDayBounds(date)).catch(() => null);
+  const lessons = lessonsForLondon(date, data.settings, events).filter((l) => l.start);
+  return [
+    `# Plan for ${dayLabel(date)}${date === today ? " (today)" : ""}`,
+    "",
+    ...planLines(date, data),
+    "",
+    "## Lessons (fixed: plan around them)",
+    ...(lessons.length ? lessons.map((l) => `- ${l.start}${l.end ? `–${l.end}` : ""} ${subjectName(l.subject)}`) : ["None."]),
+  ].join("\n");
+}
+
+const planId = (args: Args): string => {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (id && !/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new ToolError("id must be an id from get_plan.");
+  return id;
+};
+const REPEAT_DAYS: Record<string, number[] | null> = { once: null, daily: [0, 1, 2, 3, 4, 5, 6], weekdays: [1, 2, 3, 4, 5], weekly: [] };
+
+async function setPlanTask(args: Args, { db, now, today }: Ctx): Promise<string> {
+  only(args, ["id", "date", "title", "start", "minutes", "repeat", "every_day", "done"]);
+  const date = dateArg(args, today);
+  const id = planId(args);
+  const title = optionalText(args, "title", 80);
+  let start: number | undefined;
+  if (args.start !== undefined && args.start !== null) {
+    start = typeof args.start === "string" ? minutesOf(args.start) : -1;
+    if (start < 0) throw new ToolError("start must be a 24-hour time like 16:30.");
+  }
+  let dur: number | undefined;
+  if (args.minutes !== undefined && args.minutes !== null) {
+    if (typeof args.minutes !== "number" || !Number.isInteger(args.minutes) || args.minutes < 1 || args.minutes > 1439) throw new ToolError("minutes must be a whole number from 1 to 1439.");
+    dur = args.minutes;
+  }
+  for (const k of ["every_day", "done"]) if (args[k] !== undefined && args[k] !== null && typeof args[k] !== "boolean") throw new ToolError(`${k} must be true or false.`);
+  const done = typeof args.done === "boolean" ? args.done : undefined;
+  const plan = normalizePlan(await db.get("hub/plan"));
+
+  if (!id) {
+    if (!title || start === undefined || dur === undefined) throw new ToolError("A new thing needs title, start and minutes. To change an existing one, pass its id from get_plan.");
+    const repeat = args.repeat === undefined || args.repeat === null ? "once" : args.repeat;
+    if (typeof repeat !== "string" || !(repeat in REPEAT_DAYS)) throw new ToolError("repeat must be one of: once, daily, weekdays, weekly.");
+    const fresh = uid();
+    const days = REPEAT_DAYS[repeat];
+    if (!days) await db.put(`hub/plan/days/${date}/${fresh}`, { title, start, dur, ...(done ? { done: now } : {}) });
+    else {
+      await db.put(`hub/plan/rules/${fresh}`, { title, start, dur, days: days.length ? days : [new Date(`${date}T12:00:00Z`).getUTCDay()], from: date });
+      if (done) await db.put(`hub/plan/days/${date}/${fresh}`, { done: now });
+    }
+    return `Added to the plan for ${date}: ${clockOf(start)} ${title}, ${spanOf(dur)}${days ? `, repeating (${repeat})` : ""} (id ${fresh}).`;
+  }
+
+  const rule = plan.rules[id];
+  const entry = plan.days[date]?.[id];
+  if (!rule && !entry) throw new ToolError(`Nothing on ${date} has the id ${id}. Call get_plan for that date.`);
+  const changes = { ...(title ? { title } : {}), ...(start !== undefined ? { start } : {}), ...(dur !== undefined ? { dur } : {}) };
+  if (rule && args.every_day === true && Object.keys(changes).length) await db.put(`hub/plan/rules/${id}`, { ...rule, ...changes });
+  const next: Record<string, unknown> = { ...(entry ?? {}), ...(rule && args.every_day === true ? {} : changes) };
+  if (done === true) next.done = now;
+  if (done === false) delete next.done;
+  delete next.skip;
+  if (Object.keys(next).length) await db.put(`hub/plan/days/${date}/${id}`, next);
+  else await db.del(`hub/plan/days/${date}/${id}`);
+  const after = planFor(date, normalizePlan(await db.get("hub/plan"))).find((t) => t.id === id);
+  return after ? `Now on ${date}: ${clockOf(after.start)}–${clockOf(after.start + after.dur)} ${oneLine(after.title)}${after.done ? " (done)" : ""}.` : `Changed ${id} on ${date}.`;
+}
+
+async function removePlanTask(args: Args, { db, today }: Ctx): Promise<string> {
+  only(args, ["id", "date", "every_day"]);
+  const date = dateArg(args, today);
+  const id = planId(args);
+  if (!id) throw new ToolError("id is needed: take it from get_plan.");
+  if (args.every_day !== undefined && args.every_day !== null && typeof args.every_day !== "boolean") throw new ToolError("every_day must be true or false.");
+  const plan = normalizePlan(await db.get("hub/plan"));
+  const rule = plan.rules[id];
+  if (!rule && !plan.days[date]?.[id]) throw new ToolError(`Nothing on ${date} has the id ${id}. Call get_plan for that date.`);
+  if (rule && args.every_day === true) {
+    for (const [d, day] of Object.entries(plan.days)) if (day[id]) await db.del(`hub/plan/days/${d}/${id}`);
+    await db.del(`hub/plan/rules/${id}`);
+    return `Deleted "${oneLine(rule.title)}" from the plan for good.`;
+  }
+  if (rule) {
+    await db.put(`hub/plan/days/${date}/${id}`, { skip: true });
+    return `Skipped "${oneLine(rule.title)}" on ${date}. It stays on other days.`;
+  }
+  await db.del(`hub/plan/days/${date}/${id}`);
+  return `Removed it from the plan for ${date}.`;
+}
+
 const HANDLERS = new Map<string, (args: Args, ctx: Ctx) => Promise<string>>([
   ["get_day", getDay],
   ["save_lesson_notes", saveLessonNotes],
@@ -777,6 +913,9 @@ const HANDLERS = new Map<string, (args: Args, ctx: Ctx) => Promise<string>>([
   ["get_progress", getProgress],
   ["add_grade", addGrade],
   ["set_exam", setExam],
+  ["get_plan", getPlan],
+  ["set_plan_task", setPlanTask],
+  ["remove_plan_task", removePlanTask],
   ["list_todos", listTodos],
   ["add_todo", addTodo],
   ["complete_todo", completeTodo],

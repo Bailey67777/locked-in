@@ -258,3 +258,13 @@ The round arrow button on Habits opens his own Claude chat for changing the day'
 `mac/` holds a small native wrapper (Swift, AppKit + WKWebView): the site in a window of its own with no browser
 around it and no title strip, only the window's buttons over the page. `mac/build.sh` compiles it with the Command
 Line Tools, makes the icon from `scripts/logo.mjs`, signs it locally and installs `/Applications/Hugo.app`.
+
+## Plan
+
+The Plan tab is the day as a timeline (`PlanView.tsx`, `PlanSheet.tsx`): each thing is a bar at its start time whose
+height is how long it takes; lessons from the calendar sit on it in their subject colour; a lit line marks now.
+Things repeat by rule (`hub/plan/rules/<id>`: title, start and length in minutes, weekdays, from) or are one-offs for
+a day; a day's entry under a rule's id holds what differs that day: done, moved, shortened, skipped
+(`hub/plan/days/<date>/<id>`). Claude reads and reschedules it with `get_plan`, `set_plan_task` and
+`remove_plan_task`; the replan button opens his chat for that. Ten more looks sit beside the seasons in
+Settings → Appearance; their greys are generated in OKLCH and tinted towards each look's colour.
