@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { useHub } from "@/lib/hub/store";
 import { AcademicsIcon, CalendarIcon, HabitsIcon, HealthIcon, PlanIcon, SettingsIcon, StatsIcon, TodoIcon } from "./Icons";
 import PlanView from "./PlanView";
+import PlanAutoTick from "./PlanAutoTick";
 import TodoView from "./TodoView";
 import HabitsView from "./HabitsView";
 import AcademicsView from "./AcademicsView";
@@ -84,6 +85,7 @@ export default function AppShell() {
       </main>
 
       {ready && <Morning />}
+      {ready && <PlanAutoTick />}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 backdrop-blur-xl" aria-label="Sections">
         <div className="mx-auto flex h-[57px] w-full max-w-[520px] items-center justify-around px-1.5">

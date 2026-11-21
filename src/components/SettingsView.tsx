@@ -169,6 +169,20 @@ export default function SettingsView() {
         </ul>
       </Section>
 
+      <Section title="Plan">
+        <label className="flex h-14 items-center justify-between gap-3 rounded-2xl bg-surface px-4">
+          <span className="shrink-0 text-[15px]">Finishing the plan ticks</span>
+          <select value={school.planHabit} onChange={(e) => hub.write("settings/planHabit", e.target.value || null)} className="min-w-0 max-w-[55%] truncate bg-transparent text-right text-[15px] text-ink-2 focus:outline-none" aria-label="The habit that finishing the plan ticks">
+            <option value="">Nothing</option>
+            {habits.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </Section>
+
       <Section title="Lessons">
         <ul className="divide-y divide-line border-y border-line">
           {DAY_ORDER.map((d) => {
