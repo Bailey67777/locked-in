@@ -28,8 +28,8 @@ type Item =
 
 /**
  * The day as one line down the page. Everything planned sits on it in order, as a bubble with its picture, as tall
- * as the thing is long, with its time above its name; lessons from the calendar are on it too. The box on the right
- * ticks it off; the bubble or the name opens it. Free time is simply space. Today, a lit line marks the time now.
+ * as the thing is long, with its time above its name; lessons from the calendar are on it too. The bubble is the
+ * tick: tap it and it fills with colour. The name opens it. Free time is simply space. Today, a lit line marks the time now.
  * The week runs along the top.
  */
 export default function PlanView() {
@@ -58,6 +58,12 @@ export default function PlanView() {
       return { kind: "lesson", key: `lesson-${l.key}`, start, dur: end > start ? end - start : 45, paint: SUBJECT_META[l.subject].color, icon: LESSON_ICON[l.subject] ?? "🎓", title: l.title?.trim() || SUBJECT_META[l.subject].name };
     }),
   ].sort((a, b) => a.start - b.start);
+
+  // What repeats can be dropped for one day ("no plan today") and brought back.
+  const repeating = tasks.filter((t) => t.repeats);
+  const skipped = Object.entries(data.plan.days[date] ?? {})
+    .filter(([id, e]) => e.skip && data.plan.rules[id])
+    .map(([id]) => id);
 
   const isToday = date === today;
   const nowMin = now ? new Date(now).getHours() * 60 + new Date(now).getMinutes() : -1;
@@ -145,42 +151,53 @@ export default function PlanView() {
             const done = item.kind === "task" && item.task.done > 0;
             const current = isToday && nowMin >= item.start && nowMin < end && !done;
             const over = isToday && nowMin >= end;
-            const edit = item.kind === "task" ? () => setOpen({ kind: "task", date, task: item.task }) : undefined;
-            const bubble = {
-              height: bubbleHeight(item.dur),
-              background: `color-mix(in srgb, ${item.paint} ${current ? 30 : 17}%, var(--surface))`,
-              boxShadow: current ? `0 0 0 1.5px ${item.paint}, 0 0 18px color-mix(in srgb, ${item.paint} 55%, transparent)` : undefined,
-              opacity: done || (over && item.kind === "lesson") ? 0.45 : 1,
-            };
-            const Bubble = edit ? "button" : "span";
+            const faded = over && item.kind === "lesson";
+            const height = bubbleHeight(item.dur);
+            const glow = `color-mix(in srgb, ${item.paint} 55%, transparent)`;
             return (
               <div key={item.key} className="contents">
                 {nowBefore === i && NowLine}
                 <li className="flex gap-3.5">
                   <span className="flex w-11 shrink-0 flex-col items-center">
-                    <Bubble {...(edit ? { type: "button" as const, onClick: edit, "aria-label": `Change ${item.title}` } : {})} className="flex w-11 shrink-0 items-center justify-center rounded-[14px] text-[21px] leading-none transition-[box-shadow,opacity] duration-300" style={bubble}>
-                      <span aria-hidden="true">{item.icon}</span>
-                    </Bubble>
+                    {item.kind === "task" ? (
+                      // The bubble is the tick: tap it and it fills with colour.
+                      <button
+                        type="button"
+                        onClick={() => toggle(item.task, Date.now())}
+                        aria-pressed={done}
+                        aria-label={`${item.title}, ${done ? "done" : "not done"}`}
+                        className="tap flex w-11 shrink-0 items-center justify-center rounded-full text-[21px] leading-none transition-[background-color,box-shadow] duration-300"
+                        style={{
+                          height,
+                          background: done ? item.paint : `color-mix(in srgb, ${item.paint} ${current ? 30 : 17}%, var(--surface))`,
+                          color: "var(--on-accent)",
+                          boxShadow: done ? `0 0 16px ${glow}` : current ? `0 0 0 1.5px ${item.paint}, 0 0 18px ${glow}` : undefined,
+                        }}
+                      >
+                        {done ? <CheckIcon width={19} height={19} strokeWidth={2.2} /> : <span aria-hidden="true">{item.icon}</span>}
+                      </button>
+                    ) : (
+                      <span className="flex w-11 shrink-0 items-center justify-center rounded-full text-[21px] leading-none" style={{ height, background: `color-mix(in srgb, ${item.paint} 17%, var(--surface))`, opacity: faded ? 0.45 : 1 }} aria-hidden="true">
+                        {item.icon}
+                      </span>
+                    )}
                     {next && <span className="w-px flex-1 bg-line" style={{ minHeight: 12 + gapSpace(next.start - end) }} />}
                   </span>
-                  <Bubble {...(edit ? { type: "button" as const, onClick: edit } : {})} className="min-w-0 flex-1 self-start pt-[3px] text-left">
-                    <span className={cn("block text-[12.5px] tabular-nums", current ? "font-semibold text-[var(--accent)]" : "text-muted")}>
-                      {clockOf(item.start)}
-                      {item.dur > 5 ? ` to ${clockOf(end)}` : ""}
-                    </span>
-                    <span className={cn("block truncate text-[17px] tracking-[-0.015em] transition-colors", current ? "font-semibold" : "font-medium", done || (over && item.kind === "lesson") ? "text-muted" : "text-ink")}>{item.title}</span>
-                  </Bubble>
-                  {item.kind === "task" && (
-                    <button
-                      type="button"
-                      onClick={() => toggle(item.task, Date.now())}
-                      aria-pressed={done}
-                      aria-label={`${item.title}, ${done ? "done" : "not done"}`}
-                      data-done={done || undefined}
-                      className={cn("tick tap mt-[9px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.75px] transition-colors duration-200", done ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]" : "border-muted")}
-                    >
-                      {done && <CheckIcon width={13} height={13} />}
+                  {item.kind === "task" ? (
+                    <button type="button" onClick={() => setOpen({ kind: "task", date, task: item.task })} className="min-w-0 flex-1 self-start pt-[3px] text-left" aria-label={`Change ${item.title}`}>
+                      <span className={cn("block text-[12.5px] tabular-nums", current ? "font-semibold text-[var(--accent)]" : "text-muted")}>
+                        {clockOf(item.start)}
+                        {item.dur > 5 ? ` to ${clockOf(end)}` : ""}
+                      </span>
+                      <span className={cn("block truncate text-[17px] tracking-[-0.015em] transition-colors", current ? "font-semibold" : "font-medium", done ? "text-muted line-through decoration-1" : "text-ink")}>{item.title}</span>
                     </button>
+                  ) : (
+                    <span className="min-w-0 flex-1 self-start pt-[3px]">
+                      <span className="block text-[12.5px] tabular-nums text-muted">
+                        {clockOf(item.start)} to {clockOf(end)}
+                      </span>
+                      <span className={cn("block truncate text-[17px] font-medium tracking-[-0.015em]", faded ? "text-muted" : "text-ink")}>{item.title}</span>
+                    </span>
                   )}
                 </li>
               </div>
@@ -198,6 +215,20 @@ export default function PlanView() {
       )}
 
       {tasks.length > 0 && <p className="mt-6 text-center text-[12.5px] tabular-nums text-faint">{left ? `${left} of ${tasks.length} still to do` : "All done"}</p>}
+      {(repeating.length > 0 || skipped.length > 0) && (
+        <div className="mt-2 flex justify-center gap-2 text-[13px] text-muted">
+          {repeating.length > 0 && (
+            <button type="button" onClick={() => repeating.forEach((t) => write(`plan/days/${date}/${t.id}`, { skip: true }))} className="h-10 px-3">
+              No plan this day
+            </button>
+          )}
+          {skipped.length > 0 && (
+            <button type="button" onClick={() => skipped.forEach((id) => write(`plan/days/${date}/${id}`, null))} className="h-10 px-3 text-ink">
+              Bring the plan back
+            </button>
+          )}
+        </div>
+      )}
 
       {open && <PlanSheet target={open} onClose={() => setOpen(null)} />}
     </div>

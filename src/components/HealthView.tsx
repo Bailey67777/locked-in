@@ -13,34 +13,69 @@ import { addDays } from "@/lib/dates";
 import { haptic } from "@/lib/sounds";
 import type { PoseId } from "@/lib/hub/types";
 import { cn } from "@/lib/cn";
-import { CameraIcon, CheckIcon, ChevronIcon, LockIcon } from "./Icons";
+import { CameraIcon, CheckIcon, ChevronIcon, CloseIcon, LockIcon, PlusIcon } from "./Icons";
 
-/** The one thing eaten that day that shouldn't have been. One line: there should only ever be one. */
+/**
+ * The junk eaten that day ("Goy"): the + adds one, each shows as a tag that can be taken off again. Only today's can
+ * be changed; an earlier day just shows what was put down. Kept as one line of text, so nothing else has to change.
+ */
 function Goy({ date, today }: { date: string; today: string }) {
   const { data, write } = useHub();
-  const saved = data.goy[date] ?? "";
-  const [draft, setDraft] = useState<string | null>(null);
-  const save = () => {
-    if (draft === null) return;
-    const text = draft.trim();
-    if (text !== saved) write(`goy/${date}`, text || null);
-    setDraft(null);
+  const items = (data.goy[date] ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState("");
+  const editable = date === today;
+  const save = (next: string[]) => write(`goy/${date}`, next.join(", ") || null);
+  const add = () => {
+    const t = text.replace(/,/g, " ").trim();
+    if (t) save([...items, t]);
+    setText("");
+    setAdding(false);
   };
   return (
-    <label className="flex items-center gap-3 py-4">
-      <span className="shrink-0 text-[17px] font-medium tracking-[-0.015em]">{date === today ? "Goy Eaten Today:" : "Goy Eaten:"}</span>
-      <input
-        value={draft ?? saved}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-        maxLength={60}
-        enterKeyHint="done"
-        placeholder="–"
-        className="min-w-0 flex-1 bg-transparent text-right text-[17px] tracking-[-0.015em] text-ink placeholder:text-faint focus:outline-none"
-        aria-label="Goy eaten"
-      />
-    </label>
+    <div className="py-4">
+      <div className="flex min-h-9 items-center justify-between gap-3">
+        <span className="text-[17px] font-medium tracking-[-0.015em]">{editable ? "Goy Eaten Today" : "Goy Eaten"}</span>
+        {editable ? (
+          <button type="button" onClick={() => setAdding(true)} className="tap flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-ink" aria-label="Add a Goy">
+            <PlusIcon width={16} height={16} />
+          </button>
+        ) : (
+          items.length === 0 && <span className="text-[17px] text-faint">–</span>
+        )}
+      </div>
+      {items.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {items.map((item, i) => (
+            <li key={`${item}-${i}`} className={cn("flex items-center gap-1 rounded-full bg-surface py-1.5 pl-3.5 text-[14.5px]", editable ? "pr-1.5" : "pr-3.5")}>
+              {item}
+              {editable && (
+                <button type="button" onClick={() => save(items.filter((_, j) => j !== i))} className="flex h-6 w-6 items-center justify-center rounded-full text-muted" aria-label={`Remove ${item}`}>
+                  <CloseIcon width={12} height={12} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {adding && (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+        >
+          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onBlur={() => !text.trim() && setAdding(false)} maxLength={40} enterKeyHint="done" placeholder="What was it" className="field min-w-0 flex-1" aria-label="Goy" />
+          <button type="submit" className="btn h-auto px-5" disabled={!text.trim()}>
+            Add
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 import PhotoTile from "./PhotoTile";
